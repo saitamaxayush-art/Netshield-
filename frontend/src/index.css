@@ -1,0 +1,259 @@
+@import "tailwindcss";
+@import "@xyflow/react/dist/style.css";
+
+@theme {
+  --color-bg-primary: #13151F;
+  --color-bg-surface: #181B28;
+  --color-bg-surface-hover: #1E2235;
+  --color-bg-surface-active: #252A40;
+  --color-bg-surface-elevated: #1F2336;
+  --color-bg-scrim: rgba(19, 21, 31, 0.85);
+
+  --color-text-primary: #E9ECEE;
+  --color-text-secondary: #94A3B8;
+  --color-text-muted: #64748B;
+  --color-text-dim: #475569;
+
+  --color-border-subtle: #222638;
+  --color-border-strong: #2F364E;
+  --color-border-focus: #2DD4BF;
+
+  --color-accent-teal: #2DD4BF;
+  --color-accent-teal-hover: #14B8A6;
+  --color-accent-cyan: #38BDF8;
+  --color-accent-dim: rgba(45, 212, 191, 0.12);
+
+  --color-state-success: #10B981;
+  --color-state-success-dim: rgba(16, 185, 129, 0.12);
+  --color-state-failure: #F43F5E;
+  --color-state-failure-dim: rgba(244, 63, 94, 0.12);
+  --color-state-warning: #F59E0B;
+  --color-state-warning-dim: rgba(245, 158, 11, 0.12);
+
+  --font-display: "Cormorant Garamond", Georgia, Cambria, serif;
+  --font-serif: "Newsreader", "Cormorant Garamond", Georgia, serif;
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  --color-surface-dark: #0A0B10;
+  --color-surface-dark-card: #121520;
+  --color-surface-light: #FFFFFF;
+  --color-surface-light-card: #F6F7FA;
+
+  /* Landing Page Precision 3-Colour Palette Tokens */
+  --color-charcoal-950: #121315;
+  --color-charcoal-900: #17181B;
+  --color-charcoal-800: #1E2024;
+  --color-charcoal-700: #2A2C31;
+  --color-charcoal-600: #3A3D44;
+
+  --color-silver-50: #F3F5F7;
+  --color-silver-100: #E4E8EC;
+  --color-silver-300: #C3CAD2;
+  --color-silver-500: #8E97A2;
+  --color-silver-700: #5A626C;
+
+  --color-signal-red: #E5484D;
+  --color-signal-red-hover: #F0666A;
+  --color-signal-red-pressed: #C93A3F;
+  --color-signal-red-dim: rgba(229, 72, 77, 0.12);
+  --color-signal-red-tint: #FBE4E5;
+
+  --radius-xs: 2px;
+  --radius-sm: 3px;
+  --radius-md: 4px;
+}
+
+:root {
+  --font-display: "Cormorant Garamond", Georgia, serif;
+  --bg-primary: #13151F;
+  --bg-surface: #181B28;
+  --bg-surface-hover: #1E2235;
+  --bg-surface-active: #252A40;
+  --bg-surface-elevated: #1F2336;
+
+  --text-primary: #E9ECEE;
+  --text-secondary: #94A3B8;
+  --text-muted: #64748B;
+
+  --border-subtle: #222638;
+  --border-strong: #2F364E;
+  --border-focus: #2DD4BF;
+
+  --accent-teal: #2DD4BF;
+  --accent-cyan: #38BDF8;
+
+  --state-success: #10B981;
+  --state-failure: #F43F5E;
+  --state-warning: #F59E0B;
+
+  --focus-ring: 0 0 0 2px #13151F, 0 0 0 4px #2DD4BF;
+  --ease-editorial: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Scoped Landing Page Theme: Charcoal Grey, Moonlit Silver, Signal Red */
+[data-theme="landing"] {
+  --bg-primary: #17181B;
+  --bg-surface: #1E2024;
+  --bg-surface-hover: #2A2C31;
+  --text-primary: #E4E8EC;
+  --text-secondary: #C3CAD2;
+  --text-muted: #8E97A2;
+  --border-subtle: #2A2C31;
+  --border-strong: #3A3D44;
+  --border-focus: #E5484D;
+  --focus-ring: 0 0 0 2px #17181B, 0 0 0 4px #E5484D;
+  background-color: #17181B;
+  color: #E4E8EC;
+}
+
+[data-theme="landing"] ::selection {
+  background-color: rgba(229, 72, 77, 0.25);
+  color: #F3F5F7;
+}
+
+/* Global resets & typography */
+html, body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  min-height: 100%;
+  margin: 0;
+  padding: 0;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Accessible custom focus rings with rectangular radius */
+*:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: 2px;
+}
+
+/* Editorial headline typography scale */
+.headline-editorial {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  letter-spacing: -0.025em;
+  line-height: 1.05;
+  font-size: clamp(2.5rem, 6vw, 4.75rem);
+}
+
+.headline-mega {
+  font-family: var(--font-display);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: -0.025em;
+  line-height: 0.92;
+  font-size: clamp(3.25rem, 8.5vw, 8.5rem);
+  text-wrap: balance;
+}
+
+.headline-chapter {
+  font-family: var(--font-display);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: -0.02em;
+  line-height: 0.96;
+  font-size: clamp(2.5rem, 6.5vw, 6.25rem);
+  text-wrap: balance;
+}
+
+.script-accent {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: normal;
+  line-height: 1.1;
+  font-size: clamp(1.5rem, 3.2vw, 3.25rem);
+}
+
+.line-mask {
+  overflow: hidden;
+  display: block;
+  padding-top: 2px;
+  padding-bottom: 6px;
+  margin-top: -2px;
+  margin-bottom: -6px;
+}
+
+.line-mask-inner {
+  display: inline-block;
+  will-change: transform, opacity;
+}
+
+/* Clean UI numeric / mono styling */
+.font-mono-num {
+  font-family: var(--font-mono);
+  font-feature-settings: "tnum" 1, "zero" 1;
+}
+
+/* Custom scrollbars matching technical theme */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #13151F;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #252A40;
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #38BDF8;
+}
+
+/* XYFlow custom theme overrides */
+.react-flow__background {
+  background-color: #13151F !important;
+}
+
+.react-flow__node {
+  border-radius: 2px !important;
+}
+
+.react-flow__edge-path {
+  stroke: #2F364E;
+  stroke-width: 1.5;
+}
+
+.react-flow__edge.selected .react-flow__edge-path {
+  stroke: #2DD4BF;
+  stroke-width: 2;
+}
+
+.react-flow__controls {
+  border-radius: 2px !important;
+  border: 1px solid #222638 !important;
+  background-color: #181B28 !important;
+  box-shadow: none !important;
+  overflow: hidden;
+}
+
+.react-flow__controls-button {
+  background-color: #181B28 !important;
+  border-bottom: 1px solid #222638 !important;
+  fill: #E9ECEE !important;
+}
+
+.react-flow__controls-button:hover {
+  background-color: #1E2235 !important;
+}
+
+.react-flow__attribution {
+  display: none !important;
+}

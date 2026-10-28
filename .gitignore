@@ -1,0 +1,45 @@
+# Dependencies
+node_modules/
+*/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Production Builds
+dist/
+*/dist/
+dist-ssr/
+
+# Python & Virtual Environments
+.venv/
+*/.venv/
+venv/
+ENV/
+__pycache__/
+*/__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+*/.pytest_cache/
+
+# Testing & Audit Artifacts
+audit-screenshots/
+audit-results.json
+coverage/
+
+# Environment Variables
+.env
+.env.local
+.env.*.local
+
+# Operating System & IDE
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
