@@ -43,3 +43,7 @@ coverage/
 *.njsproj
 *.sln
 *.sw?
+
+# Playwright
+frontend/test-results/
+frontend/playwright-report/

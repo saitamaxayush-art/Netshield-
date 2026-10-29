@@ -10,7 +10,8 @@ A Graph-Theoretic Network Reliability and Failure Simulation System built with R
 Netshield-/
 ├── frontend/             # React 19 + TypeScript + Vite + Tailwind CSS + GSAP + Three.js
 │   ├── src/              # Application source code
-│   │   ├── components/   # UI primitives, editorial layout, and motion components
+│   │   ├── components/   # Shared UI primitives and app layout
+│   │   ├── landing/      # Landing page: sections, components, motion engine, hero, worker
 │   │   ├── features/     # Landing sections, studio editor, analysis panels
 │   │   ├── lib/          # Graph algorithms (Tarjan DFS, bridge detection, BFS)
 │   │   ├── pages/        # Route pages (Landing, Studio, Dashboard, Legal)
@@ -48,9 +49,23 @@ To run frontend tests and linting:
 ```bash
 cd frontend
 npm run lint    # Oxlint static analysis
-npm test        # Vitest unit test suite (20 tests)
+npm test        # Vitest unit tests (43 tests, graph algorithms and seeded generators)
 npm run build   # Production TypeScript & Vite bundle build
 ```
+
+Landing page QA (Playwright, uses the locally installed Google Chrome against the production build):
+
+```bash
+cd frontend
+npm run build
+npx playwright test                 # 44 tests: 11 viewport audits, interactions, scroll, fallbacks, routes, contrast
+node scripts/alignment-report.mjs   # regenerates ../ALIGNMENT_AUDIT.md from the audit measurements
+node scripts/perf.mjs               # full page scroll profile at 1440x900 (needs the preview server on :4317)
+node scripts/contrast.mjs           # WCAG ratios for every landing colour pair
+node scripts/font-metrics.mjs       # measures fallback font overrides
+```
+
+Screenshots from the audit are written to `audit-screenshots/landing/<viewport>/`.
 
 ### 2. Backend Setup
 
@@ -77,4 +92,4 @@ pytest backend/test_main.py
 - **Interactive Topology Studio**: Custom canvas for constructing router, server, and gateway topologies.
 - **Topological Degradation Simulation**: Stochastic failure simulation of nodes and links with real-time bridge and articulation point detection using Tarjan's algorithm.
 - **Monte Carlo Reliability Estimation**: Repeated stochastic simulation to compute k-connectivity confidence intervals and all-terminal network reliability.
-- **Editorial Landing Experience**: Charcoal Grey (`#17181B`), Moonlit Silver (`#F3F5F7`), and Signal Red (`#E5484D`) design system with 3D ribbon network visualization and smooth scroll choreography.
+- **Interactive Landing Page**: visitors operate small, real pieces of NetShield (a break-a-network sandbox, a pinned how it works story, topology comparison, a Monte Carlo reliability estimator running in a Web Worker, and a BFS and DFS path explorer). Every widget runs on the same unit tested module (`frontend/src/lib/graphAlgorithms.ts`) as the dashboard and demo adapter. Landing code lives in `frontend/src/landing/`; tokens, grid, motion and measured results are in `DESIGN.md`.

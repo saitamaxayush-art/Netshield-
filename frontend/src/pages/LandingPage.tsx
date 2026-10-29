@@ -1,72 +1,63 @@
-import React from 'react'
-import { Navbar } from '@/components/layout/Navbar'
-import { Footer } from '@/components/layout/Footer'
-import { ScrollProgressBar } from '@/components/layout/ScrollProgressBar'
-import { ChapterNav } from '@/components/editorial/ChapterNav'
-import { useLenisScroll } from '@/lib/useLenisScroll'
+import { useLayoutEffect, useRef } from 'react'
+import '@/landing/landing.css'
+import { startEngine } from '@/landing/motion/engine'
+import { observeChapters } from '@/landing/chapters'
+import { Header } from '@/landing/components/Header'
+import { Footer } from '@/landing/components/Footer'
+import { ScrollProgress } from '@/landing/components/ScrollProgress'
+import { ChapterNav } from '@/landing/components/ChapterNav'
+import { Cursor } from '@/landing/components/Cursor'
+import { ToastProvider } from '@/landing/components/Toast'
+import { Hero } from '@/landing/hero/Hero'
+import { Sandbox } from '@/landing/sections/Sandbox'
+import { HowItWorks } from '@/landing/sections/HowItWorks'
+import { Topologies } from '@/landing/sections/Topologies'
+import { Estimator } from '@/landing/sections/Estimator'
+import { Explorer } from '@/landing/sections/Explorer'
+import { Method } from '@/landing/sections/Method'
+import { FinalCta } from '@/landing/sections/FinalCta'
 
-// Exactly the 9 Specified Landing Sections in Alternating Charcoal & Silver Rhythm
-import { EditorialHeroSection } from '@/features/landing/EditorialHeroSection'
-import { StatementCollageSection } from '@/features/landing/StatementCollageSection'
-import { HowItWorksSection } from '@/features/landing/HowItWorksSection'
-import { BigWordListSection } from '@/features/landing/BigWordListSection'
-import { MathematicalInsightsSection } from '@/features/landing/MathematicalInsightsSection'
-import { MethodStatementSection } from '@/features/landing/MethodStatementSection'
-import { ClosingSection } from '@/features/landing/ClosingSection'
+/**
+ * Landing route. Theme, Lenis and pinning are scoped to this page and torn
+ * down on unmount, so the studio and dashboard never see them.
+ */
+export function LandingPage() {
+  const root = useRef<HTMLDivElement>(null)
 
-const chapters = [
-  { id: 'intro', number: '01', label: 'Intro' },
-  { id: 'statement', number: '02', label: 'Thesis' },
-  { id: 'how-it-works', number: '03', label: 'Flow' },
-  { id: 'topologies', number: '04', label: 'Topologies' },
-  { id: 'analysis', number: '05', label: 'Insights' },
-  { id: 'methodology', number: '06', label: 'Method' },
-]
-
-export const LandingPage: React.FC = () => {
-  // Drive unified Lenis + GSAP ScrollTrigger requestAnimationFrame loop
-  useLenisScroll(true)
+  useLayoutEffect(() => {
+    const html = document.documentElement
+    html.dataset.route = 'landing'
+    const stopEngine = startEngine()
+    const stopChapters = root.current ? observeChapters(root.current) : () => {}
+    return () => {
+      stopChapters()
+      stopEngine()
+      delete html.dataset.route
+    }
+  }, [])
 
   return (
-    <div
-      data-theme="landing"
-      className="min-h-screen flex flex-col bg-[#17181B] text-[#E4E8EC] selection:bg-[#E5484D]/25 selection:text-[#F3F5F7] overflow-x-hidden font-sans"
-    >
-      {/* 2px Signal Red Scroll Progress Bar */}
-      <ScrollProgressBar />
-
-      {/* 1. Navigation: Minimal tripartite layout with accessible overlay */}
-      <Navbar />
-
-      {/* Floating Chapter Table of Contents */}
-      <ChapterNav chapters={chapters} />
-
-      {/* Main Choreographed 9-Section Sequence */}
-      <main className="flex-1 w-full overflow-hidden">
-        {/* 2. Hero (Charcoal): 3D network, silver nodes/lines, rare red failing edge, primary/secondary CTAs */}
-        <EditorialHeroSection />
-
-        {/* 3. Statement (Silver): Line-masked thesis with expanding topology frames on silver-50 */}
-        <StatementCollageSection />
-
-        {/* 4. How it works (Charcoal): 3-stage pinned story (Model, Introduce failures, Measure connectivity) */}
-        <HowItWorksSection />
-
-        {/* 5. Topologies (Silver): Star, Ring, Mesh as selectable words with rolling counter & live graph swap */}
-        <BigWordListSection />
-
-        {/* 6. Mathematical insights (Charcoal): Interactive bridges, cut vertices demo, silver component steps */}
-        <MathematicalInsightsSection />
-
-        {/* 7. Reliability method (Silver): Plain honest estimation explanation, 1-3 pagination, segment progress */}
-        <MethodStatementSection />
-
-        {/* 8. Final CTA (Charcoal): Large statement, Signal Red button, scroll-driven network trace path */}
-        <ClosingSection />
-      </main>
-
-      {/* 9. Footer (Charcoal-950): Aligned to container grid, legal links, runtime year, back to top */}
-      <Footer />
+    <div ref={root} className="ns-landing">
+      <a className="ns-skip ns-btn ns-btn--primary ns-btn--sm" href="#main">
+        <span className="ns-btn__inner">Skip to content</span>
+      </a>
+      <ScrollProgress />
+      <Header />
+      <ChapterNav />
+      <Cursor />
+      <ToastProvider>
+        <main id="main" tabIndex={-1} style={{ outline: 'none' }}>
+          <Hero />
+          <Sandbox />
+          <HowItWorks />
+          <Topologies />
+          <Estimator />
+          <Explorer />
+          <Method />
+          <FinalCta />
+        </main>
+        <Footer />
+      </ToastProvider>
     </div>
   )
 }

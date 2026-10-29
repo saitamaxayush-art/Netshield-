@@ -1,0 +1,13 @@
+{
+  "name": "netshield-workspace",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "npm --prefix frontend run dev",
+    "frontend": "npm --prefix frontend run dev",
+    "backend": ".venv/bin/uvicorn backend.main:app --host 127.0.0.1 --port 8000 --reload",
+    "build": "npm --prefix frontend run build",
+    "test": "npm --prefix frontend test && .venv/bin/pytest backend/test_main.py",
+    "lint": "npm --prefix frontend run lint"
+  }
+}

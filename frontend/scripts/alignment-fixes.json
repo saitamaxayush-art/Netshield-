@@ -1,0 +1,22 @@
+[
+  { "where": "All (screenshot review)", "issue": "Selected preset button rendered white on white inside the ink sandbox panel (silver surface rule outranked the panel)", "fix": "Selected segment colour comes from a per surface --fg-inverse token" },
+  { "where": "All (screenshot review)", "issue": "Bridge diamonds and failed link boxes drawn far from their links (CSS transform-origin applied to the SVG transform attribute)", "fix": "Pop animation moved to inner elements that carry no transform attribute" },
+  { "where": "1024 and up (screenshot review)", "issue": "Story track edge fade clipped the first letters of the active step (\"outers\" for \"Routers\")", "fix": "Fade moved into a 28px padding outside the slide content" },
+  { "where": "1024 and up (screenshot review)", "issue": "Pinned story taller than the viewport because the heading wrapped in a 7 column cell", "fix": "Heading spans the full grid; step counter and progress moved into the steps column" },
+  { "where": "All (screenshot review)", "issue": "Large empty gap above STAR in the topology word list", "fix": "Word list became a cyclic drum so the selection always has neighbours above and below" },
+  { "where": "1024 and up (screenshot review)", "issue": "Estimator heading left a large empty area top right", "fix": "Lead paragraph placed beside the heading (columns 8 to 12)" },
+  { "where": "All (screenshot review)", "issue": "Footer column labels sat 10px above the wordmark centre line", "fix": "Labels share the wordmark's 40px row" },
+  { "where": "390 (screenshot review)", "issue": "Sandbox lead paragraph touched the definitions hairline (inline margin overrode stack spacing)", "fix": "Only margin-bottom is reset inline" },
+  { "where": "360 (screenshot review)", "issue": "Estimator value \"p = 0.10\" wrapped onto two lines", "fix": "Value output is nowrap" },
+  { "where": "768 and 820 (screenshot review)", "issue": "Hero caption squeezed into one tablet column", "fix": "Caption spans the tablet grid below the CTAs" },
+  { "where": "844x390 landscape (screenshot review)", "issue": "Mega headline overwhelmed a 390px tall viewport and pushed CTAs below the fold", "fix": "Display sizes scale with svh on short landscape screens" },
+  { "where": "1440 (automated CLS)", "issue": "Load CLS 0.29: headline rewrapped when the display font replaced its fallback", "fix": "Fallback overrides measured from the real fonts; fonts preloaded on the landing route" },
+  { "where": "All (automated text check)", "issue": "Line masks shorter than the display face's content area (about 1.21em in a 0.94em line box)", "fix": "Mask padding 0.16em top and 0.2em bottom, compensated by negative margins" },
+  { "where": "390 touch (automated)", "issue": "Segmented control buttons 38px tall on coarse pointers", "fix": "40px on coarse pointers" },
+  { "where": "1440 (automated interaction test)", "issue": "Keyboard focus scrolled the word drum's overflow container, throwing rows out of their slots", "fix": "Masked containers use overflow: clip; focus uses preventScroll" },
+  { "where": "All (Lighthouse)", "issue": "aria-label on split paragraphs (not allowed on p)", "fix": "SplitText labels headings only; other splits stay readable in order" },
+  { "where": "All (Lighthouse)", "issue": "axe could not see the silver surface through the clip-pathed wipe layer", "fix": "Section carries its colour; wipe drawn by transform scaled edge strips" },
+  { "where": "All (Lighthouse)", "issue": "Inactive drum words at 22% opacity (1.2:1) and visible text missing from step and scroll cue names", "fix": "Inactive words at 50% (3.30:1, large text); accessible names include the visible text" },
+  { "where": "All (console check)", "issue": "Landing CSS preload not used (credentials mode mismatch warning)", "fix": "Style preload carries crossorigin like Vite's own request" },
+  { "where": "All (console check)", "issue": "THREE.Clock deprecation warning from React Three Fiber", "fix": "Hero rendered with plain three.js from the shared ticker" }
+]

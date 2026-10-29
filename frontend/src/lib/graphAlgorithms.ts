@@ -362,3 +362,213 @@ export function simulateReliability(
     execution_time_ms: executionTimeMs,
   }
 }
+
+/**
+ * BFS layers: distance (in hops) from startNode to every reachable node,
+ * plus the visit order. Layer 0 is the start node.
+ */
+export function bfsLayers(
+  active: ActiveGraph,
+  startNode: string
+): { order: string[]; layer: Map<string, number>; parent: Map<string, string> } {
+  const layer = new Map<string, number>()
+  const parent = new Map<string, string>()
+  const order: string[] = []
+  if (!active.activeNodes.has(startNode)) return { order, layer, parent }
+
+  layer.set(startNode, 0)
+  const queue = [startNode]
+  let head = 0
+  while (head < queue.length) {
+    const curr = queue[head++]
+    order.push(curr)
+    for (const nbr of active.adjacency.get(curr) || []) {
+      if (!layer.has(nbr)) {
+        layer.set(nbr, layer.get(curr)! + 1)
+        parent.set(nbr, curr)
+        queue.push(nbr)
+      }
+    }
+  }
+  return { order, layer, parent }
+}
+
+export interface NetworkAnalysis {
+  components: string[][]
+  /** Node id to component index (components sorted largest first). */
+  componentOf: Map<string, number>
+  bridges: Array<[string, string]>
+  /** Ids of the active edges that are bridges. */
+  bridgeEdgeIds: Set<string>
+  articulationPoints: Set<string>
+  degrees: Record<string, number>
+  isConnected: boolean
+  activeNodeCount: number
+  activeEdgeCount: number
+  density: number
+}
+
+/**
+ * One call summary used by every landing widget so they all share the
+ * same definitions as the dashboard and demo adapter.
+ */
+export function analyzeNetwork(
+  nodes: PureNode[],
+  edges: PureEdge[],
+  failedNodeIds: Set<string> = new Set(),
+  failedEdgeIds: Set<string> = new Set()
+): NetworkAnalysis {
+  const active = buildActiveGraph(nodes, edges, failedNodeIds, failedEdgeIds)
+  const components = findConnectedComponents(active).sort((a, b) => b.length - a.length)
+  const componentOf = new Map<string, number>()
+  components.forEach((comp, i) => comp.forEach((id) => componentOf.set(id, i)))
+
+  const bridges = findBridges(active)
+  const bridgeKeys = new Set(bridges.map(([u, v]) => `${u}|${v}`))
+  const bridgeEdgeIds = new Set<string>()
+  for (const e of active.activeEdges) {
+    const key = e.source < e.target ? `${e.source}|${e.target}` : `${e.target}|${e.source}`
+    if (bridgeKeys.has(key)) bridgeEdgeIds.add(e.id)
+  }
+
+  return {
+    components,
+    componentOf,
+    bridges,
+    bridgeEdgeIds,
+    articulationPoints: new Set(findArticulationPoints(active)),
+    degrees: calculateNodeDegrees(active),
+    isConnected: active.activeNodes.size > 0 && components.length === 1,
+    activeNodeCount: active.activeNodes.size,
+    activeEdgeCount: active.activeEdges.length,
+    density: calculateDensity(active.activeNodes.size, active.activeEdges.length),
+  }
+}
+
+/** Union find connectivity check used by the trial runner (fast inner loop). */
+function isConnectedUnderEdgeMask(
+  nodeIndex: Map<string, number>,
+  nodeCount: number,
+  edges: PureEdge[],
+  alive: (i: number) => boolean
+): boolean {
+  if (nodeCount <= 1) return nodeCount === 1
+  const parent = new Int32Array(nodeCount)
+  for (let i = 0; i < nodeCount; i++) parent[i] = i
+  const find = (x: number): number => {
+    while (parent[x] !== x) {
+      parent[x] = parent[parent[x]]
+      x = parent[x]
+    }
+    return x
+  }
+  let sets = nodeCount
+  for (let i = 0; i < edges.length; i++) {
+    if (!alive(i)) continue
+    const a = find(nodeIndex.get(edges[i].source)!)
+    const b = find(nodeIndex.get(edges[i].target)!)
+    if (a !== b) {
+      parent[a] = b
+      if (--sets === 1) return true
+    }
+  }
+  return sets === 1
+}
+
+export interface ReliabilityProgress {
+  done: number
+  connected: number
+  estimate: number
+  standardError: number
+}
+
+/**
+ * Incremental all-terminal reliability estimator under independent edge
+ * failures with probability p. Deterministic for a given random function,
+ * so a seeded PRNG reproduces a run exactly. `step(n)` runs n more trials.
+ */
+export function createReliabilityRun(
+  nodes: PureNode[],
+  edges: PureEdge[],
+  failureProb: number,
+  randomFn: () => number
+) {
+  const nodeIndex = new Map(nodes.map((n, i) => [n.id, i]))
+  const alive = new Uint8Array(edges.length)
+  let done = 0
+  let connected = 0
+
+  const progress = (): ReliabilityProgress => {
+    const estimate = done > 0 ? connected / done : 0
+    return {
+      done,
+      connected,
+      estimate,
+      standardError: done > 0 ? Math.sqrt((estimate * (1 - estimate)) / done) : 0,
+    }
+  }
+
+  return {
+    step(count: number): ReliabilityProgress {
+      for (let t = 0; t < count; t++) {
+        for (let i = 0; i < edges.length; i++) alive[i] = randomFn() < failureProb ? 0 : 1
+        if (isConnectedUnderEdgeMask(nodeIndex, nodes.length, edges, (i) => alive[i] === 1)) {
+          connected++
+        }
+        done++
+      }
+      return progress()
+    },
+    progress,
+  }
+}
+
+/**
+ * Exact all-terminal reliability by enumerating all 2^|E| edge states.
+ * Only for small graphs (|E| <= 20); returns null otherwise.
+ */
+export function exactAllTerminalReliability(
+  nodes: PureNode[],
+  edges: PureEdge[],
+  failureProb: number
+): number | null {
+  if (edges.length > 20) return null
+  if (nodes.length <= 1) return nodes.length === 1 ? 1 : 0
+  const nodeIndex = new Map(nodes.map((n, i) => [n.id, i]))
+  const q = 1 - failureProb
+  let total = 0
+  const states = 1 << edges.length
+  for (let mask = 0; mask < states; mask++) {
+    let up = 0
+    for (let m = mask; m; m &= m - 1) up++
+    if (up < nodes.length - 1) continue
+    if (isConnectedUnderEdgeMask(nodeIndex, nodes.length, edges, (i) => (mask & (1 << i)) !== 0)) {
+      total += q ** up * failureProb ** (edges.length - up)
+    }
+  }
+  return total
+}
+
+/**
+ * DFS visit order plus the tree edge that discovered each node. Uses the
+ * same recursion and neighbour order as dfsTraversal, so orders agree.
+ */
+export function dfsTree(
+  active: ActiveGraph,
+  startNode: string
+): { order: string[]; parent: Map<string, string> } {
+  const order = dfsTraversal(active, startNode)
+  const parent = new Map<string, string>()
+  const visited = new Set<string>()
+  function dfs(u: string) {
+    visited.add(u)
+    for (const nbr of active.adjacency.get(u) || []) {
+      if (!visited.has(nbr)) {
+        parent.set(nbr, u)
+        dfs(nbr)
+      }
+    }
+  }
+  if (active.activeNodes.has(startNode)) dfs(startNode)
+  return { order, parent }
+}
