@@ -1,0 +1,20 @@
+# Tool configuration for the Python backend (backend/). Dependencies live in
+# backend/requirements.txt and backend/requirements-dev.txt.
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+extend-exclude = [".venv", "frontend"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "ANN"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+plugins = ["pydantic.mypy"]
+files = ["backend"]
+exclude = ["\\.venv/"]
+
+[tool.pytest.ini_options]
+testpaths = ["backend/tests"]

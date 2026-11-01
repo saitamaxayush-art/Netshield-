@@ -59,7 +59,7 @@ export function BigWordList({
   const step = (d: number) => onSelect(mod(selected + d))
   const onKey = (e: React.KeyboardEvent) => {
     const map: Record<string, number> = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 }
-    let next = selected
+    let next: number
     if (map[e.key]) {
       e.preventDefault()
       step(map[e.key])

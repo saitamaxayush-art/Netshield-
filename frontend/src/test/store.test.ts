@@ -71,3 +71,43 @@ describe('Graph Store Reducers & Actions', () => {
     expect(state.edges.length).toBe(0)
   })
 })
+
+describe('Store analysis integration (no silent fallback)', () => {
+  it('a failed analysis shows an error, clears the old result and leaves no highlights', async () => {
+    const { apiService, ApiError } = await import('../services/api')
+    const { vi } = await import('vitest')
+    useGraphStore.getState().loadExample('star')
+    const { analyzeResponse } = await import('./fixtures')
+    const okResult = {
+      data: analyzeResponse({
+        articulationPoints: { nodeIds: ['hub_1'], explanationKey: 'articulation_point_definition' },
+        bridges: { edgeIds: ['e_hub_srv'], explanationKey: 'bridge_definition' },
+      }),
+      source: 'backend' as const,
+    }
+    const spy = vi.spyOn(apiService, 'analyze').mockResolvedValueOnce(okResult)
+    await useGraphStore.getState().runAnalysis(null, null)
+    expect(useGraphStore.getState().nodes.find((n) => n.id === 'hub_1')?.data.isArticulationPoint).toBe(true)
+
+    spy.mockRejectedValueOnce(new ApiError('network', 'Could not reach the NetShield backend (/api/analyze).'))
+    await useGraphStore.getState().runAnalysis(null, null)
+    const state = useGraphStore.getState()
+    expect(state.analysisResult).toBeNull()
+    expect(state.analysisError).toBe('Could not reach the NetShield backend (/api/analyze).')
+    expect(state.nodes.some((n) => n.data.isArticulationPoint)).toBe(false)
+    expect(state.edges.some((e) => e.data?.isBridge)).toBe(false)
+    spy.mockRestore()
+  })
+
+  it('builds the contract request: per element failed flags, path only with both ends', async () => {
+    const { buildAnalyzeRequest } = await import('../store/graphStore')
+    useGraphStore.getState().loadExample('star')
+    const { nodes, edges } = useGraphStore.getState()
+    const body = buildAnalyzeRequest(nodes, edges, ['hub_1'], ['e_hub_srv'], 'srv_1', null)
+    expect(body.nodes.find((n) => n.id === 'hub_1')?.failed).toBe(true)
+    expect(body.edges.find((e) => e.id === 'e_hub_srv')?.failed).toBe(true)
+    expect(body.startNodeId).toBe('srv_1')
+    expect(body.pathSource).toBeUndefined()
+    expect(Object.keys(body).sort()).toEqual(['edges', 'nodes', 'startNodeId'])
+  })
+})

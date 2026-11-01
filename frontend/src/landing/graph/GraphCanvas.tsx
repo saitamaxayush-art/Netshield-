@@ -217,7 +217,6 @@ export function GraphCanvas({
         <svg
           ref={svg}
           className={`ns-graph${drawKey !== undefined ? ' ns-graph--draw' : ''}`}
-          key={drawKey}
           viewBox={`0 0 ${w} ${h}`}
           width={w}
           height={h}

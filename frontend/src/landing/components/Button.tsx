@@ -93,6 +93,7 @@ export function Magnetic({ children, strength = 0.22, max = 8 }: { children: Rea
       if (!el || !motionEnabled() || !window.matchMedia('(hover: hover) and (pointer: fine)').matches) return
       const target = el.firstElementChild as HTMLElement | null
       if (!target) return
+      target.style.willChange = 'transform'
       const xTo = gsap.quickTo(target, 'x', { duration: 0.5, ease: 'power3.out' })
       const yTo = gsap.quickTo(target, 'y', { duration: 0.5, ease: 'power3.out' })
       const clamp = (v: number) => Math.max(-max, Math.min(max, v))
@@ -106,11 +107,12 @@ export function Magnetic({ children, strength = 0.22, max = 8 }: { children: Rea
         xTo(0)
         yTo(0)
       }
-      el.addEventListener('pointermove', move)
+      el.addEventListener('pointermove', move, { passive: true })
       el.addEventListener('pointerleave', leave)
       return () => {
         el.removeEventListener('pointermove', move)
         el.removeEventListener('pointerleave', leave)
+        target.style.willChange = 'auto'
         gsap.set(target, { clearProps: 'transform' })
       }
     },

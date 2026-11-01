@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { RotateCcw, X as XIcon, Check } from 'lucide-react'
 import { analyzeNetwork } from '@/lib/graphAlgorithms'
 import { generatePreset, type LayoutEdge, type PresetKind } from '@/lib/seededGraphGenerator'
@@ -27,6 +27,8 @@ export function Sandbox() {
   const [failedEdges, setFailedEdges] = useState<Set<string>>(new Set())
   const [announcement, setAnnouncement] = useState('')
   const frame = useRef(0)
+
+  useEffect(() => () => cancelAnimationFrame(frame.current), [])
 
   const nodes = useMemo(() => base.nodes.map((n) => (moved[n.id] ? { ...n, ...moved[n.id] } : n)), [base, moved])
   const analysis = useMemo(() => analyzeNetwork(base.nodes, base.edges, failedNodes, failedEdges), [base, failedNodes, failedEdges])

@@ -35,8 +35,14 @@ export function Header() {
         el.dataset.hidden = 'false'
         return
       }
-      // Hysteresis: hide after 48px of downward travel, show after 24px up.
-      travel = Math.sign(dy) === Math.sign(travel) ? travel + dy : dy
+      // Hysteresis: accumulate directional travel with deadband, reset only on direction reversal
+      if (Math.abs(dy) > 0.5) {
+        if ((dy > 0 && travel < 0) || (dy < 0 && travel > 0)) {
+          travel = dy
+        } else {
+          travel += dy
+        }
+      }
       if (y < 120) el.dataset.hidden = 'false'
       else if (travel > 48) el.dataset.hidden = 'true'
       else if (travel < -24) el.dataset.hidden = 'false'

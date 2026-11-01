@@ -8,18 +8,19 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts'
-import type { ReliabilitySweepPoint } from '@/types/api'
+import type { SweepPoint } from '@/services/api/contract'
+import type { ResultSource } from '@/services/api'
 import { Button } from '@/components/ui/Button'
 import { Table, Eye } from 'lucide-react'
 
 interface ReliabilitySweepChartProps {
-  points: ReliabilitySweepPoint[]
-  isDemo?: boolean
+  points: SweepPoint[]
+  source: ResultSource
 }
 
 export const ReliabilitySweepChart: React.FC<ReliabilitySweepChartProps> = ({
   points,
-  isDemo = false,
+  source,
 }) => {
   const [showTable, setShowTable] = useState(false)
 
@@ -33,11 +34,21 @@ export const ReliabilitySweepChart: React.FC<ReliabilitySweepChartProps> = ({
     total: pt.total_trials,
   }))
 
+  const first = points[0]
+  const last = points[points.length - 1]
+  const pct = (v: number) => `${(v * 100).toFixed(1)}%`
+
   return (
     <div className="space-y-3">
+      {first && last && (
+        <p className="text-[10px] font-mono text-text-muted" data-testid="sweep-summary" data-source={source}>
+          {points.length} points from {source === 'demo' ? 'the demo adapter' : 'the FastAPI backend'}: R = {pct(first.reliability)} at p ={' '}
+          {pct(first.prob)} to R = {pct(last.reliability)} at p = {pct(last.prob)}
+        </p>
+      )}
       <div className="flex items-center justify-between">
         <div className="text-[11px] font-mono text-text-muted uppercase">
-          Reliability vs. Failure Probability {isDemo && '(Demo Adapter)'}
+          Reliability vs. Failure Probability {source === 'demo' && '(Demo result)'}
         </div>
         <Button
           variant="ghost"

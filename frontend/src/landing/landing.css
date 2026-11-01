@@ -628,6 +628,7 @@ html[data-route='landing'] body {
   display: flex;
   flex-direction: column;
   transition: transform 700ms var(--ease-reveal);
+  will-change: transform;
 }
 .ns-roll__strip > span {
   height: 1em;
@@ -809,6 +810,7 @@ html[data-route='landing'] body {
   background: var(--r-500);
   transform-origin: 0 50%;
   transform: scaleX(0);
+  will-change: transform;
 }
 
 /* Skip link */
@@ -904,6 +906,7 @@ html[data-route='landing'] body {
   opacity: 0;
   transition: opacity 200ms ease;
   mix-blend-mode: difference;
+  will-change: transform;
 }
 .ns-cursor[data-visible='true'] {
   opacity: 1;
@@ -915,6 +918,7 @@ html[data-route='landing'] body {
   width: 12px;
   height: 12px;
   border: 1px solid #f3f5f7;
+  will-change: transform;
   transition:
     transform 220ms var(--ease-reveal),
     background-color 180ms ease;
@@ -1002,6 +1006,7 @@ html[data-route='landing'] body {
   flex-direction: column;
   overflow-y: auto;
   overscroll-behavior: contain;
+  will-change: clip-path;
 }
 .ns-menu__list {
   list-style: none;
@@ -1225,10 +1230,11 @@ html.lenis body {
   transform-box: fill-box;
   transform-origin: center;
   animation: ns-pop 420ms var(--ease-reveal) both;
+  will-change: transform, opacity;
 }
 @keyframes ns-pop {
-  from { opacity: 0; scale: 0.4; }
-  to { opacity: 1; scale: 1; }
+  from { opacity: 0; transform: scale(0.4); }
+  to { opacity: 1; transform: scale(1); }
 }
 .ns-cross {
   stroke-dasharray: 1;
@@ -1238,10 +1244,11 @@ html.lenis body {
   transform-box: fill-box;
   transform-origin: center;
   animation: ns-ring 900ms var(--ease-reveal) both;
+  will-change: transform, opacity;
 }
 @keyframes ns-ring {
-  from { opacity: 1; scale: 0.6; }
-  to { opacity: 0.5; scale: 1; }
+  from { opacity: 1; transform: scale(0.6); }
+  to { opacity: 0.5; transform: scale(1); }
 }
 
 /* ---------- Small layout rules ---------- */
@@ -1414,6 +1421,9 @@ html.lenis body {
   .ns-trace {
     display: none;
   }
+}
+.ns-trace-node {
+  transition: opacity 220ms var(--ease-reveal);
 }
 @media (min-width: 1024px) {
   .ns-hero-aside {

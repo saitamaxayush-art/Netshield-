@@ -52,7 +52,8 @@ export function SplitLines({ as: Tag = 'p', delay = 0, start, children, ...rest 
               ease: 'nsReveal',
               stagger: STAGGER.line,
               delay,
-              onComplete: () => gsap.set(self.lines, { clearProps: 'transform' }),
+              onStart: () => gsap.set(self.lines, { willChange: 'transform' }),
+              onComplete: () => gsap.set(self.lines, { clearProps: 'transform,willChange' }),
             }
           )
         },

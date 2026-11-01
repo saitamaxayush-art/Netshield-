@@ -36,6 +36,8 @@ export function Estimator() {
   const [running, setRunning] = useState(false)
   const [series, setSeries] = useState<ConvergencePoint[]>([])
   const [runTrials, setRunTrials] = useState(1000)
+  // Probability of the run in progress, for the exact reference line (state, not the ref, so render stays pure).
+  const [runP, setRunP] = useState(0.1)
   const [result, setResult] = useState<Result | null>(null)
   const [sweep, setSweep] = useState<SweepPoint[]>([])
   const [status, setStatus] = useState('')
@@ -62,6 +64,7 @@ export function Estimator() {
     runParams.current = { p: pp, trials: n, seed }
     setRunning(true)
     setRunTrials(n)
+    setRunP(pp)
     setSeries([])
     setStatus(`Running ${n} trials at p = ${pp.toFixed(2)}.`)
     // About 70 batches keeps progress smooth without flooding the main thread.
@@ -263,7 +266,7 @@ export function Estimator() {
                     {stale ? 'Settings changed, run again' : 'Dashed: exact value. Band: 95% interval'}
                   </span>
                 </div>
-                <ConvergenceChart points={series} trials={runTrials} exact={result?.exact ?? (running ? exactAllTerminalReliability(graph.nodes, graph.edges, runParams.current.p) : null)} />
+                <ConvergenceChart points={series} trials={runTrials} exact={result?.exact ?? (running ? exactAllTerminalReliability(graph.nodes, graph.edges, runP) : null)} />
               </div>
               <div className="ns-hair-top" style={{ padding: '16px 12px 8px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 8 }}>

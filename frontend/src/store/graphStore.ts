@@ -1,8 +1,15 @@
 import { create } from 'zustand'
 import type { Node, Edge, Connection } from '@xyflow/react'
 import type { NodeType, ElementStatus } from '@/types/graph'
-import type { AnalyzeResponse, SimulateResponse, ReliabilitySweepResponse } from '@/types/api'
-import { apiService } from '@/services/api'
+import { apiService, type Sourced } from '@/services/api'
+import type {
+  AnalyzeRequestBody,
+  AnalyzeResponseBody,
+  SimulateRequestBody,
+  SimulateResponseBody,
+  SweepRequestBody,
+  SweepResponseBody,
+} from '@/services/api/contract'
 
 export const STORAGE_KEY = 'netshield_graph_state_v1'
 
@@ -44,17 +51,17 @@ interface GraphStoreState {
   simulationConfig: SimulationConfig
 
   // Authoritative Analysis State
-  analysisResult: AnalyzeResponse | null
+  analysisResult: Sourced<AnalyzeResponseBody> | null
   isAnalyzing: boolean
   analysisError: string | null
 
   // Authoritative Simulation State
-  simulationResult: SimulateResponse | null
+  simulationResult: Sourced<SimulateResponseBody> | null
   isSimulating: boolean
   simulationError: string | null
 
   // Reliability Sweep State
-  sweepResult: ReliabilitySweepResponse | null
+  sweepResult: Sourced<SweepResponseBody> | null
   isSweeping: boolean
   sweepError: string | null
 
@@ -277,6 +284,56 @@ function saveStateToStorage(state: {
     )
   } catch {
     // Storage quota or restriction handled silently
+  }
+}
+
+/** Request body for POST /api/analyze (API_CONTRACT.md section 7), typed by the generated schema. */
+export function buildAnalyzeRequest(
+  nodes: NetShieldNode[],
+  edges: NetShieldEdge[],
+  failedNodeIds: string[],
+  failedEdgeIds: string[],
+  startNode: string | null,
+  targetNode: string | null
+): AnalyzeRequestBody {
+  const failedNodes = new Set(failedNodeIds)
+  const failedEdges = new Set(failedEdgeIds)
+  const body: AnalyzeRequestBody = {
+    nodes: nodes.map((n) => ({ id: n.id, label: n.data.label, type: n.data.nodeType, failed: failedNodes.has(n.id) })),
+    edges: edges.map((e) => {
+      const weight = e.data?.weight
+      return {
+        id: e.id,
+        source: e.source,
+        target: e.target,
+        failed: failedEdges.has(e.id),
+        ...(typeof weight === 'number' && weight > 0 ? { weight } : {}),
+      }
+    }),
+  }
+  if (startNode) body.startNodeId = startNode
+  if (startNode && targetNode) {
+    body.pathSource = startNode
+    body.pathTarget = targetNode
+  }
+  return body
+}
+
+/** LEGACY request bodies for /api/simulate and /api/reliability-sweep (replaced in Phase 2). */
+function legacyGraph(nodes: NetShieldNode[], edges: NetShieldEdge[], failedNodeIds: string[], failedEdgeIds: string[]) {
+  return {
+    nodes: nodes.map((n) => ({ id: n.id, label: n.data.label, type: n.data.nodeType })),
+    edges: edges.map((e) => ({ id: e.id, source: e.source, target: e.target })),
+    failed_nodes: failedNodeIds,
+    failed_edges: failedEdgeIds,
+  }
+}
+
+/** Remove analysis annotations so the canvas never shows highlights from an older result. */
+function clearAnnotations(nodes: NetShieldNode[], edges: NetShieldEdge[]) {
+  return {
+    nodes: nodes.map((n) => ({ ...n, data: { ...n.data, componentIndex: undefined, isArticulationPoint: false } })),
+    edges: edges.map((e) => ({ ...e, data: { status: e.data?.status ?? 'healthy', ...e.data, isBridge: false } })),
   }
 }
 
@@ -663,30 +720,17 @@ export const useGraphStore = create<GraphStoreState>((set, get) => ({
 
   runAnalysis: async (startNode, targetNode) => {
     const { nodes, edges, failedNodeIds, failedEdgeIds } = get()
-    set({ isAnalyzing: true, analysisError: null })
+    // Clear the previous result first: a failed run must never leave an older result on screen.
+    set((state) => ({ isAnalyzing: true, analysisError: null, analysisResult: null, ...clearAnnotations(state.nodes, state.edges) }))
 
     try {
-      const req = {
-        nodes: nodes.map((n) => ({ id: n.id, label: n.data.label, type: n.data.nodeType })),
-        edges: edges.map((e) => ({ id: e.id, source: e.source, target: e.target })),
-        failed_nodes: failedNodeIds,
-        failed_edges: failedEdgeIds,
-        start_node: startNode || null,
-        target_node: targetNode || null,
-      }
-
-      const result = await apiService.analyze(req)
-
-      // Color nodes by connected component and flag articulation points / bridges
-      const compMap = new Map<string, number>()
-      result.connected_components.forEach((comp, idx) => {
-        comp.forEach((nodeId) => compMap.set(nodeId, idx))
-      })
-
-      const artSet = new Set(result.articulation_points)
-      const bridgeKeys = new Set(
-        result.bridges.map(([u, v]) => (u < v ? `${u}-${v}` : `${v}-${u}`))
+      const result = await apiService.analyze(
+        buildAnalyzeRequest(nodes, edges, failedNodeIds, failedEdgeIds, startNode ?? null, targetNode ?? null)
       )
+      const current = result.data.current
+      const componentOf = current.components.componentOf
+      const articulation = new Set(current.articulationPoints.nodeIds)
+      const bridges = new Set(current.bridges.edgeIds)
 
       set((state) => ({
         analysisResult: result,
@@ -695,78 +739,53 @@ export const useGraphStore = create<GraphStoreState>((set, get) => ({
           ...n,
           data: {
             ...n.data,
-            componentIndex: compMap.get(n.id),
-            isArticulationPoint: artSet.has(n.id),
+            componentIndex: componentOf[n.id] ?? undefined,
+            isArticulationPoint: articulation.has(n.id),
           },
         })),
-        edges: state.edges.map((e) => {
-          const key = e.source < e.target ? `${e.source}-${e.target}` : `${e.target}-${e.source}`
-          return {
-            ...e,
-            data: {
-              status: e.data?.status ?? 'healthy',
-              ...e.data,
-              isBridge: bridgeKeys.has(key),
-            },
-          }
-        }),
+        edges: state.edges.map((e) => ({
+          ...e,
+          data: { status: e.data?.status ?? 'healthy', ...e.data, isBridge: bridges.has(e.id) },
+        })),
       }))
     } catch (err: unknown) {
-      set({
-        isAnalyzing: false,
-        analysisError: err instanceof Error ? err.message : 'Analysis failed',
-      })
+      set({ isAnalyzing: false, analysisResult: null, analysisError: err instanceof Error ? err.message : 'Analysis failed' })
     }
   },
 
   runSimulation: async () => {
     const { nodes, edges, failedNodeIds, failedEdgeIds, simulationConfig } = get()
-    set({ isSimulating: true, simulationError: null })
+    set({ isSimulating: true, simulationError: null, simulationResult: null })
 
     try {
-      const req = {
-        nodes: nodes.map((n) => ({ id: n.id, label: n.data.label })),
-        edges: edges.map((e) => ({ id: e.id, source: e.source, target: e.target })),
-        failed_nodes: failedNodeIds,
-        failed_edges: failedEdgeIds,
+      const req: SimulateRequestBody = {
+        ...legacyGraph(nodes, edges, failedNodeIds, failedEdgeIds),
         failure_prob: simulationConfig.failureProb,
         trials: simulationConfig.trials,
         fail_target: simulationConfig.failTarget,
       }
-
       const res = await apiService.simulate(req)
       set({ simulationResult: res, isSimulating: false })
     } catch (err: unknown) {
-      set({
-        isSimulating: false,
-        simulationError: err instanceof Error ? err.message : 'Simulation failed',
-      })
+      set({ isSimulating: false, simulationResult: null, simulationError: err instanceof Error ? err.message : 'Simulation failed' })
     }
   },
 
   runSweep: async () => {
     const { nodes, edges, failedNodeIds, failedEdgeIds, simulationConfig } = get()
-    set({ isSweeping: true, sweepError: null })
+    set({ isSweeping: true, sweepError: null, sweepResult: null })
 
     try {
-      const probs = [0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5, 0.6, 0.75]
-      const req = {
-        nodes: nodes.map((n) => ({ id: n.id, label: n.data.label })),
-        edges: edges.map((e) => ({ id: e.id, source: e.source, target: e.target })),
-        failed_nodes: failedNodeIds,
-        failed_edges: failedEdgeIds,
-        probs,
+      const req: SweepRequestBody = {
+        ...legacyGraph(nodes, edges, failedNodeIds, failedEdgeIds),
+        probs: [0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5, 0.6, 0.75],
         trials_per_prob: 100,
         fail_target: simulationConfig.failTarget,
       }
-
       const res = await apiService.reliabilitySweep(req)
       set({ sweepResult: res, isSweeping: false })
     } catch (err: unknown) {
-      set({
-        isSweeping: false,
-        sweepError: err instanceof Error ? err.message : 'Sweep failed',
-      })
+      set({ isSweeping: false, sweepResult: null, sweepError: err instanceof Error ? err.message : 'Sweep failed' })
     }
   },
 

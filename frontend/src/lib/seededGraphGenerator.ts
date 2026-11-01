@@ -365,7 +365,7 @@ export function generateHeroGraph(seed: number = 1729, count: number = 64): Hero
   const nodes: HeroGraph['nodes'] = []
   for (let i = 0; i < count; i++) {
     // Rejection sample inside a flattened ellipsoid.
-    let x = 0, y = 0, z = 0
+    let x: number, y: number, z: number
     do {
       x = rng() * 2 - 1
       y = rng() * 2 - 1

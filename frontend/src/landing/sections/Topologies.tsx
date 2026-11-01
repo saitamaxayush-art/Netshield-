@@ -54,7 +54,12 @@ export function Topologies() {
                       inset: 0,
                       opacity: k === i ? 1 : 0,
                       transform: k === i ? 'none' : 'scale(0.96)',
-                      transition: 'opacity 600ms cubic-bezier(0.16, 1, 0.3, 1), transform 800ms cubic-bezier(0.16, 1, 0.3, 1)',
+                      pointerEvents: k === i ? 'auto' : 'none',
+                      visibility: k === i ? 'visible' : 'hidden',
+                      willChange: 'opacity, transform',
+                      transition: k === i
+                        ? 'opacity 600ms cubic-bezier(0.16, 1, 0.3, 1), transform 800ms cubic-bezier(0.16, 1, 0.3, 1)'
+                        : 'opacity 600ms cubic-bezier(0.16, 1, 0.3, 1), transform 800ms cubic-bezier(0.16, 1, 0.3, 1), visibility 0s 600ms',
                     }}
                   >
                     <GraphCanvas

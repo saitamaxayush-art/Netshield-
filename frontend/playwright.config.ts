@@ -1,8 +1,13 @@
 import { defineConfig } from '@playwright/test'
 
+/** Port of the real FastAPI backend started for the suite (not the developer's 8000). */
+export const E2E_API_PORT = '8799'
+
 /**
- * Landing QA suite. Runs against the production build (vite preview) in the
- * locally installed Google Chrome. Build first: npm run build.
+ * End to end suite against the production build (vite preview) in the locally installed Google
+ * Chrome, with the real FastAPI backend running. The preview server proxies /api to that backend.
+ * Neither server is reused from outside the run, so studio tests always talk to the backend this
+ * run started. Build first: npm run build (npm run test:e2e does it).
  */
 export default defineConfig({
   testDir: './e2e',
@@ -16,10 +21,20 @@ export default defineConfig({
     channel: 'chrome',
     trace: 'off',
   },
-  webServer: {
-    command: 'npx vite preview --port 4317 --strictPort',
-    url: 'http://localhost:4317',
-    reuseExistingServer: true,
-    timeout: 60_000,
-  },
+  webServer: [
+    {
+      command: 'node ../scripts/dev-backend.mjs',
+      env: { NETSHIELD_API_PORT: E2E_API_PORT, NETSHIELD_API_RELOAD: '0' },
+      url: `http://127.0.0.1:${E2E_API_PORT}/api/health`,
+      reuseExistingServer: false,
+      timeout: 60_000,
+    },
+    {
+      command: 'npx vite preview --port 4317 --strictPort',
+      env: { NETSHIELD_API_PORT: E2E_API_PORT },
+      url: 'http://localhost:4317',
+      reuseExistingServer: false,
+      timeout: 60_000,
+    },
+  ],
 })

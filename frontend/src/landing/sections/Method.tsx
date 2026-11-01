@@ -52,7 +52,14 @@ export function Method() {
     const dir = next > page ? 1 : -1
     wipe.current?.progress(1).kill()
     wipe.current = gsap
-      .timeline()
+      .timeline({
+        onStart: () => {
+          el.style.willChange = 'clip-path'
+        },
+        onComplete: () => {
+          el.style.willChange = 'auto'
+        },
+      })
       .to(el, { clipPath: dir > 0 ? 'inset(0% 100% 0% 0%)' : 'inset(0% 0% 0% 100%)', duration: DUR.wipe / 2.4, ease: 'nsWipe' })
       .add(() => setPage(next))
       .fromTo(

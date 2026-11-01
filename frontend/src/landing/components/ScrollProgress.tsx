@@ -8,10 +8,10 @@ export function ScrollProgress() {
   useEffect(() => {
     let last = -1
     const tick = () => {
-      const p = Math.round(scrollState.progress * 1000) / 1000
-      if (p === last || !ref.current) return
+      const p = scrollState.progress
+      if (Math.abs(p - last) < 0.0005 || !ref.current) return
       last = p
-      ref.current.style.transform = `scaleX(${p})`
+      ref.current.style.transform = `scaleX(${p.toFixed(4)})`
     }
     gsap.ticker.add(tick)
     return () => gsap.ticker.remove(tick)

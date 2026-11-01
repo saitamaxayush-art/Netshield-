@@ -32,10 +32,9 @@ export function FinalCta() {
       const pts: Array<[number, number]> = [[x0, 0]]
       // Orthogonal route with seeded jogs: down the right side, then left to the button.
       let x = x0
-      let y = 0
       const steps = 4
       for (let i = 1; i <= steps; i++) {
-        y = (end[1] - 40) * (i / steps)
+        const y = (end[1] - 40) * (i / steps)
         pts.push([x, y])
         if (i < steps) {
           x = x0 + (rng() - 0.5) * r.width * 0.12

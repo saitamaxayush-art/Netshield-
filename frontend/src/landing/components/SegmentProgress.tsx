@@ -17,6 +17,7 @@ export const SegmentProgress = forwardRef<SegmentProgressHandle, { count: number
       set(v: number) {
         fills.current.forEach((el, i) => {
           if (!el) return
+          el.style.transition = 'none'
           const f = Math.min(1, Math.max(0, v - i))
           el.style.transform = `scaleX(${f.toFixed(4)})`
         })

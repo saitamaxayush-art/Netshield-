@@ -25,9 +25,11 @@ export const DashboardPage: React.FC = () => {
     edges,
     failedNodeIds,
     failedEdgeIds,
-    simulationResult,
+    simulationResult: simulationSourced,
     loadExample,
   } = useGraphStore()
+  const simulationResult = simulationSourced?.data ?? null
+  const simulationIsDemo = simulationSourced?.source === 'demo'
 
   // Evaluate current active graph state
   const active = React.useMemo(() => {
@@ -310,7 +312,7 @@ export const DashboardPage: React.FC = () => {
                   <div className="space-y-4">
                     <div className="p-4 bg-bg-primary rounded-[2px] border border-border-subtle text-center space-y-1">
                       <div className="text-[11px] font-mono text-text-muted uppercase">
-                        Estimated Network Reliability
+                        Estimated Network Reliability{simulationIsDemo ? ' (Demo result)' : ''}
                       </div>
                       <div className="text-3xl font-mono font-semibold text-accent-teal">
                         {(simulationResult.estimated_reliability * 100).toFixed(1)}%

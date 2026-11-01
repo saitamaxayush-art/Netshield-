@@ -23,12 +23,18 @@ export function revealOnScroll(
     ([entry]) => {
       window.clearTimeout(timer)
       if (!entry.isIntersecting) return
+      // Only arm fail-safe once element has scrolled near the activation threshold
+      const rect = entry.boundingClientRect
+      if (rect.top > window.innerHeight * 0.95) return
+
       timer = window.setTimeout(() => {
-        if (tl.progress() === 0 && !tl.isActive()) tl.progress(1)
+        if (tl.progress() === 0 && !tl.isActive()) {
+          tl.play()
+        }
         io.disconnect()
-      }, opts.failSafeMs ?? 600)
+      }, opts.failSafeMs ?? 1200)
     },
-    { threshold: 0.01 }
+    { threshold: 0.05 }
   )
   io.observe(trigger)
 

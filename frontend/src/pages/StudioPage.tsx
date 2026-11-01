@@ -18,6 +18,7 @@ import { AnalysisPanel } from '@/features/studio/AnalysisPanel'
 import { SimulationPanel } from '@/features/studio/SimulationPanel'
 import { useGraphStore, NetShieldNode, NetShieldEdge } from '@/store/graphStore'
 import { Sliders, Network, Activity } from 'lucide-react'
+import { apiService } from '@/services/api'
 
 export const StudioPage: React.FC = () => {
   const {
@@ -111,7 +112,18 @@ export const StudioPage: React.FC = () => {
       <Navbar />
 
       {/* Main Studio Workspace Container */}
-      <div className="flex-1 flex flex-col md:flex-row pt-16 overflow-hidden">
+      <div className="flex-1 flex flex-col pt-16 overflow-hidden">
+      {apiService.mode === 'demo' && (
+        <div
+          role="status"
+          data-testid="demo-mode-banner"
+          className="shrink-0 px-4 py-2 border-b border-state-warning/40 bg-state-warning-dim text-state-warning text-[11px] font-mono"
+        >
+          Demo mode is on (VITE_USE_DEMO_ADAPTER=true): simulation results are computed in your browser and labelled
+          Demo result. Graph analysis needs the backend and is unavailable in this mode.
+        </div>
+      )}
+      <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
         {/* Left Side: Graph Canvas & Toolbar */}
         <div className="flex-1 flex flex-col h-full relative overflow-hidden border-r border-border-subtle">
           <StudioToolbar />
@@ -203,6 +215,7 @@ export const StudioPage: React.FC = () => {
             {activeTab === 'simulation' && <SimulationPanel />}
           </div>
         </div>
+      </div>
       </div>
     </div>
   )

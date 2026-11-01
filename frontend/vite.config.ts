@@ -34,7 +34,14 @@ function preloadLandingChunk(): Plugin {
 }
 
 // https://vite.dev/config/
+// Where the dev and preview servers forward /api (FastAPI started by `npm run dev:all`).
+// NETSHIELD_API_PORT moves backend and proxy together when 8000 is taken.
+const apiTarget = process.env.NETSHIELD_API_PROXY_TARGET ?? `http://127.0.0.1:${process.env.NETSHIELD_API_PORT ?? '8000'}`
+const apiProxy = { '/api': { target: apiTarget, changeOrigin: true } }
+
 export default defineConfig({
+  server: { proxy: apiProxy },
+  preview: { proxy: apiProxy },
   plugins: [
     react(),
     tailwindcss(),

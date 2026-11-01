@@ -3,11 +3,17 @@
   "private": true,
   "version": "1.0.0",
   "scripts": {
+    "dev:all": "concurrently --kill-others --names api,web --prefix-colors red,blue \"node scripts/dev-backend.mjs\" \"npm --prefix frontend run dev\"",
     "dev": "npm --prefix frontend run dev",
     "frontend": "npm --prefix frontend run dev",
-    "backend": ".venv/bin/uvicorn backend.main:app --host 127.0.0.1 --port 8000 --reload",
+    "backend": "node scripts/dev-backend.mjs",
     "build": "npm --prefix frontend run build",
-    "test": "npm --prefix frontend test && .venv/bin/pytest backend/test_main.py",
-    "lint": "npm --prefix frontend run lint"
+    "test": "npm --prefix frontend test && npm run test:backend",
+    "test:backend": "node scripts/run-python.mjs -m pytest -q",
+    "lint": "npm --prefix frontend run lint",
+    "verify": "node scripts/verify.mjs"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.6"
   }
 }

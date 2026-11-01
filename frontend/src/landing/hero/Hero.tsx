@@ -132,8 +132,8 @@ export function Hero() {
       setHover(id && id !== hoveredRef.current ? id : null)
     }
     const leave = () => setHover(null)
-    el.addEventListener('pointermove', move)
-    el.addEventListener('pointerdown', down)
+    el.addEventListener('pointermove', move, { passive: true })
+    el.addEventListener('pointerdown', down, { passive: true })
     el.addEventListener('pointerleave', leave)
     return () => {
       el.removeEventListener('pointermove', move)
@@ -196,7 +196,7 @@ export function Hero() {
           ref={tip}
           className="ns-tooltip"
           role="status"
-          style={{ left: 0, top: 0, opacity: hovered ? 1 : 0, transition: 'opacity 160ms ease' }}
+          style={{ left: 0, top: 0, opacity: hovered ? 1 : 0, transition: 'opacity 160ms ease', willChange: 'transform' }}
         >
           {hovered ? `Node ${hovered.slice(1)}, degree ${degree}` : ''}
         </div>
