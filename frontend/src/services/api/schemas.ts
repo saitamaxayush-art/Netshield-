@@ -1,12 +1,13 @@
 /**
- * Runtime validation of backend responses, bound to the generated OpenAPI types.
+ * Zod schemas for every API response and the error body, bound to the generated OpenAPI types.
  *
  * `api.generated.ts` (from `npm run gen:api`) is the single source of truth for every request and
  * response shape. TypeScript types cannot validate data at runtime, so each response schema below is
  * a Zod mirror of a generated type, and the `Equals` assertions at the bottom make the build fail
  * unless every mirror is exactly equal to its generated type. When the backend changes, regenerate
- * the types; `tsc` then points at every schema that must change. Schemas are strict: a response
- * with unknown, missing or mistyped fields is rejected, never partially accepted.
+ * the types; `tsc` then points at every schema that must change. `Equals` is stronger than
+ * assignability: it fails if either side has a field, optionality or literal the other lacks.
+ * Schemas are strict: a response with unknown, missing or mistyped fields is rejected.
  */
 import { z } from 'zod'
 import type { components } from '@/types/api.generated'
@@ -19,7 +20,8 @@ export type AnalyzeRequestBody = Schemas['AnalyzeRequest']
 export type ApiNode = Schemas['Node']
 export type ApiEdge = Schemas['Edge']
 export type SimulateRequestBody = Schemas['SimulateRequest']
-export type SweepRequestBody = Schemas['ReliabilitySweepRequest']
+export type SweepRequestBody = Schemas['SweepRequest']
+export type SimulationMode = NonNullable<SimulateRequestBody['mode']>
 
 // --- POST /api/analyze --------------------------------------------------------------------------
 
@@ -106,7 +108,7 @@ const AnalysisSchema = z.strictObject({
 })
 
 const MetaSchema = z.strictObject({
-  engine: z.literal('networkx'),
+  engine: z.enum(['networkx', 'demo']),
   engineVersion: z.string(),
   apiVersion: z.string(),
 })
@@ -117,36 +119,71 @@ export const AnalyzeResponseSchema = z.strictObject({
   meta: MetaSchema,
 })
 
-// --- LEGACY POST /api/simulate and /api/reliability-sweep (pre-contract shapes until Phase 2) ----
+// --- POST /api/simulate and /api/reliability-sweep ---------------------------------------------------
 
-const FailTargetSchema = z.enum(['nodes', 'edges', 'both'])
+const ModeSchema = z.enum(['all-terminal', 'two-terminal'])
+/** Probabilities and proportions. OpenAPI types cannot carry the range, so it is checked here. */
+const unit = z.number().min(0).max(1)
+const count = z.number().int().min(0)
+const Wilson95Schema = z.strictObject({ low: unit, high: unit })
+const HistogramBinSchema = z.strictObject({ components: count, trials: count })
+const CriticalEdgeSchema = z.strictObject({
+  edgeId: z.string(),
+  pivotalTrials: count,
+  share: unit,
+  explanationKey: z.literal('critical_edge_definition'),
+})
 
 export const SimulateResponseSchema = z.strictObject({
-  active_components_distribution: z.record(z.string(), z.number()).nullable().optional(),
-  confidence_interval_95: z.tuple([z.number(), z.number()]),
-  connected_trials: z.number(),
-  estimated_reliability: z.number(),
-  execution_time_ms: z.number(),
-  fail_target: FailTargetSchema,
-  failure_probability: z.number(),
-  is_demo: z.boolean().optional(),
-  standard_error: z.number(),
-  trials: z.number(),
+  mode: ModeSchema,
+  source: z.string().nullable(),
+  target: z.string().nullable(),
+  trials: count,
+  connectedTrials: count,
+  estimate: unit,
+  standardError: unit,
+  wilson95: Wilson95Schema,
+  seed: count,
+  edgeFailureProbability: unit,
+  nodeFailureProbability: unit,
+  averageComponents: z.number(),
+  componentHistogram: z.array(HistogramBinSchema),
+  criticalEdge: CriticalEdgeSchema.nullable(),
+  assumptions: z.array(z.string()),
+  elapsedMs: z.number(),
+  explanationKey: z.literal('monte_carlo_estimate'),
+  meta: MetaSchema,
 })
 
 const SweepPointSchema = z.strictObject({
-  connected_trials: z.number(),
-  prob: z.number(),
-  reliability: z.number(),
-  standard_error: z.number(),
-  total_trials: z.number(),
+  p: unit,
+  estimate: unit,
+  connectedTrials: count,
+  standardError: unit,
+  wilson95: Wilson95Schema,
 })
 
 export const SweepResponseSchema = z.strictObject({
-  fail_target: FailTargetSchema,
-  is_demo: z.boolean().optional(),
+  mode: ModeSchema,
+  source: z.string().nullable(),
+  target: z.string().nullable(),
+  trialsPerPoint: count,
+  seed: count,
+  nodeFailureProbability: unit,
   points: z.array(SweepPointSchema),
-  trials_per_prob: z.number(),
+  assumptions: z.array(z.string()),
+  elapsedMs: z.number(),
+  explanationKey: z.literal('reliability_sweep'),
+  meta: MetaSchema,
+})
+
+// --- GET /api/health ------------------------------------------------------------------------------------
+
+export const HealthResponseSchema = z.strictObject({
+  status: z.literal('ok'),
+  service: z.string(),
+  engine: z.string(),
+  version: z.string(),
 })
 
 // --- Error body (every non 2xx response) ----------------------------------------------------------
@@ -170,8 +207,10 @@ export const ErrorResponseSchema = z.strictObject({
 export type AnalyzeResponseBody = Schemas['AnalyzeResponse']
 export type Analysis = Schemas['Analysis']
 export type SimulateResponseBody = Schemas['SimulateResponse']
-export type SweepResponseBody = Schemas['ReliabilitySweepResponse']
-export type SweepPoint = Schemas['ReliabilitySweepPoint']
+export type SweepResponseBody = Schemas['SweepResponse']
+export type SweepPoint = Schemas['SweepPoint']
+export type HealthResponseBody = Schemas['HealthResponse']
+export type Meta = Schemas['Meta']
 export type ErrorResponseBody = Schemas['ErrorResponse']
 
 // --- Compile time proof that every runtime schema equals its generated type ------------------------
@@ -193,5 +232,8 @@ export type ContractChecks = [
   Assert<Equals<z.infer<typeof MetaSchema>, Schemas['Meta']>>,
   Assert<Equals<z.infer<typeof SimulateResponseSchema>, SimulateResponseBody>>,
   Assert<Equals<z.infer<typeof SweepResponseSchema>, SweepResponseBody>>,
+  Assert<Equals<z.infer<typeof SweepPointSchema>, SweepPoint>>,
+  Assert<Equals<z.infer<typeof CriticalEdgeSchema>, Schemas['CriticalEdge']>>,
+  Assert<Equals<z.infer<typeof HealthResponseSchema>, HealthResponseBody>>,
   Assert<Equals<z.infer<typeof ErrorResponseSchema>, ErrorResponseBody>>,
 ]

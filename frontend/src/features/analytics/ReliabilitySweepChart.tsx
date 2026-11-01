@@ -8,30 +8,28 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts'
-import type { SweepPoint } from '@/services/api/contract'
-import type { ResultSource } from '@/services/api'
+import type { SweepResponseBody } from '@/services/api/schemas'
+import type { Stamped } from '@/services/api/client'
 import { Button } from '@/components/ui/Button'
 import { Table, Eye } from 'lucide-react'
 
 interface ReliabilitySweepChartProps {
-  points: SweepPoint[]
-  source: ResultSource
+  result: Stamped<SweepResponseBody>
 }
 
-export const ReliabilitySweepChart: React.FC<ReliabilitySweepChartProps> = ({
-  points,
-  source,
-}) => {
+/** Draws the backend's sweep points as returned; only formats them (percentages) for display. */
+export const ReliabilitySweepChart: React.FC<ReliabilitySweepChartProps> = ({ result }) => {
   const [showTable, setShowTable] = useState(false)
+  const { points, trialsPerPoint } = result
+  const source = result.isDemo ? 'demo' : 'backend'
 
   const chartData = points.map((pt) => ({
-    prob: (pt.prob * 100).toFixed(0) + '%',
-    probVal: pt.prob,
-    reliability: Number((pt.reliability * 100).toFixed(1)),
-    ciLow: Number((Math.max(0, pt.reliability - 1.96 * pt.standard_error) * 100).toFixed(1)),
-    ciHigh: Number((Math.min(1, pt.reliability + 1.96 * pt.standard_error) * 100).toFixed(1)),
-    connected: pt.connected_trials,
-    total: pt.total_trials,
+    prob: (pt.p * 100).toFixed(0) + '%',
+    reliability: Number((pt.estimate * 100).toFixed(1)),
+    ciLow: Number((pt.wilson95.low * 100).toFixed(1)),
+    ciHigh: Number((pt.wilson95.high * 100).toFixed(1)),
+    connected: pt.connectedTrials,
+    total: trialsPerPoint,
   }))
 
   const first = points[0]
@@ -42,8 +40,8 @@ export const ReliabilitySweepChart: React.FC<ReliabilitySweepChartProps> = ({
     <div className="space-y-3">
       {first && last && (
         <p className="text-[10px] font-mono text-text-muted" data-testid="sweep-summary" data-source={source}>
-          {points.length} points from {source === 'demo' ? 'the demo adapter' : 'the FastAPI backend'}: R = {pct(first.reliability)} at p ={' '}
-          {pct(first.prob)} to R = {pct(last.reliability)} at p = {pct(last.prob)}
+          {points.length} points from {source === 'demo' ? 'the demo adapter' : 'the FastAPI backend'}: R = {pct(first.estimate)} at p ={' '}
+          {pct(first.p)} to R = {pct(last.estimate)} at p = {pct(last.p)}
         </p>
       )}
       <div className="flex items-center justify-between">
@@ -69,7 +67,7 @@ export const ReliabilitySweepChart: React.FC<ReliabilitySweepChartProps> = ({
                 <th className="p-2">Fail Prob (p)</th>
                 <th className="p-2">Reliability R(p)</th>
                 <th className="p-2">Connected / Total</th>
-                <th className="p-2">95% CI</th>
+                <th className="p-2">95% Wilson</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border-subtle">
@@ -134,8 +132,8 @@ export const ReliabilitySweepChart: React.FC<ReliabilitySweepChartProps> = ({
       )}
 
       <p className="text-[10px] text-text-muted leading-tight">
-        Monte Carlo curve over varying independent failure rates. Shows percolation degradation
-        threshold where the network fragments with high probability.
+        Monte Carlo estimate of reliability at each link failure probability p, {trialsPerPoint} trials per point. Every
+        point reuses the same random draws, so the curve never rises with p.
       </p>
     </div>
   )

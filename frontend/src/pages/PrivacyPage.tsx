@@ -4,11 +4,12 @@ import { Footer } from '@/components/layout/Footer'
 import { Container } from '@/components/layout/Container'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
-import { useGraphStore } from '@/store/graphStore'
+import { clearSavedData, usePersistenceStatus } from '@/store/persistence'
 import { Trash2, CheckCircle2 } from 'lucide-react'
+import '@/store/bootstrap'
 
 export const PrivacyPage: React.FC = () => {
-  const { clearSavedData } = useGraphStore()
+  const { saveError, loadProblem } = usePersistenceStatus()
   const [cleared, setCleared] = useState(false)
 
   const handleClear = () => {
@@ -74,10 +75,20 @@ export const PrivacyPage: React.FC = () => {
               2. Browser Storage &amp; Persistence
             </h2>
             <p>
-              Topologies and simulation settings are persisted locally in your client browser via the HTML5
-              `localStorage` API. This enables session restoration without server accounts. No cookies are
-              utilized for tracking, sessions, or advertising.
+              Your graph and simulation settings are saved in this browser only, with the `localStorage` API
+              (key `netshield_workspace`), so the studio restores them on your next visit. Analysis and simulation
+              results are never saved. No cookies are used for tracking, sessions, or advertising.
             </p>
+            {saveError && (
+              <p role="alert" data-testid="persistence-save-error" className="text-state-failure">
+                {saveError}
+              </p>
+            )}
+            {loadProblem && (
+              <p role="status" data-testid="persistence-load-problem" className="text-state-warning">
+                Saved data was not loaded. {loadProblem}
+              </p>
+            )}
           </section>
 
           <section className="space-y-2">

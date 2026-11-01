@@ -1,0 +1,51 @@
+{
+  "method": "POST",
+  "path": "/api/analyze",
+  "request": {
+    "nodes": [
+      {
+        "id": "A",
+        "label": "Node A",
+        "type": "router",
+        "failed": false
+      },
+      {
+        "id": "B",
+        "label": "Node B",
+        "type": "router",
+        "failed": false
+      }
+    ],
+    "edges": [
+      {
+        "id": "e1",
+        "source": "A",
+        "target": "B",
+        "failed": false
+      },
+      {
+        "id": "e2",
+        "source": "B",
+        "target": "A",
+        "failed": false
+      }
+    ]
+  },
+  "status": 422,
+  "response": {
+    "error": {
+      "code": "PARALLEL_EDGE",
+      "message": "Edges 'e1' and 'e2' both connect 'A' and 'B'. The graph must be simple.",
+      "details": {
+        "edgeIds": [
+          "e1",
+          "e2"
+        ],
+        "nodes": [
+          "A",
+          "B"
+        ]
+      }
+    }
+  }
+}

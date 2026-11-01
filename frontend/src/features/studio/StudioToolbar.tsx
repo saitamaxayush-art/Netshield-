@@ -8,8 +8,11 @@ import {
   RotateCcw,
   RefreshCw,
   FolderOpen,
+  Undo2,
+  Redo2,
 } from 'lucide-react'
 import { useGraphStore } from '@/store/graphStore'
+import { PRESET_TITLES } from '@/store/presets'
 import { Button } from '@/components/ui/Button'
 import { Dialog } from '@/components/ui/Dialog'
 import type { NodeType } from '@/types/graph'
@@ -20,16 +23,21 @@ export const StudioToolbar: React.FC = () => {
     removeSelected,
     selectedNodeId,
     selectedEdgeId,
-    resetFailures,
-    loadExample,
-    resetGraph,
+    clearFailures,
+    loadPreset,
+    reset,
+    undo,
+    redo,
+    example,
   } = useGraphStore()
+  const canUndo = useGraphStore((s) => s.past.length > 0)
+  const canRedo = useGraphStore((s) => s.future.length > 0)
 
   const [confirmResetOpen, setConfirmResetOpen] = useState(false)
   const hasSelection = !!selectedNodeId || !!selectedEdgeId
 
   const handleAddNode = (type: NodeType) => {
-    addNode(type)
+    addNode({ nodeType: type })
   }
 
   return (
@@ -94,7 +102,7 @@ export const StudioToolbar: React.FC = () => {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => loadExample('star')}
+              onClick={() => loadPreset('star')}
               title="Load Star Topology Example"
             >
               Star
@@ -102,7 +110,7 @@ export const StudioToolbar: React.FC = () => {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => loadExample('ring')}
+              onClick={() => loadPreset('ring')}
               title="Load Ring Topology Example"
             >
               Ring
@@ -110,12 +118,25 @@ export const StudioToolbar: React.FC = () => {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => loadExample('mesh')}
+              onClick={() => loadPreset('mesh')}
               title="Load Redundant Mesh Topology Example"
             >
               Mesh
             </Button>
           </div>
+
+          {example && (
+            <span data-testid="example-label" className="text-[11px] font-mono text-state-warning border border-state-warning/40 px-1.5 py-0.5 rounded-[2px]">
+              {PRESET_TITLES[example]}
+            </span>
+          )}
+
+          <Button variant="ghost" size="sm" disabled={!canUndo} leftIcon={<Undo2 className="w-3.5 h-3.5" />} onClick={undo} title="Undo (Ctrl+Z)">
+            Undo
+          </Button>
+          <Button variant="ghost" size="sm" disabled={!canRedo} leftIcon={<Redo2 className="w-3.5 h-3.5" />} onClick={redo} title="Redo (Ctrl+Shift+Z)">
+            Redo
+          </Button>
 
           {/* Delete Selection */}
           <Button
@@ -123,7 +144,7 @@ export const StudioToolbar: React.FC = () => {
             size="sm"
             disabled={!hasSelection}
             leftIcon={<Trash2 className="w-3.5 h-3.5" />}
-            onClick={removeSelected}
+            onClick={() => removeSelected()}
             title="Delete selected vertex or edge (Del)"
           >
             Delete
@@ -134,7 +155,7 @@ export const StudioToolbar: React.FC = () => {
             variant="secondary"
             size="sm"
             leftIcon={<RefreshCw className="w-3.5 h-3.5" />}
-            onClick={resetFailures}
+            onClick={clearFailures}
             title="Restore all failed nodes and edges to healthy status"
           >
             Restore All
@@ -158,10 +179,10 @@ export const StudioToolbar: React.FC = () => {
         isOpen={confirmResetOpen}
         onClose={() => setConfirmResetOpen(false)}
         title="Clear Graph Canvas"
-        description="Are you sure you want to clear all nodes, edges, and simulation results? This will remove the current topology from your session storage."
+        description="Remove all nodes and links from the canvas? You can undo this."
         confirmLabel="Clear All"
         isDanger={true}
-        onConfirm={resetGraph}
+        onConfirm={reset}
       >
         <p className="text-xs text-text-muted">
           You can reload one of the standard example topologies (Star, Ring, or Mesh) at any time.

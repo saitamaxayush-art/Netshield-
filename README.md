@@ -68,6 +68,16 @@ no CORS issues in development. If port 8000 is taken: `NETSHIELD_API_PORT=8765 n
 
 Health check through the proxy: `http://localhost:5173/api/health`.
 
+**Demo mode** (no backend needed): `VITE_USE_DEMO_ADAPTER=true npm --prefix frontend run dev`. Demo mode
+can also be entered from the app with the "Switch to demo mode" button, which appears only on a
+"Backend unreachable" or "Request timed out" error. While it is on, a banner shows on every page and
+every result is labelled **Demo result**. "Exit demo mode" in the banner goes back to the backend.
+The app never switches to demo mode by itself.
+
+**Saved data**: the studio graph and settings are saved in this browser's `localStorage` under
+`netshield_workspace` (version 3; version 2 data and the version 1 key `netshield_graph_state_v1` are migrated once).
+Results are never saved. The Privacy page has a "Clear saved data" button.
+
 ### 3. Checks
 
 | Command | What it runs |
@@ -80,6 +90,8 @@ Health check through the proxy: `http://localhost:5173/api/health`.
 | `npm --prefix frontend run build` | Type check and Vite production build |
 | `npm --prefix frontend run gen:api` | Regenerates `frontend/src/types/api.generated.ts` from the FastAPI OpenAPI schema |
 | `npm --prefix frontend run check:api-types` | Fails if the generated API types are out of date |
+| `NETSHIELD_API_URL=http://127.0.0.1:8765 npm --prefix frontend run test:integration` | One real call per client method (health, analyze, simulate, reliabilitySweep, plus a 422 and a cancel) against a running backend; skipped in `npm test` |
+| `NETSHIELD_API_URL=http://127.0.0.1:8765 npm --prefix frontend run capture:api-fixtures` | Re-captures the real backend responses in `frontend/src/test/fixtures/backend/` that the schema and demo adapter tests use. Run after any backend response change |
 | `npm run test:backend` | pytest |
 
 Why `frontend/tools/` exists: the app compiles with TypeScript 7 (the native compiler, which has no
@@ -91,7 +103,7 @@ small separate package with its own TypeScript 5.9, installed automatically by `
 
 ```bash
 cd frontend
-npm run test:e2e                    # 44 tests: 11 viewport audits, interactions, scroll, fallbacks, routes, contrast
+npm run test:e2e                    # 60 tests: landing audits, interactions, scroll, routes, contrast, and the studio against the real backend
 node scripts/alignment-report.mjs   # regenerates ../ALIGNMENT_AUDIT.md from the audit measurements
 node scripts/perf.mjs               # full page scroll profile at 1440x900 (needs the preview server on :4317)
 node scripts/contrast.mjs           # WCAG ratios for every landing colour pair

@@ -22,6 +22,25 @@ export default tseslint.config(
     },
   },
   {
+    // Rule 2: the studio, dashboard and data layer show backend results only. The pure graph helpers
+    // used by the landing page demos must never be imported there.
+    files: ['src/pages/**', 'src/features/**', 'src/services/**', 'src/store/**', 'src/hooks/**', 'src/components/**', 'src/types/**'],
+    ignores: ['src/pages/LandingPage.tsx'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['**/lib/graphAlgorithms', '**/lib/graphAlgorithms.*', '**/lib/seededGraphGenerator', '**/lib/seededGraphGenerator.*', '@/landing/**', '**/landing/**'],
+              message: 'Landing page helpers compute results locally. Studio, dashboard and data layer code must use backend results.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     // Playwright fixtures call a `use` callback that the hooks rule mistakes for React's use().
     files: ['e2e/**/*.ts'],
     rules: { 'react-hooks/rules-of-hooks': 'off' },

@@ -327,7 +327,8 @@ class Analysis(ResponseModel):
 
 
 class Meta(ResponseModel):
-    engine: Literal["networkx"] = "networkx"
+    # "demo" is produced only by the frontend demo adapter (explicit demo mode); this server always sends "networkx".
+    engine: Literal["networkx", "demo"] = "networkx"
     engineVersion: str
     apiVersion: str
 

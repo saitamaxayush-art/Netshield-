@@ -1,0 +1,147 @@
+{
+  "method": "POST",
+  "path": "/api/simulate",
+  "request": {
+    "nodes": [
+      {
+        "id": "a",
+        "label": "Node a",
+        "type": "router",
+        "failed": false
+      },
+      {
+        "id": "b",
+        "label": "Node b",
+        "type": "router",
+        "failed": false
+      },
+      {
+        "id": "c",
+        "label": "Node c",
+        "type": "router",
+        "failed": false
+      },
+      {
+        "id": "d",
+        "label": "Node d",
+        "type": "router",
+        "failed": false
+      },
+      {
+        "id": "e",
+        "label": "Node e",
+        "type": "router",
+        "failed": false
+      },
+      {
+        "id": "f",
+        "label": "Node f",
+        "type": "router",
+        "failed": false
+      }
+    ],
+    "edges": [
+      {
+        "id": "ab",
+        "source": "a",
+        "target": "b",
+        "failed": false
+      },
+      {
+        "id": "bc",
+        "source": "b",
+        "target": "c",
+        "failed": false
+      },
+      {
+        "id": "ca",
+        "source": "c",
+        "target": "a",
+        "failed": false
+      },
+      {
+        "id": "cd",
+        "source": "c",
+        "target": "d",
+        "failed": false
+      },
+      {
+        "id": "de",
+        "source": "d",
+        "target": "e",
+        "failed": false
+      },
+      {
+        "id": "ef",
+        "source": "e",
+        "target": "f",
+        "failed": false
+      },
+      {
+        "id": "fd",
+        "source": "f",
+        "target": "d",
+        "failed": false
+      }
+    ],
+    "edgeFailureProbability": 0.2,
+    "trials": 2000,
+    "seed": 7
+  },
+  "status": 200,
+  "response": {
+    "mode": "all-terminal",
+    "source": null,
+    "target": null,
+    "trials": 2000,
+    "connectedTrials": 1310,
+    "estimate": 0.655,
+    "standardError": 0.010629557845931316,
+    "wilson95": {
+      "low": 0.633887165202872,
+      "high": 0.6755185501399396
+    },
+    "seed": 7,
+    "edgeFailureProbability": 0.2,
+    "nodeFailureProbability": 0,
+    "averageComponents": 1.4035,
+    "componentHistogram": [
+      {
+        "components": 1,
+        "trials": 1310
+      },
+      {
+        "components": 2,
+        "trials": 581
+      },
+      {
+        "components": 3,
+        "trials": 101
+      },
+      {
+        "components": 4,
+        "trials": 8
+      }
+    ],
+    "criticalEdge": {
+      "edgeId": "cd",
+      "pivotalTrials": 318,
+      "share": 0.159,
+      "explanationKey": "critical_edge_definition"
+    },
+    "assumptions": [
+      "Each operational link fails independently with probability 0.2.",
+      "Each operational node fails independently with probability 0.",
+      "Nodes and links marked failed in the request stay failed in every trial (0 node(s), 0 link(s)); a link whose endpoint failed is unavailable in that trial.",
+      "A trial succeeds when the surviving network has at least one node and exactly one connected component (all-terminal).",
+      "2000 trials with seed 7; the interval is the Wilson score interval at 95 percent."
+    ],
+    "elapsedMs": 4.66,
+    "explanationKey": "monte_carlo_estimate",
+    "meta": {
+      "engine": "networkx",
+      "engineVersion": "3.7",
+      "apiVersion": "2.0.0"
+    }
+  }
+}

@@ -103,3 +103,41 @@ Additional findings while fixing:
   `NetShieldCustomNode.tsx`, `PropertiesPanel.tsx`) for React Flow node data.
 * Saved workspace persistence: a corrupt `localStorage` entry silently loads the default Star
   example. This is local persistence, not an API result, but it is silent.
+
+Phase 3 resolution of the items above:
+
+* Dashboard: now shows only the backend analysis (auto analysis through `analysisStore`), with the
+  same error, Retry and "Results out of date" states as the studio. An ESLint rule blocks the landing
+  helpers from app code.
+* Simulate and sweep: moved to the Phase 2 shapes (see BUG-002).
+* Casts: removed. Nodes and edges are typed `EditorNode` and `EditorEdge` (`src/types/graph.ts`) and
+  the components take `NodeProps<EditorNode>` and `EdgeProps<EditorEdge>`.
+* Persistence: saved data is parsed with Zod and checked against the editing rules. When it is
+  discarded, the studio shows a notice with the reason (`persistence-notice`), and a failed save
+  (quota, blocked storage) is reported the same way. Tests: `src/test/persistence.test.ts`.
+
+## BUG-002: Studio simulation and sweep failed with HTTP 422 after Phase 2
+
+### Symptom
+
+After Phase 2 replaced `/api/simulate` and `/api/reliability-sweep` with the contract shapes, the
+studio's Simulator tab showed "Request rejected" errors (HTTP 422) for both buttons. Because of the
+Phase 1B fix the failure was visible (error and Retry, no result), not hidden.
+
+### Root cause
+
+Phase 2 was backend only by instruction ("No frontend changes"). The studio still sent the legacy
+request bodies (`failure_prob`, `fail_target`, `probs`) and parsed the legacy responses.
+
+### Fix (Phase 3)
+
+The data layer builds requests from the settings store (`src/store/requests.ts`), the generated types
+define both request and response shapes, and the Simulator panel and sweep chart read the new fields
+(`estimate`, `wilson95`, `criticalEdge`, `points[].p`, `points[].estimate`).
+
+### Tests that now catch it
+
+* `npm run check:api-types` and `tsc -b`: a backend shape change breaks the build before any UI runs.
+* `src/test/schemas.test.ts`: the schemas parse real responses captured from the backend.
+* `e2e/studio-backend.spec.ts`: the simulation and sweep tests assert that every displayed value
+  equals the real backend response.

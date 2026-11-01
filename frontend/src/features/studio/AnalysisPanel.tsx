@@ -1,16 +1,11 @@
-import React, { useState } from 'react'
+import React from 'react'
 import { useGraphStore } from '@/store/graphStore'
+import { useAnalysisStore } from '@/store/analysisStore'
+import { useSettingsStore } from '@/store/settingsStore'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
-import {
-  Play,
-  RotateCcw,
-  AlertTriangle,
-  GitCommit,
-  Network,
-  Share2,
-  HelpCircle,
-} from 'lucide-react'
+import { ApiErrorBox, SourceBadge, StaleNotice } from './ResultStatus'
+import { Play, GitCommit, Network, Share2, HelpCircle } from 'lucide-react'
 
 const PATH_REASON: Record<'SOURCE_FAILED' | 'TARGET_FAILED' | 'DISCONNECTED', string> = {
   SOURCE_FAILED: 'No path: the start vertex is failed.',
@@ -19,25 +14,24 @@ const PATH_REASON: Record<'SOURCE_FAILED' | 'TARGET_FAILED' | 'DISCONNECTED', st
 }
 
 export const AnalysisPanel: React.FC = () => {
-  const {
-    nodes,
-    edges,
-    runAnalysis,
-    analysisResult,
-    isAnalyzing,
-    analysisError,
-  } = useGraphStore()
+  const nodes = useGraphStore((s) => s.nodes)
+  const edges = useGraphStore((s) => s.edges)
+  const slot = useAnalysisStore((s) => s.analyze)
+  const run = useAnalysisStore((s) => s.run)
+  const startNode = useSettingsStore((s) => s.traversalStart) ?? ''
+  const targetNode = useSettingsStore((s) => s.pathTarget) ?? ''
+  const update = useSettingsStore((s) => s.update)
 
-  const [startNode, setStartNode] = useState<string>('')
-  const [targetNode, setTargetNode] = useState<string>('')
-
-  const current = analysisResult?.data.current ?? null
+  const analysisResult = slot.result
+  const isAnalyzing = slot.status === 'loading'
+  const current = analysisResult?.current ?? null
   const labelOf = (id: string) => nodes.find((n) => n.id === id)?.data.label ?? id
   const edgeById = new Map(edges.map((e) => [e.id, e]))
 
-  const handleRunAnalysis = () => {
-    runAnalysis(startNode || null, targetNode || null)
-  }
+  // The traversal start is also the path source.
+  const setStart = (id: string) => update({ traversalStart: id || null, pathSource: id || null })
+  const setTarget = (id: string) => update({ pathTarget: id || null })
+  const handleRunAnalysis = () => void run('analyze')
 
   return (
     <div className="p-5 space-y-6 text-xs text-text-primary">
@@ -49,11 +43,7 @@ export const AnalysisPanel: React.FC = () => {
             Graph Analysis
           </span>
         </div>
-        {analysisResult && (
-          <Badge variant="accent" size="sm" data-testid="analysis-source" data-source={analysisResult.source}>
-            FastAPI NetworkX
-          </Badge>
-        )}
+        {analysisResult && <SourceBadge isDemo={analysisResult.isDemo} testId="analysis-source" backendLabel="FastAPI NetworkX" />}
       </div>
 
       {/* Traversal Controls */}
@@ -69,7 +59,7 @@ export const AnalysisPanel: React.FC = () => {
             </label>
             <select
               value={startNode}
-              onChange={(e) => setStartNode(e.target.value)}
+              onChange={(e) => setStart(e.target.value)}
               className="w-full px-2 py-1 bg-bg-surface border border-border-strong rounded-[2px] text-text-primary text-xs focus:border-accent-teal focus:outline-none"
             >
               <option value="">(Select start)</option>
@@ -87,7 +77,7 @@ export const AnalysisPanel: React.FC = () => {
             </label>
             <select
               value={targetNode}
-              onChange={(e) => setTargetNode(e.target.value)}
+              onChange={(e) => setTarget(e.target.value)}
               className="w-full px-2 py-1 bg-bg-surface border border-border-strong rounded-[2px] text-text-primary text-xs focus:border-accent-teal focus:outline-none"
             >
               <option value="">(Select target)</option>
@@ -117,34 +107,15 @@ export const AnalysisPanel: React.FC = () => {
       </div>
 
       {/* Error state */}
-      {analysisError && (
-        <div
-          role="alert"
-          data-testid="analysis-error"
-          className="p-3 bg-state-failure-dim border border-state-failure/40 rounded-[2px] text-state-failure space-y-2"
-        >
-          <div className="flex items-center gap-1.5 font-semibold text-xs">
-            <AlertTriangle className="w-4 h-4" />
-            <span>Analysis Request Failed</span>
-          </div>
-          <p className="text-[11px]">{analysisError}</p>
-          <p className="text-[11px]">No result is shown. Nothing was computed in the browser.</p>
-          <Button
-            variant="outline"
-            size="sm"
-            leftIcon={<RotateCcw className="w-3 h-3" />}
-            onClick={handleRunAnalysis}
-          >
-            Retry
-          </Button>
-        </div>
-      )}
+      {slot.error && <ApiErrorBox title="Analysis Request Failed" error={slot.error} testId="analysis-error" onRetry={handleRunAnalysis} />}
+
+      {current && slot.stale && <StaleNotice testId="analysis-stale" onRefresh={handleRunAnalysis} isLoading={isAnalyzing} />}
 
       {/* Results Display: only ever a validated backend response */}
       {current ? (
         <div className="space-y-4" data-testid="analysis-results">
           <div className="text-[10px] font-mono text-text-muted" data-testid="analysis-engine">
-            NetworkX {analysisResult?.data.meta.engineVersion}, API {analysisResult?.data.meta.apiVersion}
+            {analysisResult?.isDemo ? 'Demo adapter' : 'NetworkX'} {analysisResult?.meta.engineVersion}, API {analysisResult?.meta.apiVersion}
           </div>
 
           {/* Overall Connectivity */}
@@ -270,19 +241,29 @@ export const AnalysisPanel: React.FC = () => {
               <div className="text-text-muted uppercase">Shortest Path:</div>
               {current.path.found && current.path.nodeIds ? (
                 <div className="text-accent-teal font-semibold break-all">
-                  {current.path.nodeIds.map(labelOf).join(' \u2192 ')} ({current.path.hops} hops)
+                  {current.path.nodeIds.map(labelOf).join(' \u2192 ')} ({current.path.hops} hops
+                  {current.path.metric === 'weight' ? `, total weight ${current.path.length}` : ''})
                 </div>
               ) : (
                 <div className="text-state-failure">{PATH_REASON[current.path.reason ?? 'DISCONNECTED']}</div>
               )}
+              {current.path.weightsIgnoredReason === 'MISSING_WEIGHTS' && (
+                <div className="text-state-warning" data-testid="analysis-weights-ignored">
+                  Weights ignored: not every link has a weight, so the path counts hops.
+                </div>
+              )}
             </div>
           )}
         </div>
-      ) : !analysisError && (
-        <div className="text-center py-8 text-text-muted space-y-2">
+      ) : !slot.error && (
+        <div className="text-center py-8 text-text-muted space-y-2" data-testid="analysis-empty">
           <HelpCircle className="w-6 h-6 mx-auto stroke-1" />
           <p className="text-[11px]">
-            Click &ldquo;Compute Graph Metrics&rdquo; to execute Tarjan cut detection and component analysis.
+            {nodes.length === 0
+              ? 'Add nodes to the canvas to analyze the network.'
+              : isAnalyzing
+                ? 'Analyzing on the backend...'
+                : 'Analysis runs automatically after each change. Click \u201cCompute Graph Metrics\u201d to run it now.'}
           </p>
         </div>
       )}

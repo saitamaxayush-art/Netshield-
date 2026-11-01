@@ -1,3 +1,5 @@
-export { apiService, apiModeFromEnv, ApiError, NetworkApiClient } from './client'
-export type { ApiErrorKind, ApiMode, ResultSource, Sourced } from './client'
-export { DemoAdapter } from './demoAdapter'
+export { ApiError, HttpApiClient, DEFAULT_TIMEOUTS_MS } from './client'
+export type { ApiErrorKind, NetShieldApi, RequestOptions, Stamped } from './client'
+export { DemoApi } from './demoAdapter'
+export { getApi, apiModeFromEnv, httpApi, demoApi } from './registry'
+export type { AdapterMode } from './registry'

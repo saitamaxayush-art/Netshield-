@@ -1,0 +1,169 @@
+{
+  "method": "POST",
+  "path": "/api/analyze",
+  "request": {
+    "nodes": [
+      {
+        "id": "s",
+        "label": "Node s",
+        "type": "router",
+        "failed": false
+      },
+      {
+        "id": "x",
+        "label": "Node x",
+        "type": "router",
+        "failed": false
+      },
+      {
+        "id": "y",
+        "label": "Node y",
+        "type": "router",
+        "failed": false
+      },
+      {
+        "id": "t",
+        "label": "Node t",
+        "type": "router",
+        "failed": false
+      }
+    ],
+    "edges": [
+      {
+        "id": "sx",
+        "source": "s",
+        "target": "x",
+        "failed": false,
+        "weight": 1
+      },
+      {
+        "id": "xt",
+        "source": "x",
+        "target": "t",
+        "failed": false,
+        "weight": 1
+      },
+      {
+        "id": "sy",
+        "source": "s",
+        "target": "y",
+        "failed": false,
+        "weight": 0.5
+      },
+      {
+        "id": "yt",
+        "source": "y",
+        "target": "t",
+        "failed": false,
+        "weight": 0.5
+      },
+      {
+        "id": "st",
+        "source": "s",
+        "target": "t",
+        "failed": false,
+        "weight": 5
+      }
+    ],
+    "pathSource": "s",
+    "pathTarget": "t",
+    "useWeights": true
+  },
+  "status": 200,
+  "response": {
+    "current": {
+      "summary": {
+        "nodeCount": 4,
+        "edgeCount": 5,
+        "operationalNodeCount": 4,
+        "operationalEdgeCount": 5,
+        "failedNodeCount": 0,
+        "failedEdgeCount": 0,
+        "unavailableEdgeCount": 0,
+        "density": 0.8333333333333334,
+        "explanationKey": "density_definition"
+      },
+      "connectivity": {
+        "connected": true,
+        "componentCount": 1,
+        "reasonKey": "single_component",
+        "reason": "Single component",
+        "explanationKey": "connectivity_definition"
+      },
+      "components": {
+        "items": [
+          [
+            "s",
+            "t",
+            "x",
+            "y"
+          ]
+        ],
+        "componentOf": {
+          "s": 0,
+          "t": 0,
+          "x": 0,
+          "y": 0
+        },
+        "explanationKey": "component_definition"
+      },
+      "degrees": {
+        "byNode": {
+          "s": {
+            "operational": 3,
+            "stored": 3
+          },
+          "t": {
+            "operational": 3,
+            "stored": 3
+          },
+          "x": {
+            "operational": 2,
+            "stored": 2
+          },
+          "y": {
+            "operational": 2,
+            "stored": 2
+          }
+        },
+        "explanationKey": "degree_definition"
+      },
+      "bridges": {
+        "edgeIds": [],
+        "explanationKey": "bridge_definition"
+      },
+      "articulationPoints": {
+        "nodeIds": [],
+        "explanationKey": "articulation_point_definition"
+      },
+      "traversal": null,
+      "path": {
+        "source": "s",
+        "target": "t",
+        "metric": "weight",
+        "weightsIgnoredReason": null,
+        "found": true,
+        "reason": null,
+        "reasonKey": null,
+        "nodeIds": [
+          "s",
+          "y",
+          "t"
+        ],
+        "edgeIds": [
+          "sy",
+          "yt"
+        ],
+        "hops": 2,
+        "length": 1,
+        "explanationKey": "shortest_path_weighted"
+      }
+    },
+    "healthy": null,
+    "meta": {
+      "engine": "networkx",
+      "engineVersion": "3.7",
+      "apiVersion": "2.0.0"
+    }
+  }
+}

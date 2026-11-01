@@ -1,0 +1,79 @@
+{
+  "method": "POST",
+  "path": "/api/simulate",
+  "request": {
+    "nodes": [
+      {
+        "id": "hub",
+        "label": "Node hub",
+        "type": "router",
+        "failed": false
+      },
+      {
+        "id": "L1",
+        "label": "Node L1",
+        "type": "router",
+        "failed": false
+      },
+      {
+        "id": "L2",
+        "label": "Node L2",
+        "type": "router",
+        "failed": false
+      },
+      {
+        "id": "L3",
+        "label": "Node L3",
+        "type": "router",
+        "failed": false
+      },
+      {
+        "id": "L4",
+        "label": "Node L4",
+        "type": "router",
+        "failed": false
+      }
+    ],
+    "edges": [
+      {
+        "id": "e1",
+        "source": "hub",
+        "target": "L1",
+        "failed": false
+      },
+      {
+        "id": "e2",
+        "source": "hub",
+        "target": "L2",
+        "failed": false
+      },
+      {
+        "id": "e3",
+        "source": "hub",
+        "target": "L3",
+        "failed": false
+      },
+      {
+        "id": "e4",
+        "source": "hub",
+        "target": "L4",
+        "failed": false
+      }
+    ],
+    "mode": "two-terminal",
+    "edgeFailureProbability": 0.1
+  },
+  "status": 422,
+  "response": {
+    "error": {
+      "code": "VALIDATION_ERROR",
+      "message": "Invalid request: two-terminal mode needs both source and target.",
+      "details": [
+        {
+          "path": "",
+          "message": "two-terminal mode needs both source and target"
+        }
+      ]
+    }
+  }
+}

@@ -1,818 +1,306 @@
+/**
+ * Graph editing state: nodes, edges, selection, failure flags and undo history.
+ *
+ * Holds no analysis results (those live in analysisStore) and computes no graph metrics. Every edit
+ * is validated against the rules in graphRules.ts and returns an EditResult instead of throwing.
+ */
+import { applyNodeChanges, type NodeChange } from '@xyflow/react'
 import { create } from 'zustand'
-import type { Node, Edge, Connection } from '@xyflow/react'
-import type { NodeType, ElementStatus } from '@/types/graph'
-import { apiService, type Sourced } from '@/services/api'
-import type {
-  AnalyzeRequestBody,
-  AnalyzeResponseBody,
-  SimulateRequestBody,
-  SimulateResponseBody,
-  SweepRequestBody,
-  SweepResponseBody,
-} from '@/services/api/contract'
+import type { EditorEdge, EditorEdgeData, EditorGraph, EditorNode, NodeType, Position } from '@/types/graph'
+import {
+  checkGraph,
+  checkId,
+  checkLabel,
+  checkNewEdge,
+  checkProbability,
+  checkWeight,
+  fail,
+  MAX_NODES,
+  nextId,
+  ok,
+  type EditResult,
+} from './graphRules'
+import { preset, type PresetName } from './presets'
 
-export const STORAGE_KEY = 'netshield_graph_state_v1'
+export const HISTORY_LIMIT = 100
 
-export interface NetShieldNodeData extends Record<string, unknown> {
-  label: string
+const TYPE_LABELS: Record<NodeType, string> = {
+  router: 'Router',
+  server: 'Server',
+  client: 'Client',
+  firewall: 'Firewall',
+}
+
+export interface NewNode {
   nodeType: NodeType
-  status: ElementStatus
-  failureProb?: number
-  componentIndex?: number
-  isArticulationPoint?: boolean
+  id?: string
+  label?: string
+  position?: Position
 }
 
-export interface NetShieldEdgeData extends Record<string, unknown> {
-  status: ElementStatus
+export interface NewEdge {
+  source: string
+  target: string
+  id?: string
   weight?: number
-  failureProb?: number
-  isBridge?: boolean
+  failureProbability?: number
 }
 
-export type NetShieldNode = Node<NetShieldNodeData>
-export type NetShieldEdge = Edge<NetShieldEdgeData>
-
-export interface SimulationConfig {
-  trials: number
-  failureProb: number
-  failTarget: 'nodes' | 'edges' | 'both'
+/** null clears an optional field; undefined leaves it unchanged. */
+export interface EdgePatch {
+  weight?: number | null
+  failureProbability?: number | null
 }
 
-interface GraphStoreState {
-  // Graph Canvas State
-  nodes: NetShieldNode[]
-  edges: NetShieldEdge[]
+export interface GraphState extends EditorGraph {
   selectedNodeId: string | null
   selectedEdgeId: string | null
-  failedNodeIds: string[]
-  failedEdgeIds: string[]
+  /** The preset the graph was loaded from, so the UI can label it "Example". Null for the user's own graph. */
+  example: PresetName | null
+  past: HistoryEntry[]
+  future: HistoryEntry[]
+  /** True between the first position change of a drag and its end (history is recorded once per drag). */
+  dragging: boolean
 
-  // Simulation parameters
-  simulationConfig: SimulationConfig
+  addNode: (input: NewNode) => EditResult
+  updateNode: (id: string, patch: { label?: string; nodeType?: NodeType }) => EditResult
+  removeNode: (id: string) => EditResult
+  addEdge: (input: NewEdge) => EditResult
+  updateEdge: (id: string, patch: EdgePatch) => EditResult
+  removeEdge: (id: string) => EditResult
+  removeSelected: () => EditResult
+  /** React Flow node changes: positions and dimensions, plus removals routed through removeNode. */
+  applyNodeChanges: (changes: NodeChange<EditorNode>[]) => void
 
-  // Authoritative Analysis State
-  analysisResult: Sourced<AnalyzeResponseBody> | null
-  isAnalyzing: boolean
-  analysisError: string | null
-
-  // Authoritative Simulation State
-  simulationResult: Sourced<SimulateResponseBody> | null
-  isSimulating: boolean
-  simulationError: string | null
-
-  // Reliability Sweep State
-  sweepResult: Sourced<SweepResponseBody> | null
-  isSweeping: boolean
-  sweepError: string | null
-
-  // Graph actions
-  setNodes: (nodes: NetShieldNode[] | ((prev: NetShieldNode[]) => NetShieldNode[])) => void
-  setEdges: (edges: NetShieldEdge[] | ((prev: NetShieldEdge[]) => NetShieldEdge[])) => void
-  addNode: (nodeType: NodeType, position?: { x: number; y: number }) => void
-  updateNodeData: (id: string, data: Partial<NetShieldNodeData>) => void
-  removeSelected: () => void
-  deleteNode: (id: string) => void
-  deleteEdge: (id: string) => void
-  onConnect: (connection: Connection) => void
   selectNode: (id: string | null) => void
   selectEdge: (id: string | null) => void
 
-  // Failure controls
-  failNode: (id: string) => void
-  restoreNode: (id: string) => void
-  toggleNodeFailure: (id: string) => void
-  failEdge: (id: string) => void
-  restoreEdge: (id: string) => void
-  toggleEdgeFailure: (id: string) => void
-  resetFailures: () => void
+  failNode: (id: string) => EditResult
+  restoreNode: (id: string) => EditResult
+  toggleNodeFailure: (id: string) => EditResult
+  failEdge: (id: string) => EditResult
+  restoreEdge: (id: string) => EditResult
+  toggleEdgeFailure: (id: string) => EditResult
+  clearFailures: () => void
 
-  // Topology templates
-  loadExample: (topology: 'star' | 'ring' | 'mesh') => void
-  resetGraph: () => void
+  undo: () => boolean
+  redo: () => boolean
 
-  // Settings
-  setSimulationConfig: (cfg: Partial<SimulationConfig>) => void
-
-  // Backend / Demo calls
-  runAnalysis: (startNode?: string | null, targetNode?: string | null) => Promise<void>
-  runSimulation: () => Promise<void>
-  runSweep: () => Promise<void>
-
-  // Persistence
-  clearSavedData: () => void
+  loadPreset: (name: PresetName) => void
+  /** Replace the whole graph (saved data): validated, clears history. */
+  replaceGraph: (graph: EditorGraph, example?: PresetName | null) => EditResult
+  /** Empty canvas. Recorded in history so it can be undone. */
+  reset: () => void
 }
 
-/**
- * Default Star Topology Example
- */
-const createStarTopology = (): { nodes: NetShieldNode[]; edges: NetShieldEdge[] } => {
-  const nodes: NetShieldNode[] = [
-    {
-      id: 'hub_1',
-      type: 'netshieldNode',
-      position: { x: 400, y: 250 },
-      data: { label: 'Core Router', nodeType: 'router', status: 'healthy' },
-    },
-    {
-      id: 'srv_1',
-      type: 'netshieldNode',
-      position: { x: 400, y: 80 },
-      data: { label: 'Primary Server', nodeType: 'server', status: 'healthy' },
-    },
-    {
-      id: 'fw_1',
-      type: 'netshieldNode',
-      position: { x: 180, y: 250 },
-      data: { label: 'Border Firewall', nodeType: 'firewall', status: 'healthy' },
-    },
-    {
-      id: 'cli_1',
-      type: 'netshieldNode',
-      position: { x: 620, y: 160 },
-      data: { label: 'Client Alpha', nodeType: 'client', status: 'healthy' },
-    },
-    {
-      id: 'cli_2',
-      type: 'netshieldNode',
-      position: { x: 580, y: 380 },
-      data: { label: 'Client Beta', nodeType: 'client', status: 'healthy' },
-    },
-    {
-      id: 'cli_3',
-      type: 'netshieldNode',
-      position: { x: 260, y: 400 },
-      data: { label: 'Client Gamma', nodeType: 'client', status: 'healthy' },
-    },
-  ]
+export type HistoryEntry = EditorGraph & { example: PresetName | null }
 
-  const edges: NetShieldEdge[] = [
-    { id: 'e_hub_srv', source: 'hub_1', target: 'srv_1', type: 'netshieldEdge', data: { status: 'healthy' } },
-    { id: 'e_hub_fw', source: 'hub_1', target: 'fw_1', type: 'netshieldEdge', data: { status: 'healthy' } },
-    { id: 'e_hub_cli1', source: 'hub_1', target: 'cli_1', type: 'netshieldEdge', data: { status: 'healthy' } },
-    { id: 'e_hub_cli2', source: 'hub_1', target: 'cli_2', type: 'netshieldEdge', data: { status: 'healthy' } },
-    { id: 'e_hub_cli3', source: 'hub_1', target: 'cli_3', type: 'netshieldEdge', data: { status: 'healthy' } },
-    { id: 'e_cli1_cli2', source: 'cli_1', target: 'cli_2', type: 'netshieldEdge', data: { status: 'healthy' } },
-  ]
+const snapshot = (s: HistoryEntry): HistoryEntry => ({ nodes: s.nodes, edges: s.edges, example: s.example })
 
-  return { nodes, edges }
+/** State update that records the current graph in the undo history first. */
+function withHistory(s: GraphState, next: Partial<GraphState>): Partial<GraphState> {
+  const past = [...s.past, snapshot(s)]
+  return { ...next, past: past.length > HISTORY_LIMIT ? past.slice(past.length - HISTORY_LIMIT) : past, future: [] }
 }
 
-const createRingTopology = (): { nodes: NetShieldNode[]; edges: NetShieldEdge[] } => {
-  const ids = ['ring_1', 'ring_2', 'ring_3', 'ring_4', 'ring_5', 'ring_6']
-  const types: NodeType[] = ['router', 'server', 'router', 'client', 'firewall', 'client']
-  const labels = ['Router A', 'Server 1', 'Router B', 'Client 1', 'Firewall GW', 'Client 2']
-  const radius = 200
-  const cx = 400
-  const cy = 250
+function setNodeFailed(nodes: EditorNode[], id: string, failed: boolean): EditorNode[] {
+  return nodes.map((n) => (n.id === id ? { ...n, data: { ...n.data, failed } } : n))
+}
 
-  const nodes: NetShieldNode[] = ids.map((id, i) => {
-    const angle = (i * 2 * Math.PI) / ids.length - Math.PI / 2
-    return {
-      id,
-      type: 'netshieldNode',
-      position: {
-        x: Math.round(cx + radius * Math.cos(angle)),
-        y: Math.round(cy + radius * Math.sin(angle)),
-      },
-      data: { label: labels[i], nodeType: types[i], status: 'healthy' },
+function setEdgeFailed(edges: EditorEdge[], id: string, failed: boolean): EditorEdge[] {
+  return edges.map((e) => (e.id === id ? { ...e, data: { ...(e.data ?? { failed: false }), failed } } : e))
+}
+
+export const initialGraph = (): Pick<GraphState, 'nodes' | 'edges' | 'example'> => ({ ...preset('star'), example: 'star' })
+
+export const useGraphStore = create<GraphState>((set, get) => {
+  /** Apply an edit with history, or return why it was refused. */
+  const commit = (next: Partial<GraphState>, id?: string): EditResult => {
+    set((s) => withHistory(s, next))
+    return ok(id)
+  }
+
+  const setFailure = (kind: 'node' | 'edge', id: string, failed: boolean): EditResult => {
+    const s = get()
+    if (kind === 'node') {
+      const current = s.nodes.find((n) => n.id === id)
+      if (!current) return fail(`Unknown node '${id}'.`)
+      if (current.data.failed === failed) return ok(id)
+      return commit({ nodes: setNodeFailed(s.nodes, id, failed) }, id)
     }
-  })
-
-  const edges: NetShieldEdge[] = ids.map((id, i) => {
-    const nextId = ids[(i + 1) % ids.length]
-    return {
-      id: `e_${id}_${nextId}`,
-      source: id,
-      target: nextId,
-      type: 'netshieldEdge',
-      data: { status: 'healthy' },
-    }
-  })
-
-  return { nodes, edges }
-}
-
-const createMeshTopology = (): { nodes: NetShieldNode[]; edges: NetShieldEdge[] } => {
-  const nodes: NetShieldNode[] = [
-    { id: 'm_r1', type: 'netshieldNode', position: { x: 220, y: 140 }, data: { label: 'Gateway 1', nodeType: 'firewall', status: 'healthy' } },
-    { id: 'm_r2', type: 'netshieldNode', position: { x: 420, y: 110 }, data: { label: 'Core Router 1', nodeType: 'router', status: 'healthy' } },
-    { id: 'm_r3', type: 'netshieldNode', position: { x: 620, y: 140 }, data: { label: 'Gateway 2', nodeType: 'firewall', status: 'healthy' } },
-    { id: 'm_s1', type: 'netshieldNode', position: { x: 300, y: 320 }, data: { label: 'Database Cluster', nodeType: 'server', status: 'healthy' } },
-    { id: 'm_s2', type: 'netshieldNode', position: { x: 540, y: 320 }, data: { label: 'Application Cluster', nodeType: 'server', status: 'healthy' } },
-    { id: 'm_c1', type: 'netshieldNode', position: { x: 420, y: 440 }, data: { label: 'Aggregation Switch', nodeType: 'router', status: 'healthy' } },
-  ]
-
-  const edges: NetShieldEdge[] = [
-    { id: 'em_1', source: 'm_r1', target: 'm_r2', type: 'netshieldEdge', data: { status: 'healthy' } },
-    { id: 'em_2', source: 'm_r2', target: 'm_r3', type: 'netshieldEdge', data: { status: 'healthy' } },
-    { id: 'em_3', source: 'm_r1', target: 'm_s1', type: 'netshieldEdge', data: { status: 'healthy' } },
-    { id: 'em_4', source: 'm_r2', target: 'm_s1', type: 'netshieldEdge', data: { status: 'healthy' } },
-    { id: 'em_5', source: 'm_r2', target: 'm_s2', type: 'netshieldEdge', data: { status: 'healthy' } },
-    { id: 'em_6', source: 'm_r3', target: 'm_s2', type: 'netshieldEdge', data: { status: 'healthy' } },
-    { id: 'em_7', source: 'm_s1', target: 'm_s2', type: 'netshieldEdge', data: { status: 'healthy' } },
-    { id: 'em_8', source: 'm_s1', target: 'm_c1', type: 'netshieldEdge', data: { status: 'healthy' } },
-    { id: 'em_9', source: 'm_s2', target: 'm_c1', type: 'netshieldEdge', data: { status: 'healthy' } },
-  ]
-
-  return { nodes, edges }
-}
-
-/**
- * Load initial state safely from localStorage
- */
-function loadPersistedState(): {
-  nodes: NetShieldNode[]
-  edges: NetShieldEdge[]
-  failedNodeIds: string[]
-  failedEdgeIds: string[]
-  simulationConfig: SimulationConfig
-} {
-  const fallback = {
-    ...createStarTopology(),
-    failedNodeIds: [] as string[],
-    failedEdgeIds: [] as string[],
-    simulationConfig: {
-      trials: 500,
-      failureProb: 0.15,
-      failTarget: 'edges' as const,
-    },
+    const current = s.edges.find((e) => e.id === id)
+    if (!current) return fail(`Unknown edge '${id}'.`)
+    if ((current.data?.failed ?? false) === failed) return ok(id)
+    return commit({ edges: setEdgeFailed(s.edges, id, failed) }, id)
   }
 
-  if (typeof window === 'undefined') return fallback
-
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return fallback
-    const parsed = JSON.parse(raw)
-    if (parsed && Array.isArray(parsed.nodes) && Array.isArray(parsed.edges)) {
-      return {
-        nodes: parsed.nodes,
-        edges: parsed.edges,
-        failedNodeIds: Array.isArray(parsed.failedNodeIds) ? parsed.failedNodeIds : [],
-        failedEdgeIds: Array.isArray(parsed.failedEdgeIds) ? parsed.failedEdgeIds : [],
-        simulationConfig: parsed.simulationConfig || fallback.simulationConfig,
-      }
-    }
-  } catch {
-    // Ignore corrupt storage, fallback safely
-  }
-  return fallback
-}
-
-/**
- * Persist state safely to localStorage
- */
-function saveStateToStorage(state: {
-  nodes: NetShieldNode[]
-  edges: NetShieldEdge[]
-  failedNodeIds: string[]
-  failedEdgeIds: string[]
-  simulationConfig: SimulationConfig
-}) {
-  if (typeof window === 'undefined') return
-  try {
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({
-        nodes: state.nodes,
-        edges: state.edges,
-        failedNodeIds: state.failedNodeIds,
-        failedEdgeIds: state.failedEdgeIds,
-        simulationConfig: state.simulationConfig,
-        version: 1,
-      })
-    )
-  } catch {
-    // Storage quota or restriction handled silently
-  }
-}
-
-/** Request body for POST /api/analyze (API_CONTRACT.md section 7), typed by the generated schema. */
-export function buildAnalyzeRequest(
-  nodes: NetShieldNode[],
-  edges: NetShieldEdge[],
-  failedNodeIds: string[],
-  failedEdgeIds: string[],
-  startNode: string | null,
-  targetNode: string | null
-): AnalyzeRequestBody {
-  const failedNodes = new Set(failedNodeIds)
-  const failedEdges = new Set(failedEdgeIds)
-  const body: AnalyzeRequestBody = {
-    nodes: nodes.map((n) => ({ id: n.id, label: n.data.label, type: n.data.nodeType, failed: failedNodes.has(n.id) })),
-    edges: edges.map((e) => {
-      const weight = e.data?.weight
-      return {
-        id: e.id,
-        source: e.source,
-        target: e.target,
-        failed: failedEdges.has(e.id),
-        ...(typeof weight === 'number' && weight > 0 ? { weight } : {}),
-      }
-    }),
-  }
-  if (startNode) body.startNodeId = startNode
-  if (startNode && targetNode) {
-    body.pathSource = startNode
-    body.pathTarget = targetNode
-  }
-  return body
-}
-
-/** LEGACY request bodies for /api/simulate and /api/reliability-sweep (replaced in Phase 2). */
-function legacyGraph(nodes: NetShieldNode[], edges: NetShieldEdge[], failedNodeIds: string[], failedEdgeIds: string[]) {
   return {
-    nodes: nodes.map((n) => ({ id: n.id, label: n.data.label, type: n.data.nodeType })),
-    edges: edges.map((e) => ({ id: e.id, source: e.source, target: e.target })),
-    failed_nodes: failedNodeIds,
-    failed_edges: failedEdgeIds,
-  }
-}
+    ...initialGraph(),
+    selectedNodeId: null,
+    selectedEdgeId: null,
+    past: [],
+    future: [],
+    dragging: false,
 
-/** Remove analysis annotations so the canvas never shows highlights from an older result. */
-function clearAnnotations(nodes: NetShieldNode[], edges: NetShieldEdge[]) {
-  return {
-    nodes: nodes.map((n) => ({ ...n, data: { ...n.data, componentIndex: undefined, isArticulationPoint: false } })),
-    edges: edges.map((e) => ({ ...e, data: { status: e.data?.status ?? 'healthy', ...e.data, isBridge: false } })),
-  }
-}
-
-const initialState = loadPersistedState()
-
-export const useGraphStore = create<GraphStoreState>((set, get) => ({
-  nodes: initialState.nodes,
-  edges: initialState.edges,
-  selectedNodeId: null,
-  selectedEdgeId: null,
-  failedNodeIds: initialState.failedNodeIds,
-  failedEdgeIds: initialState.failedEdgeIds,
-  simulationConfig: initialState.simulationConfig,
-
-  analysisResult: null,
-  isAnalyzing: false,
-  analysisError: null,
-
-  simulationResult: null,
-  isSimulating: false,
-  simulationError: null,
-
-  sweepResult: null,
-  isSweeping: false,
-  sweepError: null,
-
-  setNodes: (updater) => {
-    set((state) => {
-      const nextNodes = typeof updater === 'function' ? updater(state.nodes) : updater
-      saveStateToStorage({
-        nodes: nextNodes,
-        edges: state.edges,
-        failedNodeIds: state.failedNodeIds,
-        failedEdgeIds: state.failedEdgeIds,
-        simulationConfig: state.simulationConfig,
-      })
-      return { nodes: nextNodes }
-    })
-  },
-
-  setEdges: (updater) => {
-    set((state) => {
-      const nextEdges = typeof updater === 'function' ? updater(state.edges) : updater
-      saveStateToStorage({
-        nodes: state.nodes,
-        edges: nextEdges,
-        failedNodeIds: state.failedNodeIds,
-        failedEdgeIds: state.failedEdgeIds,
-        simulationConfig: state.simulationConfig,
-      })
-      return { edges: nextEdges }
-    })
-  },
-
-  addNode: (nodeType: NodeType, position) => {
-    set((state) => {
-      const id = `node_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
-      const typeLabels: Record<NodeType, string> = {
-        router: 'Router Node',
-        server: 'Compute Server',
-        client: 'Workstation',
-        firewall: 'Security Gateway',
-      }
-
-      const newNode: NetShieldNode = {
-        id,
+    addNode: ({ nodeType, id, label, position }) => {
+      const s = get()
+      if (s.nodes.length >= MAX_NODES) return fail(`A network can have at most ${MAX_NODES} nodes.`)
+      const nodeId = id ?? nextId(`${nodeType}-`, s.nodes.map((n) => n.id))
+      const problem = checkId(nodeId, 'Node') ?? (label !== undefined ? checkLabel(label) : null)
+      if (problem) return fail(problem)
+      if (s.nodes.some((n) => n.id === nodeId)) return fail(`Node id '${nodeId}' is already used.`)
+      const count = s.nodes.filter((n) => n.data.nodeType === nodeType).length
+      const node: EditorNode = {
+        id: nodeId,
         type: 'netshieldNode',
-        position: position || {
-          x: 200 + (state.nodes.length % 5) * 80,
-          y: 150 + Math.floor(state.nodes.length / 5) * 80,
-        },
-        data: {
-          label: `${typeLabels[nodeType]} ${state.nodes.length + 1}`,
-          nodeType,
-          status: 'healthy',
-        },
+        position: position ?? { x: 200 + (s.nodes.length % 5) * 90, y: 150 + Math.floor(s.nodes.length / 5) * 90 },
+        data: { label: label ?? `${TYPE_LABELS[nodeType]} ${count + 1}`, nodeType, failed: false },
       }
+      return commit({ nodes: [...s.nodes, node], selectedNodeId: nodeId, selectedEdgeId: null }, nodeId)
+    },
 
-      const nextNodes = [...state.nodes, newNode]
-      saveStateToStorage({
-        nodes: nextNodes,
-        edges: state.edges,
-        failedNodeIds: state.failedNodeIds,
-        failedEdgeIds: state.failedEdgeIds,
-        simulationConfig: state.simulationConfig,
-      })
-      return { nodes: nextNodes, selectedNodeId: id, selectedEdgeId: null }
-    })
-  },
-
-  updateNodeData: (id, data) => {
-    set((state) => {
-      const nextNodes = state.nodes.map((n) =>
-        n.id === id ? { ...n, data: { ...n.data, ...data } } : n
-      )
-      saveStateToStorage({
-        nodes: nextNodes,
-        edges: state.edges,
-        failedNodeIds: state.failedNodeIds,
-        failedEdgeIds: state.failedEdgeIds,
-        simulationConfig: state.simulationConfig,
-      })
-      return { nodes: nextNodes }
-    })
-  },
-
-  removeSelected: () => {
-    const { selectedNodeId, selectedEdgeId, deleteNode, deleteEdge } = get()
-    if (selectedNodeId) {
-      deleteNode(selectedNodeId)
-    } else if (selectedEdgeId) {
-      deleteEdge(selectedEdgeId)
-    }
-  },
-
-  deleteNode: (id) => {
-    set((state) => {
-      const nextNodes = state.nodes.filter((n) => n.id !== id)
-      // Remove incident edges as well
-      const nextEdges = state.edges.filter((e) => e.source !== id && e.target !== id)
-      const nextFailedNodes = state.failedNodeIds.filter((fn) => fn !== id)
-
-      saveStateToStorage({
-        nodes: nextNodes,
-        edges: nextEdges,
-        failedNodeIds: nextFailedNodes,
-        failedEdgeIds: state.failedEdgeIds,
-        simulationConfig: state.simulationConfig,
-      })
-
-      return {
-        nodes: nextNodes,
-        edges: nextEdges,
-        failedNodeIds: nextFailedNodes,
-        selectedNodeId: state.selectedNodeId === id ? null : state.selectedNodeId,
+    updateNode: (id, patch) => {
+      const s = get()
+      if (!s.nodes.some((n) => n.id === id)) return fail(`Unknown node '${id}'.`)
+      if (patch.label !== undefined) {
+        const problem = checkLabel(patch.label)
+        if (problem) return fail(problem)
       }
-    })
-  },
+      return commit({ nodes: s.nodes.map((n) => (n.id === id ? { ...n, data: { ...n.data, ...patch } } : n)) }, id)
+    },
 
-  deleteEdge: (id) => {
-    set((state) => {
-      const nextEdges = state.edges.filter((e) => e.id !== id)
-      const nextFailedEdges = state.failedEdgeIds.filter((fe) => fe !== id)
-
-      saveStateToStorage({
-        nodes: state.nodes,
-        edges: nextEdges,
-        failedNodeIds: state.failedNodeIds,
-        failedEdgeIds: nextFailedEdges,
-        simulationConfig: state.simulationConfig,
+    removeNode: (id) => {
+      const s = get()
+      if (!s.nodes.some((n) => n.id === id)) return fail(`Unknown node '${id}'.`)
+      const edges = s.edges.filter((e) => e.source !== id && e.target !== id)
+      return commit({
+        nodes: s.nodes.filter((n) => n.id !== id),
+        edges,
+        selectedNodeId: s.selectedNodeId === id ? null : s.selectedNodeId,
+        selectedEdgeId: s.selectedEdgeId !== null && edges.some((e) => e.id === s.selectedEdgeId) ? s.selectedEdgeId : null,
       })
+    },
 
-      return {
-        edges: nextEdges,
-        failedEdgeIds: nextFailedEdges,
-        selectedEdgeId: state.selectedEdgeId === id ? null : state.selectedEdgeId,
-      }
-    })
-  },
+    addEdge: ({ source, target, id, weight, failureProbability }) => {
+      const s = get()
+      const edgeId = id ?? nextId(`e-${source}-${target}-`, s.edges.map((e) => e.id))
+      const problem =
+        checkNewEdge(s.nodes, s.edges, source, target, edgeId) ??
+        (weight !== undefined ? checkWeight(weight) : null) ??
+        (failureProbability !== undefined ? checkProbability(failureProbability) : null)
+      if (problem) return fail(problem)
+      const data: EditorEdgeData = { failed: false }
+      if (weight !== undefined) data.weight = weight
+      if (failureProbability !== undefined) data.failureProbability = failureProbability
+      return commit({ edges: [...s.edges, { id: edgeId, source, target, type: 'netshieldEdge', data }] }, edgeId)
+    },
 
-  onConnect: (connection) => {
-    set((state) => {
-      if (!connection.source || !connection.target) return state
-      // Prevent self-loops
-      if (connection.source === connection.target) return state
+    updateEdge: (id, patch) => {
+      const s = get()
+      const current = s.edges.find((e) => e.id === id)
+      if (!current) return fail(`Unknown edge '${id}'.`)
+      const problem =
+        (patch.weight != null ? checkWeight(patch.weight) : null) ??
+        (patch.failureProbability != null ? checkProbability(patch.failureProbability) : null)
+      if (problem) return fail(problem)
+      const data: EditorEdgeData = { ...(current.data ?? { failed: false }) }
+      if (patch.weight === null) delete data.weight
+      else if (patch.weight !== undefined) data.weight = patch.weight
+      if (patch.failureProbability === null) delete data.failureProbability
+      else if (patch.failureProbability !== undefined) data.failureProbability = patch.failureProbability
+      return commit({ edges: s.edges.map((e) => (e.id === id ? { ...e, data } : e)) }, id)
+    },
 
-      // Prevent duplicate edges (undirected simple graph semantics)
-      const exists = state.edges.some(
-        (e) =>
-          (e.source === connection.source && e.target === connection.target) ||
-          (e.source === connection.target && e.target === connection.source)
-      )
-      if (exists) return state
-
-      const newEdge: NetShieldEdge = {
-        id: `e_${connection.source}_${connection.target}_${Date.now()}`,
-        source: connection.source,
-        target: connection.target,
-        type: 'netshieldEdge',
-        data: { status: 'healthy' },
-      }
-
-      const nextEdges = [...state.edges, newEdge]
-      saveStateToStorage({
-        nodes: state.nodes,
-        edges: nextEdges,
-        failedNodeIds: state.failedNodeIds,
-        failedEdgeIds: state.failedEdgeIds,
-        simulationConfig: state.simulationConfig,
+    removeEdge: (id) => {
+      const s = get()
+      if (!s.edges.some((e) => e.id === id)) return fail(`Unknown edge '${id}'.`)
+      return commit({
+        edges: s.edges.filter((e) => e.id !== id),
+        selectedEdgeId: s.selectedEdgeId === id ? null : s.selectedEdgeId,
       })
-      return { edges: nextEdges }
-    })
-  },
+    },
 
-  selectNode: (id) => set({ selectedNodeId: id, selectedEdgeId: null }),
-  selectEdge: (id) => set({ selectedEdgeId: id, selectedNodeId: null }),
+    removeSelected: () => {
+      const { selectedNodeId, selectedEdgeId, removeNode, removeEdge } = get()
+      if (selectedNodeId) return removeNode(selectedNodeId)
+      if (selectedEdgeId) return removeEdge(selectedEdgeId)
+      return fail('Nothing is selected.')
+    },
 
-  failNode: (id) => {
-    set((state) => {
-      if (state.failedNodeIds.includes(id)) return state
-      const nextFailedNodes = [...state.failedNodeIds, id]
-      const nextNodes = state.nodes.map((n) =>
-        n.id === id ? { ...n, data: { ...n.data, status: 'failed' as ElementStatus } } : n
-      )
-
-      saveStateToStorage({
-        nodes: nextNodes,
-        edges: state.edges,
-        failedNodeIds: nextFailedNodes,
-        failedEdgeIds: state.failedEdgeIds,
-        simulationConfig: state.simulationConfig,
+    applyNodeChanges: (changes) => {
+      for (const change of changes) if (change.type === 'remove') get().removeNode(change.id)
+      const rest = changes.filter((c) => c.type === 'position' || c.type === 'dimensions')
+      if (rest.length === 0) return
+      set((s) => {
+        const dragStart = !s.dragging && rest.some((c) => c.type === 'position' && c.dragging === true)
+        const dragEnd = rest.some((c) => c.type === 'position' && c.dragging === false)
+        const nodes = applyNodeChanges(rest, s.nodes)
+        const next: Partial<GraphState> = { nodes, dragging: dragEnd ? false : s.dragging || dragStart }
+        // One history entry per drag: the graph as it was before the drag started.
+        return dragStart ? withHistory(s, next) : next
       })
-      return { nodes: nextNodes, failedNodeIds: nextFailedNodes }
-    })
-  },
+    },
 
-  restoreNode: (id) => {
-    set((state) => {
-      const nextFailedNodes = state.failedNodeIds.filter((nid) => nid !== id)
-      const nextNodes = state.nodes.map((n) =>
-        n.id === id ? { ...n, data: { ...n.data, status: 'healthy' as ElementStatus } } : n
-      )
+    selectNode: (id) => set({ selectedNodeId: id, selectedEdgeId: null }),
+    selectEdge: (id) => set({ selectedEdgeId: id, selectedNodeId: null }),
 
-      saveStateToStorage({
-        nodes: nextNodes,
-        edges: state.edges,
-        failedNodeIds: nextFailedNodes,
-        failedEdgeIds: state.failedEdgeIds,
-        simulationConfig: state.simulationConfig,
+    failNode: (id) => setFailure('node', id, true),
+    restoreNode: (id) => setFailure('node', id, false),
+    toggleNodeFailure: (id) => setFailure('node', id, !(get().nodes.find((n) => n.id === id)?.data.failed ?? true)),
+    failEdge: (id) => setFailure('edge', id, true),
+    restoreEdge: (id) => setFailure('edge', id, false),
+    toggleEdgeFailure: (id) => setFailure('edge', id, !(get().edges.find((e) => e.id === id)?.data?.failed ?? true)),
+    clearFailures: () => {
+      const s = get()
+      if (!s.nodes.some((n) => n.data.failed) && !s.edges.some((e) => e.data?.failed)) return
+      commit({
+        nodes: s.nodes.map((n) => (n.data.failed ? { ...n, data: { ...n.data, failed: false } } : n)),
+        edges: s.edges.map((e) => (e.data?.failed ? { ...e, data: { ...e.data, failed: false } } : e)),
       })
-      return { nodes: nextNodes, failedNodeIds: nextFailedNodes }
-    })
-  },
+    },
 
-  toggleNodeFailure: (id) => {
-    const { failedNodeIds, failNode, restoreNode } = get()
-    if (failedNodeIds.includes(id)) {
-      restoreNode(id)
-    } else {
-      failNode(id)
-    }
-  },
+    undo: () => {
+      const s = get()
+      const previous = s.past[s.past.length - 1]
+      if (!previous) return false
+      set({ ...previous, past: s.past.slice(0, -1), future: [snapshot(s), ...s.future], ...keepSelection(previous, s) })
+      return true
+    },
 
-  failEdge: (id) => {
-    set((state) => {
-      if (state.failedEdgeIds.includes(id)) return state
-      const nextFailedEdges = [...state.failedEdgeIds, id]
-      const nextEdges = state.edges.map((e) =>
-        e.id === id ? { ...e, data: { ...e.data, status: 'failed' as ElementStatus } } : e
-      )
+    redo: () => {
+      const s = get()
+      const next = s.future[0]
+      if (!next) return false
+      set({ ...next, past: [...s.past, snapshot(s)], future: s.future.slice(1), ...keepSelection(next, s) })
+      return true
+    },
 
-      saveStateToStorage({
-        nodes: state.nodes,
-        edges: nextEdges,
-        failedNodeIds: state.failedNodeIds,
-        failedEdgeIds: nextFailedEdges,
-        simulationConfig: state.simulationConfig,
-      })
-      return { edges: nextEdges, failedEdgeIds: nextFailedEdges }
-    })
-  },
+    loadPreset: (name) => {
+      commit({ ...preset(name), example: name, selectedNodeId: null, selectedEdgeId: null })
+    },
 
-  restoreEdge: (id) => {
-    set((state) => {
-      const nextFailedEdges = state.failedEdgeIds.filter((eid) => eid !== id)
-      const nextEdges = state.edges.map((e) =>
-        e.id === id ? { ...e, data: { ...e.data, status: 'healthy' as ElementStatus } } : e
-      )
+    replaceGraph: (graph, example = null) => {
+      const problem = checkGraph(graph)
+      if (problem) return fail(problem)
+      set({ nodes: graph.nodes, edges: graph.edges, example, selectedNodeId: null, selectedEdgeId: null, past: [], future: [], dragging: false })
+      return ok()
+    },
 
-      saveStateToStorage({
-        nodes: state.nodes,
-        edges: nextEdges,
-        failedNodeIds: state.failedNodeIds,
-        failedEdgeIds: nextFailedEdges,
-        simulationConfig: state.simulationConfig,
-      })
-      return { edges: nextEdges, failedEdgeIds: nextFailedEdges }
-    })
-  },
+    reset: () => {
+      commit({ nodes: [], edges: [], example: null, selectedNodeId: null, selectedEdgeId: null })
+    },
+  }
+})
 
-  toggleEdgeFailure: (id) => {
-    const { failedEdgeIds, failEdge, restoreEdge } = get()
-    if (failedEdgeIds.includes(id)) {
-      restoreEdge(id)
-    } else {
-      failEdge(id)
-    }
-  },
+/** Drop a selection that no longer exists after undo or redo. */
+function keepSelection(graph: EditorGraph, s: GraphState): Pick<GraphState, 'selectedNodeId' | 'selectedEdgeId'> {
+  return {
+    selectedNodeId: s.selectedNodeId !== null && graph.nodes.some((n) => n.id === s.selectedNodeId) ? s.selectedNodeId : null,
+    selectedEdgeId: s.selectedEdgeId !== null && graph.edges.some((e) => e.id === s.selectedEdgeId) ? s.selectedEdgeId : null,
+  }
+}
 
-  resetFailures: () => {
-    set((state) => {
-      const nextNodes = state.nodes.map((n) => ({
-        ...n,
-        data: { ...n.data, status: 'healthy' as ElementStatus },
-      }))
-      const nextEdges = state.edges.map((e) => ({
-        ...e,
-        data: { ...e.data, status: 'healthy' as ElementStatus },
-      }))
-
-      saveStateToStorage({
-        nodes: nextNodes,
-        edges: nextEdges,
-        failedNodeIds: [],
-        failedEdgeIds: [],
-        simulationConfig: state.simulationConfig,
-      })
-
-      return {
-        nodes: nextNodes,
-        edges: nextEdges,
-        failedNodeIds: [],
-        failedEdgeIds: [],
-      }
-    })
-  },
-
-  loadExample: (topology) => {
-    let example: { nodes: NetShieldNode[]; edges: NetShieldEdge[] }
-    if (topology === 'ring') example = createRingTopology()
-    else if (topology === 'mesh') example = createMeshTopology()
-    else example = createStarTopology()
-
-    set((state) => {
-      saveStateToStorage({
-        nodes: example.nodes,
-        edges: example.edges,
-        failedNodeIds: [],
-        failedEdgeIds: [],
-        simulationConfig: state.simulationConfig,
-      })
-
-      return {
-        nodes: example.nodes,
-        edges: example.edges,
-        failedNodeIds: [],
-        failedEdgeIds: [],
-        selectedNodeId: null,
-        selectedEdgeId: null,
-        analysisResult: null,
-        simulationResult: null,
-        sweepResult: null,
-      }
-    })
-  },
-
-  resetGraph: () => {
-    set((state) => {
-      saveStateToStorage({
-        nodes: [],
-        edges: [],
-        failedNodeIds: [],
-        failedEdgeIds: [],
-        simulationConfig: state.simulationConfig,
-      })
-
-      return {
-        nodes: [],
-        edges: [],
-        failedNodeIds: [],
-        failedEdgeIds: [],
-        selectedNodeId: null,
-        selectedEdgeId: null,
-        analysisResult: null,
-        simulationResult: null,
-        sweepResult: null,
-      }
-    })
-  },
-
-  setSimulationConfig: (cfg) => {
-    set((state) => {
-      const nextConfig = { ...state.simulationConfig, ...cfg }
-      saveStateToStorage({
-        nodes: state.nodes,
-        edges: state.edges,
-        failedNodeIds: state.failedNodeIds,
-        failedEdgeIds: state.failedEdgeIds,
-        simulationConfig: nextConfig,
-      })
-      return { simulationConfig: nextConfig }
-    })
-  },
-
-  runAnalysis: async (startNode, targetNode) => {
-    const { nodes, edges, failedNodeIds, failedEdgeIds } = get()
-    // Clear the previous result first: a failed run must never leave an older result on screen.
-    set((state) => ({ isAnalyzing: true, analysisError: null, analysisResult: null, ...clearAnnotations(state.nodes, state.edges) }))
-
-    try {
-      const result = await apiService.analyze(
-        buildAnalyzeRequest(nodes, edges, failedNodeIds, failedEdgeIds, startNode ?? null, targetNode ?? null)
-      )
-      const current = result.data.current
-      const componentOf = current.components.componentOf
-      const articulation = new Set(current.articulationPoints.nodeIds)
-      const bridges = new Set(current.bridges.edgeIds)
-
-      set((state) => ({
-        analysisResult: result,
-        isAnalyzing: false,
-        nodes: state.nodes.map((n) => ({
-          ...n,
-          data: {
-            ...n.data,
-            componentIndex: componentOf[n.id] ?? undefined,
-            isArticulationPoint: articulation.has(n.id),
-          },
-        })),
-        edges: state.edges.map((e) => ({
-          ...e,
-          data: { status: e.data?.status ?? 'healthy', ...e.data, isBridge: bridges.has(e.id) },
-        })),
-      }))
-    } catch (err: unknown) {
-      set({ isAnalyzing: false, analysisResult: null, analysisError: err instanceof Error ? err.message : 'Analysis failed' })
-    }
-  },
-
-  runSimulation: async () => {
-    const { nodes, edges, failedNodeIds, failedEdgeIds, simulationConfig } = get()
-    set({ isSimulating: true, simulationError: null, simulationResult: null })
-
-    try {
-      const req: SimulateRequestBody = {
-        ...legacyGraph(nodes, edges, failedNodeIds, failedEdgeIds),
-        failure_prob: simulationConfig.failureProb,
-        trials: simulationConfig.trials,
-        fail_target: simulationConfig.failTarget,
-      }
-      const res = await apiService.simulate(req)
-      set({ simulationResult: res, isSimulating: false })
-    } catch (err: unknown) {
-      set({ isSimulating: false, simulationResult: null, simulationError: err instanceof Error ? err.message : 'Simulation failed' })
-    }
-  },
-
-  runSweep: async () => {
-    const { nodes, edges, failedNodeIds, failedEdgeIds, simulationConfig } = get()
-    set({ isSweeping: true, sweepError: null, sweepResult: null })
-
-    try {
-      const req: SweepRequestBody = {
-        ...legacyGraph(nodes, edges, failedNodeIds, failedEdgeIds),
-        probs: [0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5, 0.6, 0.75],
-        trials_per_prob: 100,
-        fail_target: simulationConfig.failTarget,
-      }
-      const res = await apiService.reliabilitySweep(req)
-      set({ sweepResult: res, isSweeping: false })
-    } catch (err: unknown) {
-      set({ isSweeping: false, sweepResult: null, sweepError: err instanceof Error ? err.message : 'Sweep failed' })
-    }
-  },
-
-  clearSavedData: () => {
-    if (typeof window !== 'undefined') {
-      try {
-        localStorage.removeItem(STORAGE_KEY)
-      } catch {
-        // Safe clear
-      }
-    }
-    const defaultTopology = createStarTopology()
-    set({
-      nodes: defaultTopology.nodes,
-      edges: defaultTopology.edges,
-      selectedNodeId: null,
-      selectedEdgeId: null,
-      failedNodeIds: [],
-      failedEdgeIds: [],
-      analysisResult: null,
-      simulationResult: null,
-      sweepResult: null,
-      simulationConfig: {
-        trials: 500,
-        failureProb: 0.15,
-        failTarget: 'edges',
-      },
-    })
-  },
-}))
+/** Back to the initial state (the star example, empty history). Used by tests and clearSavedData. */
+export function resetGraphStore(): void {
+  useGraphStore.setState({ ...initialGraph(), selectedNodeId: null, selectedEdgeId: null, past: [], future: [], dragging: false })
+}

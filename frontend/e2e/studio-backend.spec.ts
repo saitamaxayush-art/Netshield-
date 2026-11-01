@@ -13,27 +13,49 @@ test.use({ viewport: { width: 1440, height: 900 } })
 
 type NodeType = 'router' | 'server' | 'client' | 'firewall'
 
-/** Seed the studio's persisted workspace (the format graphStore saves) before the app loads. */
+/** Seed a version 2 workspace (the Phase 3 format) before the app loads; the app migrates it to version 3. */
 async function seedGraph(
   page: Page,
   nodes: Array<{ id: string; label: string; type: NodeType }>,
   edges: Array<{ id: string; source: string; target: string }>,
   failedNodeIds: string[] = []
 ) {
-  const state = {
-    nodes: nodes.map((n, i) => ({
-      id: n.id,
-      type: 'netshieldNode',
-      position: { x: 100 + 90 * i, y: 100 + 40 * (i % 3) },
-      data: { label: n.label, nodeType: n.type, status: failedNodeIds.includes(n.id) ? 'failed' : 'healthy' },
-    })),
-    edges: edges.map((e) => ({ ...e, type: 'netshieldEdge', data: { status: 'healthy' } })),
-    failedNodeIds,
-    failedEdgeIds: [],
-    simulationConfig: { trials: 500, failureProb: 0.15, failTarget: 'edges' },
-    version: 1,
+  const workspace = {
+    version: 2,
+    savedAt: '2026-01-01T00:00:00.000Z',
+    graph: {
+      nodes: nodes.map((n, i) => ({
+        id: n.id,
+        label: n.label,
+        nodeType: n.type,
+        failed: failedNodeIds.includes(n.id),
+        position: { x: 100 + 90 * i, y: 100 + 40 * (i % 3) },
+      })),
+      edges: edges.map((e) => ({ ...e, failed: false })),
+      example: null,
+    },
+    settings: {
+      edgeFailureProbability: 0.15,
+      nodeFailureProbability: 0,
+      trials: 500,
+      seed: null,
+      mode: 'all-terminal',
+      traversalStart: null,
+      pathSource: null,
+      pathTarget: null,
+      sweepPMin: 0,
+      sweepPMax: 1,
+      sweepPoints: 11,
+      trialsPerPoint: 200,
+    },
   }
-  await page.addInitScript((value) => localStorage.setItem('netshield_graph_state_v1', value), JSON.stringify(state))
+  await page.addInitScript((value) => {
+    // Only on the first load of the page, so a reload in a test keeps what the app saved.
+    if (sessionStorage.getItem('seeded') === null) {
+      localStorage.setItem('netshield_workspace', value)
+      sessionStorage.setItem('seeded', '1')
+    }
+  }, JSON.stringify(workspace))
 }
 
 function sixLeafStar() {
@@ -100,16 +122,17 @@ test('analysis of the built-in Star example comes from the real backend', async 
   const body = (await response.json()) as AnalyzeBody
   expect(body.meta.engine).toBe('networkx')
 
-  // Hand verified: hub_1 joins srv_1, fw_1, cli_3 (bridges) and the triangle hub_1, cli_1, cli_2.
-  expect(body.current.bridges.edgeIds).toEqual(['e_hub_cli3', 'e_hub_fw', 'e_hub_srv'])
-  expect(body.current.articulationPoints.nodeIds).toEqual(['hub_1'])
+  // Hand verified: hub joins srv, fw, c3 (bridges) and the triangle hub, c1, c2.
+  expect(body.current.bridges.edgeIds).toEqual(['e-hub-c3', 'e-hub-fw', 'e-hub-srv'])
+  expect(body.current.articulationPoints.nodeIds).toEqual(['hub'])
   expect(body.current.connectivity.reason).toBe('Single component')
   await expectPanelShows(page, body)
 
   // The request used the contract shape (per element failed flags), not the legacy one.
   const sent = response.request().postDataJSON() as Record<string, unknown>
-  expect(Object.keys(sent).sort()).toEqual(['edges', 'nodes'])
+  expect(Object.keys(sent).sort()).toEqual(['compareHealthy', 'edges', 'nodes'])
   await expect(page.getByTestId('demo-mode-banner')).toHaveCount(0)
+  await expect(page.getByTestId('example-label')).toHaveText('Example: star network')
 })
 
 test('6-leaf star: 6 bridges and the hub; failing the hub gives 6 components', async ({ page }) => {
@@ -199,7 +222,87 @@ for (const failure of failures) {
   })
 }
 
-// --- Simulation and sweep (legacy endpoints): real backend and failures ---------------------------
+// --- Analysis: automatic re-analysis and the explicit demo mode ---------------------------------
+
+test('failing a node re-analyzes automatically on the backend, and the canvas follows', async ({ page }) => {
+  const star = sixLeafStar()
+  await seedGraph(page, star.nodes, star.edges)
+  await page.goto('/studio')
+  const first = (await (await page.waitForResponse(isPost('/api/analyze'))).json()) as AnalyzeBody
+  expect(first.current.connectivity.componentCount).toBe(1)
+  await expect(page.locator('.react-flow__node', { hasText: 'Hub' })).toContainText('Cut Vertex')
+
+  await page.locator('.react-flow__node', { hasText: 'Hub' }).click()
+  const [after] = await Promise.all([
+    page.waitForResponse(isPost('/api/analyze')),
+    page.getByRole('button', { name: 'Fail Selected Node' }).click(),
+  ])
+  const sent = after.request().postDataJSON() as { nodes: Array<{ id: string; failed: boolean }> }
+  expect(sent.nodes.find((n) => n.id === 'hub')?.failed).toBe(true)
+  const body = (await after.json()) as AnalyzeBody
+  expect(body.current.connectivity.componentCount).toBe(6)
+  await page.getByRole('button', { name: 'Analysis', exact: true }).click()
+  await expectPanelShows(page, body)
+  await expect(page.getByTestId('analysis-stale')).toHaveCount(0)
+})
+
+test('a backend outage stays an error until the user switches to demo mode, which is labelled everywhere', async ({ page }) => {
+  await page.route('**/api/**', (route) => route.abort('connectionrefused'))
+  await openTab(page, 'Analysis')
+  const error = page.getByTestId('analysis-error')
+  await expect(error).toContainText(/Could not reach the NetShield backend/)
+  await expect(page.getByTestId('demo-mode-banner')).toHaveCount(0)
+
+  await error.getByRole('button', { name: 'Switch to demo mode' }).click()
+  await expect(page.getByTestId('demo-mode-banner')).toBeVisible()
+  await expect(page.getByTestId('analysis-source')).toHaveText('Demo result')
+  await expect(page.getByTestId('analysis-source')).toHaveAttribute('data-source', 'demo')
+  await expect(page.getByTestId('analysis-engine')).toContainText('Demo adapter netshield-demo-1')
+
+  await page.getByRole('button', { name: 'Simulator', exact: true }).click()
+  await page.getByRole('button', { name: 'Run Monte Carlo Simulation' }).click()
+  await expect(page.getByTestId('simulation-source')).toHaveText('Demo result')
+
+  await page.getByRole('button', { name: 'Exit demo mode' }).click()
+  await expect(page.getByTestId('demo-mode-banner')).toHaveCount(0)
+  await expect(page.getByTestId('simulation-source')).toHaveCount(0)
+})
+
+test('the graph and settings survive a reload; results do not', async ({ page }) => {
+  const star = sixLeafStar()
+  await seedGraph(page, star.nodes, star.edges)
+  await page.goto('/studio')
+  await page.waitForResponse(isPost('/api/analyze'))
+  await page.locator('.react-flow__node', { hasText: 'Leaf 3' }).click()
+  await page.getByRole('button', { name: 'Fail Selected Node' }).click()
+  // The save is debounced (400 ms).
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('netshield_workspace') ?? '')).toContain('"id":"L3","label":"Leaf 3","nodeType":"client","failed":true')
+  const saved = await page.evaluate(() => localStorage.getItem('netshield_workspace') ?? '')
+  expect(saved).not.toContain('bridges')
+  const [response] = await Promise.all([page.waitForResponse(isPost('/api/analyze')), page.reload()])
+  const sent = response.request().postDataJSON() as { nodes: Array<{ id: string; failed: boolean }> }
+  expect(sent.nodes.find((n) => n.id === 'L3')?.failed).toBe(true)
+})
+
+test('corrupt saved data is discarded with a visible notice, and the example loads', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('netshield_workspace', '{"version": 2, "graph": '))
+  await page.goto('/studio')
+  await expect(page.getByTestId('persistence-notice')).toContainText('Saved data was not loaded')
+  await expect(page.getByTestId('persistence-notice')).toContainText('Saved data is not valid JSON.')
+  await expect(page.getByTestId('example-label')).toHaveText('Example: star network')
+})
+
+// --- Simulation and sweep: real backend and failures --------------------------------------------
+
+interface SimulateBody {
+  estimate: number
+  connectedTrials: number
+  trials: number
+  standardError: number
+  wilson95: { low: number; high: number }
+  seed: number
+  meta: { engine: string }
+}
 
 test('simulation result shown is the real backend response', async ({ page }) => {
   await openTab(page, 'Simulator')
@@ -208,22 +311,22 @@ test('simulation result shown is the real backend response', async ({ page }) =>
     page.getByRole('button', { name: 'Run Monte Carlo Simulation' }).click(),
   ])
   expect(response.status()).toBe(200)
-  const body = (await response.json()) as {
-    estimated_reliability: number
-    connected_trials: number
-    trials: number
-    standard_error: number
-    confidence_interval_95: [number, number]
-  }
-  expect(body.trials).toBe(500)
+  const body = (await response.json()) as SimulateBody
+  expect(body.trials).toBe(1000)
+  expect(body.meta.engine).toBe('networkx')
+  const pct = (v: number, d = 1) => `${(v * 100).toFixed(d)}%`
   await expect(page.getByTestId('simulation-source')).toHaveText('FastAPI Backend')
   await expect(page.getByTestId('simulation-source')).toHaveAttribute('data-source', 'backend')
-  await expect(page.getByTestId('simulation-reliability')).toHaveText(`${(body.estimated_reliability * 100).toFixed(1)}%`)
-  await expect(page.getByTestId('simulation-connected')).toHaveText(`${body.connected_trials} / ${body.trials}`)
-  await expect(page.getByTestId('simulation-se')).toHaveText(`±${(body.standard_error * 100).toFixed(2)}%`)
-  const [lo, hi] = body.confidence_interval_95
-  await expect(page.getByTestId('simulation-ci')).toHaveText(`[${(lo * 100).toFixed(1)}%, ${(hi * 100).toFixed(1)}%]`)
+  await expect(page.getByTestId('simulation-reliability')).toHaveText(pct(body.estimate))
+  await expect(page.getByTestId('simulation-connected')).toHaveText(`${body.connectedTrials} / ${body.trials}`)
+  await expect(page.getByTestId('simulation-se')).toHaveText(`±${pct(body.standardError, 2)}`)
+  await expect(page.getByTestId('simulation-ci')).toHaveText(`[${pct(body.wilson95.low)}, ${pct(body.wilson95.high)}]`)
+  await expect(page.getByTestId('simulation-seed')).toHaveText(String(body.seed))
   await expect(page.getByText('Demo result')).toHaveCount(0)
+
+  // Changing a setting marks the result out of date instead of hiding or recomputing it.
+  await page.locator('#edge-p').fill('0.5')
+  await expect(page.getByTestId('simulation-stale')).toBeVisible()
 })
 
 test('sweep result shown is the real backend response', async ({ page }) => {
@@ -233,7 +336,7 @@ test('sweep result shown is the real backend response', async ({ page }) => {
     page.getByRole('button', { name: /Run Reliability Sweep/ }).click(),
   ])
   expect(response.status()).toBe(200)
-  const body = (await response.json()) as { points: Array<{ prob: number; reliability: number }> }
+  const body = (await response.json()) as { points: Array<{ p: number; estimate: number }> }
   expect(body.points).toHaveLength(11)
   const pct = (v: number) => `${(v * 100).toFixed(1)}%`
   const first = body.points[0]
@@ -241,7 +344,7 @@ test('sweep result shown is the real backend response', async ({ page }) => {
   const summary = page.getByTestId('sweep-summary')
   await expect(summary).toHaveAttribute('data-source', 'backend')
   await expect(summary).toHaveText(
-    `11 points from the FastAPI backend: R = ${pct(first.reliability)} at p = ${pct(first.prob)} to R = ${pct(last.reliability)} at p = ${pct(last.prob)}`
+    `11 points from the FastAPI backend: R = ${pct(first.estimate)} at p = ${pct(first.p)} to R = ${pct(last.estimate)} at p = ${pct(last.p)}`
   )
 })
 

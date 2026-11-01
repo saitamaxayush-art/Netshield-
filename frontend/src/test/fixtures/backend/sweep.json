@@ -1,0 +1,173 @@
+{
+  "method": "POST",
+  "path": "/api/reliability-sweep",
+  "request": {
+    "nodes": [
+      {
+        "id": "r1",
+        "label": "Node r1",
+        "type": "router",
+        "failed": false
+      },
+      {
+        "id": "r2",
+        "label": "Node r2",
+        "type": "router",
+        "failed": false
+      },
+      {
+        "id": "r3",
+        "label": "Node r3",
+        "type": "router",
+        "failed": false
+      },
+      {
+        "id": "r4",
+        "label": "Node r4",
+        "type": "router",
+        "failed": true
+      },
+      {
+        "id": "r5",
+        "label": "Node r5",
+        "type": "router",
+        "failed": false
+      },
+      {
+        "id": "r6",
+        "label": "Node r6",
+        "type": "router",
+        "failed": false
+      }
+    ],
+    "edges": [
+      {
+        "id": "e-r1",
+        "source": "r1",
+        "target": "r2",
+        "failed": false
+      },
+      {
+        "id": "e-r2",
+        "source": "r2",
+        "target": "r3",
+        "failed": false
+      },
+      {
+        "id": "e-r3",
+        "source": "r3",
+        "target": "r4",
+        "failed": false
+      },
+      {
+        "id": "e-r4",
+        "source": "r4",
+        "target": "r5",
+        "failed": false
+      },
+      {
+        "id": "e-r5",
+        "source": "r5",
+        "target": "r6",
+        "failed": false
+      },
+      {
+        "id": "e-r6",
+        "source": "r6",
+        "target": "r1",
+        "failed": false
+      }
+    ],
+    "pMin": 0,
+    "pMax": 0.5,
+    "points": 6,
+    "trialsPerPoint": 500,
+    "seed": 3
+  },
+  "status": 200,
+  "response": {
+    "mode": "all-terminal",
+    "source": null,
+    "target": null,
+    "trialsPerPoint": 500,
+    "seed": 3,
+    "nodeFailureProbability": 0,
+    "points": [
+      {
+        "p": 0,
+        "estimate": 1,
+        "connectedTrials": 500,
+        "standardError": 0,
+        "wilson95": {
+          "low": 0.9923756595384479,
+          "high": 1
+        }
+      },
+      {
+        "p": 0.1,
+        "estimate": 0.644,
+        "connectedTrials": 322,
+        "standardError": 0.021413266915629666,
+        "wilson95": {
+          "low": 0.601078749973113,
+          "high": 0.68472543997396
+        }
+      },
+      {
+        "p": 0.2,
+        "estimate": 0.434,
+        "connectedTrials": 217,
+        "standardError": 0.02216501748251059,
+        "wilson95": {
+          "low": 0.3912235726331776,
+          "high": 0.47778284030774737
+        }
+      },
+      {
+        "p": 0.3,
+        "estimate": 0.272,
+        "connectedTrials": 136,
+        "standardError": 0.019900552756142227,
+        "wilson95": {
+          "low": 0.2348440922052204,
+          "high": 0.31263260704524753
+        }
+      },
+      {
+        "p": 0.4,
+        "estimate": 0.132,
+        "connectedTrials": 66,
+        "standardError": 0.01513776733867977,
+        "wilson95": {
+          "low": 0.10511672384831994,
+          "high": 0.1644947907313825
+        }
+      },
+      {
+        "p": 0.5,
+        "estimate": 0.054,
+        "connectedTrials": 27,
+        "standardError": 0.010107818755794942,
+        "wilson95": {
+          "low": 0.03737435018105752,
+          "high": 0.07742656151064709
+        }
+      }
+    ],
+    "assumptions": [
+      "Each operational link fails independently with probability p from 0 to 0.5 in 6 step(s).",
+      "Each operational node fails independently with probability 0.",
+      "Nodes and links marked failed in the request stay failed in every trial (1 node(s), 0 link(s)); a link whose endpoint failed is unavailable in that trial.",
+      "A trial succeeds when the surviving network has at least one node and exactly one connected component (all-terminal).",
+      "500 trials per point with seed 3; the interval is the Wilson score interval at 95 percent.",
+      "Every point reuses the same random draws (common random numbers), so the estimate never increases with p."
+    ],
+    "elapsedMs": 4.06,
+    "explanationKey": "reliability_sweep",
+    "meta": {
+      "engine": "networkx",
+      "engineVersion": "3.7",
+      "apiVersion": "2.0.0"
+    }
+  }
+}

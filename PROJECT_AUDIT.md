@@ -227,6 +227,13 @@ Phase 1B status: hand written API types (`src/types/api.ts`) removed; runtime sc
 `src/services/api/contract.ts` are proven equal to the generated types at compile time. The demo
 adapter no longer has an analysis path. The dashboard still computes analysis in the browser (open).
 
+Phase 3 status: resolved. The dashboard and the studio properties panel show backend results only
+(the local degree count and the dashboard's `lib/graphAlgorithms` calls are gone), and an ESLint
+`no-restricted-imports` rule keeps the landing helpers out of app code. `contract.ts` became
+`schemas.ts`. The demo adapter has its own independent implementation in `services/api/demo/`
+(analysis checked for exact equality against captured backend responses). The studio example
+topologies now live in `src/store/presets.ts`.
+
 | Logic | Copies | Rule |
 | :-- | :-- | :-- |
 | Components, bridges, articulation points | Backend (NetworkX); `frontend/src/lib/graphAlgorithms.ts` used by the **dashboard** (`DashboardPage.tsx` lines 20 and 33 to 50 compute them locally on every render), by the **demo adapter**, and by the **landing page** widgets. | 2 (studio and dashboard must not recompute; landing helpers must not be imported by studio or dashboard), 3 (demo and real paths must not share calculation code) |

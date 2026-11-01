@@ -8,6 +8,8 @@ const StudioPage = lazy(() => import('./pages/StudioPage'))
 const PrivacyPage = lazy(() => import('./pages/PrivacyPage'))
 const TermsPage = lazy(() => import('./pages/TermsPage'))
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'))
+// Its own chunk, loaded after first paint, so the landing page bundle stays free of the API layer.
+const DemoModeBanner = lazy(() => import('./components/layout/DemoModeBanner'))
 
 // Minimalist loading skeleton matching tokens
 const PageLoader: React.FC = () => {
@@ -37,6 +39,9 @@ export function App() {
           <Route path="/terms" element={<TermsPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
+      </Suspense>
+      <Suspense fallback={null}>
+        <DemoModeBanner />
       </Suspense>
     </BrowserRouter>
   )

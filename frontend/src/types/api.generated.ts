@@ -62,8 +62,8 @@ export type paths = {
         };
         get?: never;
         put?: never;
-        /** Simulate Failures */
-        post: operations["simulate_failures_api_simulate_post"];
+        /** Simulate */
+        post: operations["simulate_api_simulate_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -178,6 +178,21 @@ export type components = {
              */
             reasonKey: "empty_network" | "single_component" | "multiple_components";
         };
+        /** CriticalEdge */
+        CriticalEdge: {
+            /** Edgeid */
+            edgeId: string;
+            /**
+             * Explanationkey
+             * @default critical_edge_definition
+             * @constant
+             */
+            explanationKey: "critical_edge_definition";
+            /** Pivotaltrials */
+            pivotalTrials: number;
+            /** Share */
+            share: number;
+        };
         /** DegreeEntry */
         DegreeEntry: {
             /** Operational */
@@ -216,15 +231,6 @@ export type components = {
             /** Weight */
             weight?: number | null;
         };
-        /** EdgeModel */
-        EdgeModel: {
-            /** Id */
-            id: string;
-            /** Source */
-            source: string;
-            /** Target */
-            target: string;
-        };
         /** ErrorInfo */
         ErrorInfo: {
             /** Code */
@@ -259,6 +265,13 @@ export type components = {
             /** Version */
             version: string;
         };
+        /** HistogramBin */
+        HistogramBin: {
+            /** Components */
+            components: number;
+            /** Trials */
+            trials: number;
+        };
         /** Meta */
         Meta: {
             /** Apiversion */
@@ -266,9 +279,9 @@ export type components = {
             /**
              * Engine
              * @default networkx
-             * @constant
+             * @enum {string}
              */
-            engine: "networkx";
+            engine: "networkx" | "demo";
             /** Engineversion */
             engineVersion: string;
         };
@@ -288,18 +301,6 @@ export type components = {
              * @enum {string}
              */
             type: "router" | "server" | "client" | "firewall";
-        };
-        /** NodeModel */
-        NodeModel: {
-            /** Id */
-            id: string;
-            /** Label */
-            label: string;
-            /**
-             * Type
-             * @default router
-             */
-            type?: string | null;
         };
         /** PathResult */
         PathResult: {
@@ -334,120 +335,79 @@ export type components = {
             /** Weightsignoredreason */
             weightsIgnoredReason: "MISSING_WEIGHTS" | null;
         };
-        /** ReliabilitySweepPoint */
-        ReliabilitySweepPoint: {
-            /** Connected Trials */
-            connected_trials: number;
-            /** Prob */
-            prob: number;
-            /** Reliability */
-            reliability: number;
-            /** Standard Error */
-            standard_error: number;
-            /** Total Trials */
-            total_trials: number;
-        };
-        /** ReliabilitySweepRequest */
-        ReliabilitySweepRequest: {
-            /** Edges */
-            edges: components["schemas"]["EdgeModel"][];
-            /**
-             * Fail Target
-             * @default edges
-             * @enum {string}
-             */
-            fail_target?: "nodes" | "edges" | "both";
-            /** Failed Edges */
-            failed_edges?: string[];
-            /** Failed Nodes */
-            failed_nodes?: string[];
-            /** Nodes */
-            nodes: components["schemas"]["NodeModel"][];
-            /** Probs */
-            probs: number[];
-            /**
-             * Trials Per Prob
-             * @default 100
-             */
-            trials_per_prob?: number;
-        };
-        /** ReliabilitySweepResponse */
-        ReliabilitySweepResponse: {
-            /**
-             * Fail Target
-             * @enum {string}
-             */
-            fail_target: "nodes" | "edges" | "both";
-            /**
-             * Is Demo
-             * @default false
-             */
-            is_demo?: boolean;
-            /** Points */
-            points: components["schemas"]["ReliabilitySweepPoint"][];
-            /** Trials Per Prob */
-            trials_per_prob: number;
-        };
         /** SimulateRequest */
         SimulateRequest: {
+            /** Edgefailureprobability */
+            edgeFailureProbability: number;
             /** Edges */
-            edges: components["schemas"]["EdgeModel"][];
+            edges: components["schemas"]["Edge"][];
             /**
-             * Fail Target
-             * @default edges
+             * Mode
+             * @default all-terminal
              * @enum {string}
              */
-            fail_target?: "nodes" | "edges" | "both";
-            /** Failed Edges */
-            failed_edges?: string[];
-            /** Failed Nodes */
-            failed_nodes?: string[];
+            mode?: "all-terminal" | "two-terminal";
             /**
-             * Failure Prob
-             * @default 0.1
+             * Nodefailureprobability
+             * @default 0
              */
-            failure_prob?: number;
+            nodeFailureProbability?: number;
             /** Nodes */
-            nodes: components["schemas"]["NodeModel"][];
+            nodes: components["schemas"]["Node"][];
+            /** Seed */
+            seed?: number | null;
+            /** Source */
+            source?: string | null;
+            /** Target */
+            target?: string | null;
             /**
              * Trials
-             * @default 500
+             * @default 1000
              */
             trials?: number;
         };
         /** SimulateResponse */
         SimulateResponse: {
-            /** Active Components Distribution */
-            active_components_distribution?: {
-                [key: string]: number;
-            } | null;
-            /** Confidence Interval 95 */
-            confidence_interval_95: [
-                number,
-                number
-            ];
-            /** Connected Trials */
-            connected_trials: number;
-            /** Estimated Reliability */
-            estimated_reliability: number;
-            /** Execution Time Ms */
-            execution_time_ms: number;
+            /** Assumptions */
+            assumptions: string[];
+            /** Averagecomponents */
+            averageComponents: number;
+            /** Componenthistogram */
+            componentHistogram: components["schemas"]["HistogramBin"][];
+            /** Connectedtrials */
+            connectedTrials: number;
+            criticalEdge: components["schemas"]["CriticalEdge"] | null;
+            /** Edgefailureprobability */
+            edgeFailureProbability: number;
+            /** Elapsedms */
+            elapsedMs: number;
+            /** Estimate */
+            estimate: number;
             /**
-             * Fail Target
+             * Explanationkey
+             * @default monte_carlo_estimate
+             * @constant
+             */
+            explanationKey: "monte_carlo_estimate";
+            meta: components["schemas"]["Meta"];
+            /**
+             * Mode
              * @enum {string}
              */
-            fail_target: "nodes" | "edges" | "both";
-            /** Failure Probability */
-            failure_probability: number;
-            /**
-             * Is Demo
-             * @default false
-             */
-            is_demo?: boolean;
-            /** Standard Error */
-            standard_error: number;
+            mode: "all-terminal" | "two-terminal";
+            /** Nodefailureprobability */
+            nodeFailureProbability: number;
+            /** Seed */
+            seed: number;
+            /** Source */
+            source: string | null;
+            /** Standarderror */
+            standardError: number;
+            /** Target */
+            target: string | null;
             /** Trials */
             trials: number;
+            wilson95: components["schemas"]["Wilson95"];
         };
         /** Summary */
         Summary: {
@@ -473,6 +433,87 @@ export type components = {
             operationalNodeCount: number;
             /** Unavailableedgecount */
             unavailableEdgeCount: number;
+        };
+        /** SweepPoint */
+        SweepPoint: {
+            /** Connectedtrials */
+            connectedTrials: number;
+            /** Estimate */
+            estimate: number;
+            /** P */
+            p: number;
+            /** Standarderror */
+            standardError: number;
+            wilson95: components["schemas"]["Wilson95"];
+        };
+        /** SweepRequest */
+        SweepRequest: {
+            /** Edges */
+            edges: components["schemas"]["Edge"][];
+            /**
+             * Mode
+             * @default all-terminal
+             * @enum {string}
+             */
+            mode?: "all-terminal" | "two-terminal";
+            /**
+             * Nodefailureprobability
+             * @default 0
+             */
+            nodeFailureProbability?: number;
+            /** Nodes */
+            nodes: components["schemas"]["Node"][];
+            /** Pmax */
+            pMax: number;
+            /** Pmin */
+            pMin: number;
+            /**
+             * Points
+             * @default 11
+             */
+            points?: number;
+            /** Seed */
+            seed?: number | null;
+            /** Source */
+            source?: string | null;
+            /** Target */
+            target?: string | null;
+            /**
+             * Trialsperpoint
+             * @default 1000
+             */
+            trialsPerPoint?: number;
+        };
+        /** SweepResponse */
+        SweepResponse: {
+            /** Assumptions */
+            assumptions: string[];
+            /** Elapsedms */
+            elapsedMs: number;
+            /**
+             * Explanationkey
+             * @default reliability_sweep
+             * @constant
+             */
+            explanationKey: "reliability_sweep";
+            meta: components["schemas"]["Meta"];
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "all-terminal" | "two-terminal";
+            /** Nodefailureprobability */
+            nodeFailureProbability: number;
+            /** Points */
+            points: components["schemas"]["SweepPoint"][];
+            /** Seed */
+            seed: number;
+            /** Source */
+            source: string | null;
+            /** Target */
+            target: string | null;
+            /** Trialsperpoint */
+            trialsPerPoint: number;
         };
         /** Traversal */
         Traversal: {
@@ -505,6 +546,13 @@ export type components = {
             code: "START_NODE_FAILED";
             /** Message */
             message: string;
+        };
+        /** Wilson95 */
+        Wilson95: {
+            /** High */
+            high: number;
+            /** Low */
+            low: number;
         };
     };
     responses: never;
@@ -586,7 +634,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ReliabilitySweepRequest"];
+                "application/json": components["schemas"]["SweepRequest"];
             };
         };
         responses: {
@@ -596,7 +644,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ReliabilitySweepResponse"];
+                    "application/json": components["schemas"]["SweepResponse"];
                 };
             };
             /** @description Validation error or limit exceeded (API_CONTRACT.md section 5). */
@@ -617,9 +665,18 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+            /** @description The run exceeded the server side time budget (code TIMEOUT). */
+            504: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
         };
     };
-    simulate_failures_api_simulate_post: {
+    simulate_api_simulate_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -652,6 +709,15 @@ export interface operations {
             };
             /** @description Unexpected server error. */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The run exceeded the server side time budget (code TIMEOUT). */
+            504: {
                 headers: {
                     [name: string]: unknown;
                 };

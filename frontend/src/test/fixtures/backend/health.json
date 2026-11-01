@@ -1,0 +1,12 @@
+{
+  "method": "GET",
+  "path": "/api/health",
+  "request": null,
+  "status": 200,
+  "response": {
+    "status": "ok",
+    "service": "NetShield Backend",
+    "engine": "NetworkX",
+    "version": "2.0.0"
+  }
+}

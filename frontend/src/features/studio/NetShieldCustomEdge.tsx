@@ -2,10 +2,11 @@ import { memo } from 'react'
 import {
   BaseEdge,
   getSmoothStepPath,
-  EdgeProps,
+  type EdgeProps,
   EdgeLabelRenderer,
 } from '@xyflow/react'
-import type { NetShieldEdgeData } from '@/store/graphStore'
+import type { EditorEdge } from '@/types/graph'
+import { useIsBridge } from '@/store/selectors'
 
 export const NetShieldCustomEdge = memo(
   ({
@@ -18,10 +19,10 @@ export const NetShieldCustomEdge = memo(
     targetPosition,
     data,
     selected,
-  }: EdgeProps) => {
-    const edgeData = data as unknown as NetShieldEdgeData
-    const isFailed = edgeData?.status === 'failed'
-    const isBridge = edgeData?.isBridge && !isFailed
+  }: EdgeProps<EditorEdge>) => {
+    const isFailed = data?.failed ?? false
+    // From the latest up to date analysis result (analysisStore), never computed here.
+    const isBridge = useIsBridge(id) && !isFailed
 
     const [edgePath, labelX, labelY] = getSmoothStepPath({
       sourceX,

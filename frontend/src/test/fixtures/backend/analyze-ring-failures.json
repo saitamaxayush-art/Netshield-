@@ -1,0 +1,343 @@
+{
+  "method": "POST",
+  "path": "/api/analyze",
+  "request": {
+    "nodes": [
+      {
+        "id": "r1",
+        "label": "Node r1",
+        "type": "router",
+        "failed": false
+      },
+      {
+        "id": "r2",
+        "label": "Node r2",
+        "type": "router",
+        "failed": false
+      },
+      {
+        "id": "r3",
+        "label": "Node r3",
+        "type": "router",
+        "failed": false
+      },
+      {
+        "id": "r4",
+        "label": "Node r4",
+        "type": "router",
+        "failed": true
+      },
+      {
+        "id": "r5",
+        "label": "Node r5",
+        "type": "router",
+        "failed": false
+      },
+      {
+        "id": "r6",
+        "label": "Node r6",
+        "type": "router",
+        "failed": false
+      }
+    ],
+    "edges": [
+      {
+        "id": "e-r1",
+        "source": "r1",
+        "target": "r2",
+        "failed": true
+      },
+      {
+        "id": "e-r2",
+        "source": "r2",
+        "target": "r3",
+        "failed": false
+      },
+      {
+        "id": "e-r3",
+        "source": "r3",
+        "target": "r4",
+        "failed": false
+      },
+      {
+        "id": "e-r4",
+        "source": "r4",
+        "target": "r5",
+        "failed": false
+      },
+      {
+        "id": "e-r5",
+        "source": "r5",
+        "target": "r6",
+        "failed": false
+      },
+      {
+        "id": "e-r6",
+        "source": "r6",
+        "target": "r1",
+        "failed": false
+      }
+    ],
+    "startNodeId": "r4",
+    "pathSource": "r2",
+    "pathTarget": "r6",
+    "compareHealthy": true
+  },
+  "status": 200,
+  "response": {
+    "current": {
+      "summary": {
+        "nodeCount": 6,
+        "edgeCount": 6,
+        "operationalNodeCount": 5,
+        "operationalEdgeCount": 3,
+        "failedNodeCount": 1,
+        "failedEdgeCount": 1,
+        "unavailableEdgeCount": 3,
+        "density": 0.3,
+        "explanationKey": "density_definition"
+      },
+      "connectivity": {
+        "connected": false,
+        "componentCount": 2,
+        "reasonKey": "multiple_components",
+        "reason": "2 components",
+        "explanationKey": "connectivity_definition"
+      },
+      "components": {
+        "items": [
+          [
+            "r1",
+            "r5",
+            "r6"
+          ],
+          [
+            "r2",
+            "r3"
+          ]
+        ],
+        "componentOf": {
+          "r1": 0,
+          "r2": 1,
+          "r3": 1,
+          "r4": null,
+          "r5": 0,
+          "r6": 0
+        },
+        "explanationKey": "component_definition"
+      },
+      "degrees": {
+        "byNode": {
+          "r1": {
+            "operational": 1,
+            "stored": 2
+          },
+          "r2": {
+            "operational": 1,
+            "stored": 2
+          },
+          "r3": {
+            "operational": 1,
+            "stored": 2
+          },
+          "r4": {
+            "operational": 0,
+            "stored": 2
+          },
+          "r5": {
+            "operational": 1,
+            "stored": 2
+          },
+          "r6": {
+            "operational": 2,
+            "stored": 2
+          }
+        },
+        "explanationKey": "degree_definition"
+      },
+      "bridges": {
+        "edgeIds": [
+          "e-r2",
+          "e-r5",
+          "e-r6"
+        ],
+        "explanationKey": "bridge_definition"
+      },
+      "articulationPoints": {
+        "nodeIds": [
+          "r6"
+        ],
+        "explanationKey": "articulation_point_definition"
+      },
+      "traversal": {
+        "startNodeId": "r4",
+        "error": {
+          "code": "START_NODE_FAILED",
+          "message": "Start node 'r4' is failed, so no traversal is possible."
+        },
+        "bfs": [],
+        "dfs": [],
+        "bfsExplanationKey": "bfs_definition",
+        "dfsExplanationKey": "dfs_definition"
+      },
+      "path": {
+        "source": "r2",
+        "target": "r6",
+        "metric": "hops",
+        "weightsIgnoredReason": null,
+        "found": false,
+        "reason": "DISCONNECTED",
+        "reasonKey": "path_disconnected",
+        "nodeIds": null,
+        "edgeIds": null,
+        "hops": null,
+        "length": null,
+        "explanationKey": "shortest_path_hops"
+      }
+    },
+    "healthy": {
+      "summary": {
+        "nodeCount": 6,
+        "edgeCount": 6,
+        "operationalNodeCount": 6,
+        "operationalEdgeCount": 6,
+        "failedNodeCount": 0,
+        "failedEdgeCount": 0,
+        "unavailableEdgeCount": 0,
+        "density": 0.4,
+        "explanationKey": "density_definition"
+      },
+      "connectivity": {
+        "connected": true,
+        "componentCount": 1,
+        "reasonKey": "single_component",
+        "reason": "Single component",
+        "explanationKey": "connectivity_definition"
+      },
+      "components": {
+        "items": [
+          [
+            "r1",
+            "r2",
+            "r3",
+            "r4",
+            "r5",
+            "r6"
+          ]
+        ],
+        "componentOf": {
+          "r1": 0,
+          "r2": 0,
+          "r3": 0,
+          "r4": 0,
+          "r5": 0,
+          "r6": 0
+        },
+        "explanationKey": "component_definition"
+      },
+      "degrees": {
+        "byNode": {
+          "r1": {
+            "operational": 2,
+            "stored": 2
+          },
+          "r2": {
+            "operational": 2,
+            "stored": 2
+          },
+          "r3": {
+            "operational": 2,
+            "stored": 2
+          },
+          "r4": {
+            "operational": 2,
+            "stored": 2
+          },
+          "r5": {
+            "operational": 2,
+            "stored": 2
+          },
+          "r6": {
+            "operational": 2,
+            "stored": 2
+          }
+        },
+        "explanationKey": "degree_definition"
+      },
+      "bridges": {
+        "edgeIds": [],
+        "explanationKey": "bridge_definition"
+      },
+      "articulationPoints": {
+        "nodeIds": [],
+        "explanationKey": "articulation_point_definition"
+      },
+      "traversal": {
+        "startNodeId": "r4",
+        "error": null,
+        "bfs": [
+          {
+            "nodeId": "r4",
+            "layer": 0
+          },
+          {
+            "nodeId": "r3",
+            "layer": 1
+          },
+          {
+            "nodeId": "r5",
+            "layer": 1
+          },
+          {
+            "nodeId": "r2",
+            "layer": 2
+          },
+          {
+            "nodeId": "r6",
+            "layer": 2
+          },
+          {
+            "nodeId": "r1",
+            "layer": 3
+          }
+        ],
+        "dfs": [
+          "r4",
+          "r3",
+          "r2",
+          "r1",
+          "r6",
+          "r5"
+        ],
+        "bfsExplanationKey": "bfs_definition",
+        "dfsExplanationKey": "dfs_definition"
+      },
+      "path": {
+        "source": "r2",
+        "target": "r6",
+        "metric": "hops",
+        "weightsIgnoredReason": null,
+        "found": true,
+        "reason": null,
+        "reasonKey": null,
+        "nodeIds": [
+          "r2",
+          "r1",
+          "r6"
+        ],
+        "edgeIds": [
+          "e-r1",
+          "e-r6"
+        ],
+        "hops": 2,
+        "length": 2,
+        "explanationKey": "shortest_path_hops"
+      }
+    },
+    "meta": {
+      "engine": "networkx",
+      "engineVersion": "3.7",
+      "apiVersion": "2.0.0"
+    }
+  }
+}

@@ -4,6 +4,9 @@ import { Navbar } from '@/components/layout/Navbar'
 import { Footer } from '@/components/layout/Footer'
 import { Container } from '@/components/layout/Container'
 import { useGraphStore } from '@/store/graphStore'
+import { useAnalysisStore } from '@/store/analysisStore'
+import { useAutoAnalyze } from '@/hooks/useAutoAnalyze'
+import { ApiErrorBox, SourceBadge, StaleNotice } from '@/features/studio/ResultStatus'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import {
@@ -17,38 +20,26 @@ import {
   AlertTriangle,
   FolderOpen,
 } from 'lucide-react'
-import { buildActiveGraph, findConnectedComponents, findBridges, findArticulationPoints } from '@/lib/graphAlgorithms'
+import '@/store/bootstrap'
 
+/**
+ * Every number on this page comes from the backend's analysis of the current workspace graph (or a
+ * labelled demo result in demo mode). Nothing is computed here.
+ */
 export const DashboardPage: React.FC = () => {
-  const {
-    nodes,
-    edges,
-    failedNodeIds,
-    failedEdgeIds,
-    simulationResult: simulationSourced,
-    loadExample,
-  } = useGraphStore()
-  const simulationResult = simulationSourced?.data ?? null
-  const simulationIsDemo = simulationSourced?.source === 'demo'
+  const nodes = useGraphStore((s) => s.nodes)
+  const edges = useGraphStore((s) => s.edges)
+  const loadPreset = useGraphStore((s) => s.loadPreset)
+  const analysis = useAnalysisStore((s) => s.analyze)
+  const simulate = useAnalysisStore((s) => s.simulate)
+  const run = useAnalysisStore((s) => s.run)
+  useAutoAnalyze()
 
-  // Evaluate current active graph state
-  const active = React.useMemo(() => {
-    const pureNodes = nodes.map((n) => ({ id: n.id, label: n.data.label, type: n.data.nodeType }))
-    const pureEdges = edges.map((e) => ({ id: e.id, source: e.source, target: e.target }))
-    const g = buildActiveGraph(pureNodes, pureEdges, new Set(failedNodeIds), new Set(failedEdgeIds))
-    const comps = findConnectedComponents(g)
-    const bridges = findBridges(g)
-    const artPoints = findArticulationPoints(g)
-    return {
-      activeNodes: g.activeNodes.size,
-      activeEdges: g.activeEdges.length,
-      comps,
-      numComps: comps.length,
-      bridges,
-      artPoints,
-      isConnected: g.activeNodes.size > 0 && comps.length === 1,
-    }
-  }, [nodes, edges, failedNodeIds, failedEdgeIds])
+  const result = analysis.result
+  const current = result?.current ?? null
+  const simulationResult = simulate.result
+  const labelOf = (id: string) => nodes.find((n) => n.id === id)?.data.label ?? id
+  const edgeById = new Map(edges.map((e) => [e.id, e]))
 
   const isEmpty = nodes.length === 0
 
@@ -100,7 +91,7 @@ export const DashboardPage: React.FC = () => {
                 variant="secondary"
                 size="sm"
                 leftIcon={<FolderOpen className="w-3.5 h-3.5" />}
-                onClick={() => loadExample('star')}
+                onClick={() => loadPreset('star')}
               >
                 Load Star Example
               </Button>
@@ -108,7 +99,7 @@ export const DashboardPage: React.FC = () => {
                 variant="secondary"
                 size="sm"
                 leftIcon={<FolderOpen className="w-3.5 h-3.5" />}
-                onClick={() => loadExample('ring')}
+                onClick={() => loadPreset('ring')}
               >
                 Load Ring Example
               </Button>
@@ -116,7 +107,7 @@ export const DashboardPage: React.FC = () => {
                 variant="secondary"
                 size="sm"
                 leftIcon={<FolderOpen className="w-3.5 h-3.5" />}
-                onClick={() => loadExample('mesh')}
+                onClick={() => loadPreset('mesh')}
               >
                 Load Mesh Example
               </Button>
@@ -124,173 +115,163 @@ export const DashboardPage: React.FC = () => {
           </div>
         ) : (
           <>
+            {analysis.error && (
+              <ApiErrorBox title="Analysis Request Failed" error={analysis.error} testId="dashboard-analysis-error" onRetry={() => void run('analyze')} />
+            )}
+            {current && analysis.stale && (
+              <StaleNotice testId="dashboard-stale" onRefresh={() => void run('analyze')} isLoading={analysis.status === 'loading'} />
+            )}
+            {!current && !analysis.error && (
+              <div className="p-6 text-center bg-bg-surface border border-border-subtle rounded-[4px] text-xs text-text-muted font-mono" data-testid="dashboard-loading">
+                Analyzing the workspace graph on the backend...
+              </div>
+            )}
+
+            {current && result && (
+            <>
+            <div className="flex items-center gap-2 text-[11px] font-mono text-text-muted">
+              <SourceBadge isDemo={result.isDemo} testId="dashboard-source" backendLabel="FastAPI NetworkX" />
+              <span>
+                {result.isDemo ? 'Demo adapter' : 'NetworkX'} {result.meta.engineVersion}, API {result.meta.apiVersion}
+              </span>
+            </div>
+
             {/* Top Stat Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {/* Vertices */}
               <div className="p-5 bg-bg-surface border border-border-subtle rounded-[3px] space-y-2">
                 <div className="flex items-center justify-between text-text-muted">
                   <span className="text-[11px] font-mono uppercase">Vertices |V|</span>
                   <Layers className="w-4 h-4 text-accent-teal" />
                 </div>
-                <div className="text-2xl font-mono font-semibold text-text-primary">
-                  {nodes.length}
+                <div className="text-2xl font-mono font-semibold text-text-primary" data-testid="dashboard-node-count">
+                  {current.summary.nodeCount}
                 </div>
                 <div className="text-[11px] text-text-muted flex justify-between font-mono">
-                  <span>Active: {active.activeNodes}</span>
-                  <span className={failedNodeIds.length > 0 ? 'text-state-failure' : ''}>
-                    Failed: {failedNodeIds.length}
+                  <span>Active: {current.summary.operationalNodeCount}</span>
+                  <span className={current.summary.failedNodeCount > 0 ? 'text-state-failure' : ''}>
+                    Failed: {current.summary.failedNodeCount}
                   </span>
                 </div>
               </div>
 
-              {/* Edges */}
               <div className="p-5 bg-bg-surface border border-border-subtle rounded-[3px] space-y-2">
                 <div className="flex items-center justify-between text-text-muted">
                   <span className="text-[11px] font-mono uppercase">Edges |E|</span>
                   <Network className="w-4 h-4 text-accent-cyan" />
                 </div>
-                <div className="text-2xl font-mono font-semibold text-text-primary">
-                  {edges.length}
+                <div className="text-2xl font-mono font-semibold text-text-primary" data-testid="dashboard-edge-count">
+                  {current.summary.edgeCount}
                 </div>
                 <div className="text-[11px] text-text-muted flex justify-between font-mono">
-                  <span>Active: {active.activeEdges}</span>
-                  <span className={failedEdgeIds.length > 0 ? 'text-state-failure' : ''}>
-                    Severed: {failedEdgeIds.length}
+                  <span>Active: {current.summary.operationalEdgeCount}</span>
+                  <span className={current.summary.unavailableEdgeCount > 0 ? 'text-state-failure' : ''}>
+                    Unavailable: {current.summary.unavailableEdgeCount}
                   </span>
                 </div>
               </div>
 
-              {/* Connected Components */}
               <div className="p-5 bg-bg-surface border border-border-subtle rounded-[3px] space-y-2">
                 <div className="flex items-center justify-between text-text-muted">
                   <span className="text-[11px] font-mono uppercase">Components (k)</span>
-                  <Badge variant={active.isConnected ? 'success' : 'failure'} size="sm">
-                    {active.isConnected ? 'Connected' : 'Fragmented'}
+                  <Badge variant={current.connectivity.connected ? 'success' : 'failure'} size="sm">
+                    {current.connectivity.connected ? 'Connected' : 'Fragmented'}
                   </Badge>
                 </div>
-                <div className="text-2xl font-mono font-semibold text-text-primary">
-                  {active.numComps}
+                <div className="text-2xl font-mono font-semibold text-text-primary" data-testid="dashboard-component-count">
+                  {current.connectivity.componentCount}
                 </div>
                 <div className="text-[11px] text-text-muted font-mono flex items-center gap-1.5">
-                  {active.isConnected ? (
-                    <>
-                      <CheckCircle2 className="w-3.5 h-3.5 text-state-success" />
-                      <span>Single partition</span>
-                    </>
+                  {current.connectivity.connected ? (
+                    <CheckCircle2 className="w-3.5 h-3.5 text-state-success" />
                   ) : (
-                    <>
-                      <AlertTriangle className="w-3.5 h-3.5 text-state-failure" />
-                      <span>Isolated partitions</span>
-                    </>
+                    <AlertTriangle className="w-3.5 h-3.5 text-state-failure" />
                   )}
+                  <span>
+                    {current.connectivity.reason}
+                    {result.healthy ? `; with no failures: ${result.healthy.connectivity.reason}` : ''}
+                  </span>
                 </div>
               </div>
 
-              {/* Critical Elements */}
               <div className="p-5 bg-bg-surface border border-border-subtle rounded-[3px] space-y-2">
                 <div className="flex items-center justify-between text-text-muted">
                   <span className="text-[11px] font-mono uppercase">Vulnerabilities</span>
                   <Activity className="w-4 h-4 text-state-warning" />
                 </div>
                 <div className="text-2xl font-mono font-semibold text-accent-teal">
-                  {active.bridges.length + active.artPoints.length}
+                  {current.bridges.edgeIds.length + current.articulationPoints.nodeIds.length}
                 </div>
                 <div className="text-[11px] text-text-muted font-mono flex justify-between">
-                  <span>Bridges: {active.bridges.length}</span>
-                  <span>Cut Vertices: {active.artPoints.length}</span>
+                  <span>Bridges: {current.bridges.edgeIds.length}</span>
+                  <span>Cut Vertices: {current.articulationPoints.nodeIds.length}</span>
                 </div>
               </div>
             </div>
 
             {/* In-depth Graph Details */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              {/* Bridges and Articulation Points Inspection */}
               <div className="lg:col-span-8 p-6 bg-bg-surface border border-border-subtle rounded-[4px] space-y-6">
                 <div>
                   <h2 className="text-sm font-semibold uppercase tracking-wider text-text-primary mb-1">
                     Graph Critical Vulnerabilities
                   </h2>
                   <p className="text-xs text-text-secondary">
-                    Tarjan cut components that cause network partitioning when severed.
+                    Links and vertices whose loss splits the operational network.
                   </p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Bridges */}
                   <div className="p-4 bg-bg-primary rounded-[2px] border border-border-subtle space-y-3">
                     <div className="flex items-center gap-2 font-semibold text-xs text-text-primary">
                       <GitCommit className="w-3.5 h-3.5 text-accent-teal" />
-                      <span>Bridges ({active.bridges.length})</span>
+                      <span>Bridges ({current.bridges.edgeIds.length})</span>
                     </div>
-                    {active.bridges.length > 0 ? (
-                      <ul className="space-y-1.5 font-mono text-[11px]">
-                        {active.bridges.map(([u, v], i) => {
-                          const labelU = nodes.find((n) => n.id === u)?.data.label || u
-                          const labelV = nodes.find((n) => n.id === v)?.data.label || v
+                    {current.bridges.edgeIds.length > 0 ? (
+                      <ul className="space-y-1.5 font-mono text-[11px]" data-testid="dashboard-bridges">
+                        {current.bridges.edgeIds.map((edgeId) => {
+                          const edge = edgeById.get(edgeId)
                           return (
-                            <li
-                              key={i}
-                              className="p-1.5 bg-bg-surface border border-border-subtle rounded-[2px] text-accent-teal"
-                            >
-                              {labelU} &harr; {labelV}
+                            <li key={edgeId} data-edge-id={edgeId} className="p-1.5 bg-bg-surface border border-border-subtle rounded-[2px] text-accent-teal">
+                              {edge ? `${labelOf(edge.source)} \u2194 ${labelOf(edge.target)}` : edgeId}
                             </li>
                           )
                         })}
                       </ul>
                     ) : (
-                      <p className="text-xs text-text-muted italic">
-                        No bridge links found in active graph.
-                      </p>
+                      <p className="text-xs text-text-muted italic">No bridge links in the operational graph.</p>
                     )}
                   </div>
 
-                  {/* Articulation Points */}
                   <div className="p-4 bg-bg-primary rounded-[2px] border border-border-subtle space-y-3">
                     <div className="flex items-center gap-2 font-semibold text-xs text-text-primary">
                       <Share2 className="w-3.5 h-3.5 text-accent-teal" />
-                      <span>Articulation Points ({active.artPoints.length})</span>
+                      <span>Articulation Points ({current.articulationPoints.nodeIds.length})</span>
                     </div>
-                    {active.artPoints.length > 0 ? (
-                      <ul className="space-y-1.5 font-mono text-[11px]">
-                        {active.artPoints.map((artId) => {
-                          const label = nodes.find((n) => n.id === artId)?.data.label || artId
-                          return (
-                            <li
-                              key={artId}
-                              className="p-1.5 bg-bg-surface border border-border-subtle rounded-[2px] text-accent-teal"
-                            >
-                              {label}
-                            </li>
-                          )
-                        })}
+                    {current.articulationPoints.nodeIds.length > 0 ? (
+                      <ul className="space-y-1.5 font-mono text-[11px]" data-testid="dashboard-articulation">
+                        {current.articulationPoints.nodeIds.map((nodeId) => (
+                          <li key={nodeId} data-node-id={nodeId} className="p-1.5 bg-bg-surface border border-border-subtle rounded-[2px] text-accent-teal">
+                            {labelOf(nodeId)}
+                          </li>
+                        ))}
                       </ul>
                     ) : (
-                      <p className="text-xs text-text-muted italic">
-                        No articulation cut vertices found.
-                      </p>
+                      <p className="text-xs text-text-muted italic">No articulation cut vertices.</p>
                     )}
                   </div>
                 </div>
 
-                {/* Connected Components breakdown */}
                 <div className="space-y-3 pt-4 border-t border-border-subtle">
                   <div className="text-xs font-semibold uppercase tracking-wider text-text-primary">
-                    Partition Breakdown ({active.comps.length} Component{active.comps.length !== 1 ? 's' : ''})
+                    Partition Breakdown ({current.components.items.length} Component{current.components.items.length !== 1 ? 's' : ''})
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                    {active.comps.map((comp, idx) => (
-                      <div
-                        key={idx}
-                        className="p-3 bg-bg-primary rounded-[2px] border border-border-subtle space-y-1.5"
-                      >
+                    {current.components.items.map((comp, idx) => (
+                      <div key={comp[0]} className="p-3 bg-bg-primary rounded-[2px] border border-border-subtle space-y-1.5">
                         <div className="text-xs font-mono font-semibold text-accent-teal">
                           Component {idx + 1} ({comp.length} vertices)
                         </div>
-                        <div className="text-[10px] text-text-secondary font-mono truncate">
-                          {comp
-                            .map((id) => nodes.find((n) => n.id === id)?.data.label || id)
-                            .join(', ')}
-                        </div>
+                        <div className="text-[10px] text-text-secondary font-mono truncate">{comp.map(labelOf).join(', ')}</div>
                       </div>
                     ))}
                   </div>
@@ -308,19 +289,23 @@ export const DashboardPage: React.FC = () => {
                   </p>
                 </div>
 
+                {simulationResult && simulate.stale && (
+                  <p className="text-[11px] text-state-warning font-mono" data-testid="dashboard-simulation-stale">
+                    Results out of date: the network or settings changed since this simulation.
+                  </p>
+                )}
                 {simulationResult ? (
                   <div className="space-y-4">
                     <div className="p-4 bg-bg-primary rounded-[2px] border border-border-subtle text-center space-y-1">
                       <div className="text-[11px] font-mono text-text-muted uppercase">
-                        Estimated Network Reliability{simulationIsDemo ? ' (Demo result)' : ''}
+                        Estimated Network Reliability{simulationResult.isDemo ? ' (Demo result)' : ''}
                       </div>
                       <div className="text-3xl font-mono font-semibold text-accent-teal">
-                        {(simulationResult.estimated_reliability * 100).toFixed(1)}%
+                        {(simulationResult.estimate * 100).toFixed(1)}%
                       </div>
                       <div className="text-[10px] font-mono text-text-muted">
-                        Confidence Interval (95%): [
-                        {(simulationResult.confidence_interval_95[0] * 100).toFixed(1)}%,{' '}
-                        {(simulationResult.confidence_interval_95[1] * 100).toFixed(1)}%]
+                        95% Wilson interval: [{(simulationResult.wilson95.low * 100).toFixed(1)}%,{' '}
+                        {(simulationResult.wilson95.high * 100).toFixed(1)}%]
                       </div>
                     </div>
 
@@ -330,16 +315,16 @@ export const DashboardPage: React.FC = () => {
                         <span>{simulationResult.trials}</span>
                       </div>
                       <div className="flex justify-between py-1 border-b border-border-subtle">
-                        <span className="text-text-muted">Connected Runs:</span>
-                        <span>{simulationResult.connected_trials}</span>
+                        <span className="text-text-muted">Successful Runs:</span>
+                        <span>{simulationResult.connectedTrials}</span>
                       </div>
                       <div className="flex justify-between py-1 border-b border-border-subtle">
-                        <span className="text-text-muted">Failure Rate (p):</span>
-                        <span>{(simulationResult.failure_probability * 100).toFixed(0)}%</span>
+                        <span className="text-text-muted">Link failure p:</span>
+                        <span>{(simulationResult.edgeFailureProbability * 100).toFixed(0)}%</span>
                       </div>
                       <div className="flex justify-between py-1">
                         <span className="text-text-muted">Standard Error:</span>
-                        <span>&plusmn;{(simulationResult.standard_error * 100).toFixed(2)}%</span>
+                        <span>&plusmn;{(simulationResult.standardError * 100).toFixed(2)}%</span>
                       </div>
                     </div>
 
@@ -353,7 +338,7 @@ export const DashboardPage: React.FC = () => {
                   <div className="p-6 text-center bg-bg-primary rounded-[2px] border border-border-subtle space-y-3">
                     <Activity className="w-8 h-8 mx-auto text-text-muted stroke-1" />
                     <p className="text-xs text-text-secondary leading-relaxed">
-                      No simulation has been executed in the current session yet.
+                      No simulation has been run in this session yet.
                     </p>
                     <Link to="/studio">
                       <Button variant="primary" size="sm">
@@ -364,6 +349,8 @@ export const DashboardPage: React.FC = () => {
                 )}
               </div>
             </div>
+            </>
+            )}
           </>
         )}
         </Container>

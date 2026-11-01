@@ -1,14 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
-import {
-  ReactFlow,
-  Controls,
-  Background,
-  applyNodeChanges,
-  applyEdgeChanges,
-  NodeChange,
-  EdgeChange,
-  BackgroundVariant,
-} from '@xyflow/react'
+import { ReactFlow, Controls, Background, BackgroundVariant, type Connection, type EdgeChange, type NodeChange } from '@xyflow/react'
 import { Navbar } from '@/components/layout/Navbar'
 import { StudioToolbar } from '@/features/studio/StudioToolbar'
 import { NetShieldCustomNode } from '@/features/studio/NetShieldCustomNode'
@@ -16,23 +7,28 @@ import { NetShieldCustomEdge } from '@/features/studio/NetShieldCustomEdge'
 import { PropertiesPanel } from '@/features/studio/PropertiesPanel'
 import { AnalysisPanel } from '@/features/studio/AnalysisPanel'
 import { SimulationPanel } from '@/features/studio/SimulationPanel'
-import { useGraphStore, NetShieldNode, NetShieldEdge } from '@/store/graphStore'
+import { PersistenceNotice } from '@/features/studio/PersistenceNotice'
+import { useGraphStore } from '@/store/graphStore'
+import { useAutoAnalyze } from '@/hooks/useAutoAnalyze'
+import type { EditorEdge, EditorNode } from '@/types/graph'
 import { Sliders, Network, Activity } from 'lucide-react'
-import { apiService } from '@/services/api'
+import '@/store/bootstrap'
+
+const isTyping = () => {
+  const tag = document.activeElement?.tagName
+  return tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA'
+}
 
 export const StudioPage: React.FC = () => {
-  const {
-    nodes,
-    edges,
-    setNodes,
-    setEdges,
-    onConnect,
-    selectNode,
-    selectEdge,
-    removeSelected,
-    selectedNodeId,
-    selectedEdgeId,
-  } = useGraphStore()
+  const nodes = useGraphStore((s) => s.nodes)
+  const edges = useGraphStore((s) => s.edges)
+  const selectedNodeId = useGraphStore((s) => s.selectedNodeId)
+  const selectedEdgeId = useGraphStore((s) => s.selectedEdgeId)
+  const { applyNodeChanges, addEdge, removeEdge, selectNode, selectEdge, removeSelected, undo, redo } = useGraphStore.getState()
+  const [connectError, setConnectError] = useState<string | null>(null)
+
+  // Analysis re-runs on the backend 300 ms after the graph or its failures change.
+  useAutoAnalyze()
 
   // Active side panel tab: 'properties' | 'analysis' | 'simulation'
   const [activeTab, setActiveTab] = useState<'properties' | 'analysis' | 'simulation'>('properties')
@@ -44,68 +40,56 @@ export const StudioPage: React.FC = () => {
     setActiveTab('properties')
   }
 
-  // Custom node and edge registration
   const nodeTypes = useMemo(() => ({ netshieldNode: NetShieldCustomNode }), [])
   const edgeTypes = useMemo(() => ({ netshieldEdge: NetShieldCustomEdge }), [])
 
-  // Flow change handlers
-  const handleNodesChange = useCallback(
-    (changes: NodeChange[]) => {
-      setNodes((nds) => applyNodeChanges(changes, nds as NetShieldNode[]) as NetShieldNode[])
-    },
-    [setNodes]
-  )
+  // Selection lives in the store; React Flow only displays it.
+  const flowNodes = useMemo(() => nodes.map((n) => (n.id === selectedNodeId ? { ...n, selected: true } : n)), [nodes, selectedNodeId])
+  const flowEdges = useMemo(() => edges.map((e) => (e.id === selectedEdgeId ? { ...e, selected: true } : e)), [edges, selectedEdgeId])
 
+  const handleNodesChange = useCallback((changes: NodeChange<EditorNode>[]) => applyNodeChanges(changes), [applyNodeChanges])
   const handleEdgesChange = useCallback(
-    (changes: EdgeChange[]) => {
-      setEdges((eds) => applyEdgeChanges(changes, eds as NetShieldEdge[]) as NetShieldEdge[])
+    (changes: EdgeChange<EditorEdge>[]) => {
+      for (const change of changes) if (change.type === 'remove') removeEdge(change.id)
     },
-    [setEdges]
+    [removeEdge]
+  )
+  const handleConnect = useCallback(
+    (connection: Connection) => {
+      const result = addEdge({ source: connection.source, target: connection.target })
+      setConnectError(result.ok ? null : result.error)
+    },
+    [addEdge]
   )
 
-  // Selection handlers
-  const handleNodeClick = useCallback(
-    (_: React.MouseEvent, node: NetShieldNode) => {
-      selectNode(node.id)
-    },
-    [selectNode]
-  )
-
-  const handleEdgeClick = useCallback(
-    (_: React.MouseEvent, edge: NetShieldEdge) => {
-      selectEdge(edge.id)
-    },
-    [selectEdge]
-  )
-
+  const handleNodeClick = useCallback((_: React.MouseEvent, node: EditorNode) => selectNode(node.id), [selectNode])
+  const handleEdgeClick = useCallback((_: React.MouseEvent, edge: EditorEdge) => selectEdge(edge.id), [selectEdge])
   const handlePaneClick = useCallback(() => {
     selectNode(null)
-    selectEdge(null)
-  }, [selectNode, selectEdge])
+    setConnectError(null)
+  }, [selectNode])
 
-  // Keyboard shortcut listener (Delete, Backspace, Escape)
+  // Keyboard: Delete or Backspace removes the selection, Escape clears it, Ctrl or Cmd Z undoes.
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if focus is in an input or select
-      if (
-        document.activeElement?.tagName === 'INPUT' ||
-        document.activeElement?.tagName === 'SELECT' ||
-        document.activeElement?.tagName === 'TEXTAREA'
-      ) {
-        return
-      }
-
-      if (e.key === 'Delete' || e.key === 'Backspace') {
+      if (isTyping()) return
+      const mod = e.ctrlKey || e.metaKey
+      if (mod && e.key.toLowerCase() === 'z') {
+        e.preventDefault()
+        if (e.shiftKey) redo()
+        else undo()
+      } else if (mod && e.key.toLowerCase() === 'y') {
+        e.preventDefault()
+        redo()
+      } else if (e.key === 'Delete' || e.key === 'Backspace') {
         removeSelected()
       } else if (e.key === 'Escape') {
         selectNode(null)
-        selectEdge(null)
       }
     }
-
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [removeSelected, selectNode, selectEdge])
+  }, [removeSelected, selectNode, undo, redo])
 
   return (
     <div className="h-screen flex flex-col bg-bg-primary text-text-primary overflow-hidden">
@@ -113,16 +97,7 @@ export const StudioPage: React.FC = () => {
 
       {/* Main Studio Workspace Container */}
       <div className="flex-1 flex flex-col pt-16 overflow-hidden">
-      {apiService.mode === 'demo' && (
-        <div
-          role="status"
-          data-testid="demo-mode-banner"
-          className="shrink-0 px-4 py-2 border-b border-state-warning/40 bg-state-warning-dim text-state-warning text-[11px] font-mono"
-        >
-          Demo mode is on (VITE_USE_DEMO_ADAPTER=true): simulation results are computed in your browser and labelled
-          Demo result. Graph analysis needs the backend and is unavailable in this mode.
-        </div>
-      )}
+      <PersistenceNotice />
       <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
         {/* Left Side: Graph Canvas & Toolbar */}
         <div className="flex-1 flex flex-col h-full relative overflow-hidden border-r border-border-subtle">
@@ -131,11 +106,12 @@ export const StudioPage: React.FC = () => {
           {/* Interactive ReactFlow Canvas */}
           <div className="flex-1 w-full h-full relative bg-bg-primary overflow-hidden" role="region" aria-label="Network topology canvas">
             <ReactFlow
-              nodes={nodes}
-              edges={edges}
+              nodes={flowNodes}
+              edges={flowEdges}
               onNodesChange={handleNodesChange}
               onEdgesChange={handleEdgesChange}
-              onConnect={onConnect}
+              onConnect={handleConnect}
+              deleteKeyCode={null}
               onNodeClick={handleNodeClick}
               onEdgeClick={handleEdgeClick}
               onPaneClick={handlePaneClick}
@@ -155,6 +131,12 @@ export const StudioPage: React.FC = () => {
               />
               <Controls className="!bg-bg-surface !border !border-border-strong !rounded-[2px]" />
             </ReactFlow>
+
+            {connectError && (
+              <div role="alert" data-testid="connect-error" className="absolute top-3 left-3 max-w-sm px-3 py-2 bg-state-failure-dim border border-state-failure/40 text-state-failure text-[11px] font-mono rounded-[2px]">
+                {connectError}
+              </div>
+            )}
 
             {/* Quick Canvas Helper Overlay */}
             <div className="absolute bottom-3 right-3 hidden lg:flex items-center gap-3 bg-bg-surface/90 border border-border-subtle px-3 py-1.5 rounded-[2px] text-[10px] font-mono text-text-muted backdrop-blur-xs select-none">

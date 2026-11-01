@@ -69,7 +69,7 @@ Wilson score interval at 95 percent (section 3, rule 8).
 
 | Field | Type | Meaning |
 | :-- | :-- | :-- |
-| `engine` | `"networkx"` | Computation engine. |
+| `engine` | `"networkx" \| "demo"` | Computation engine. The backend always sends `"networkx"`; `"demo"` marks results from the frontend demo adapter (explicit demo mode only). |
 | `engineVersion` | string | NetworkX version, for example `"3.7"`. |
 | `apiVersion` | string | Version of this contract implementation, for example `"2.0.0"`. |
 
@@ -355,16 +355,39 @@ Edges with their own `failureProbability` keep it at every point.
 
 ## 10. Client behaviour (frontend obligations)
 
-Implemented in Phase 1B for analysis, simulation and sweep (`frontend/src/services/api/client.ts`,
-`contract.ts`; tests in `frontend/e2e/studio-backend.spec.ts`).
+Implemented in Phase 3 (`frontend/src/services/api/`: `client.ts`, `schemas.ts`, `demoAdapter.ts`,
+`registry.ts`; stores in `frontend/src/store/`).
 
 * The studio and dashboard display only values returned by these endpoints. They never recompute
-  analysis or reliability in the browser.
+  analysis or reliability in the browser. An ESLint rule forbids importing the landing page graph
+  helpers (`lib/graphAlgorithms`, `lib/seededGraphGenerator`, `landing/**`) from pages, features,
+  services, stores, hooks, components and types.
+* Every response is validated with Zod at the boundary. The schemas are strict (unknown keys
+  rejected), are proven equal to the generated OpenAPI types at compile time, and also check ranges
+  the OpenAPI types cannot express (probabilities in [0, 1], counts are non negative integers).
+* Every failure is one `ApiError` with `kind` (`network`, `timeout`, `cancelled`, `validation` for
+  HTTP 4xx, `server` for HTTP 5xx including `TIMEOUT` 504, `invalid_response`), `code` (the server's
+  error code, or `NETWORK_ERROR`, `CLIENT_TIMEOUT`, `CANCELLED`, `SUPERSEDED`, `INVALID_RESPONSE`,
+  `HTTP_<status>`), `message` and `status`.
+* Client timeouts: health 3 s, analyze 10 s, simulate and sweep 15 s (above the server budget).
+  Only `GET /api/health` is retried (3 attempts, on network, timeout and 5xx). A new request of the
+  same kind cancels the previous one; callers can cancel with an `AbortSignal`. The analysis store
+  also ignores any response whose request id is not the latest.
+* Analysis re-runs automatically 300 ms after the graph, its failures, or the traversal and path
+  settings stop changing (not for moves, renames or type changes), and only for a non empty graph.
+  A result whose inputs changed afterwards is flagged `stale` and shown as "Results out of date".
+  A failed request clears the earlier result; it is never shown next to an error.
 * When the backend is unreachable or returns an error, the UI shows the error message and a Retry
-  action. It does not silently switch to the demo adapter.
-* The demo adapter is used only when `VITE_USE_DEMO_ADAPTER=true`. It returns the same response
-  shapes, every output it produces is labelled **Demo result** in the UI, and its calculation code is
-  separate from the landing page helpers and from the backend.
+  action. It does not switch to the demo adapter by itself.
+* The demo adapter is used only when `VITE_USE_DEMO_ADAPTER=true` or after the explicit "Switch to
+  demo mode" action; a banner is shown on every page while it is active. It returns the same response
+  shapes, stamps `isDemo: true` and `meta.engine: "demo"` on every response, and every output is
+  labelled **Demo result** in the UI. Its calculation code (`services/api/demo/`) is separate from the
+  landing page helpers and from the backend. Its analysis is tested for exact equality with captured
+  backend responses; its simulation uses its own generator and is tested statistically. Switching
+  between modes clears every result.
+* The client adds `isDemo: false` to backend responses. `isDemo` is a client side field, not part of
+  the HTTP response.
 
 ## 11. Examples
 

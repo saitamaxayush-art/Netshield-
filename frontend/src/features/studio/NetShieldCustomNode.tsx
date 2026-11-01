@@ -1,7 +1,8 @@
 import { memo } from 'react'
-import { Handle, Position, NodeProps } from '@xyflow/react'
+import { Handle, Position, type NodeProps } from '@xyflow/react'
 import { Network, Server, Monitor, ShieldCheck, AlertCircle } from 'lucide-react'
-import type { NetShieldNodeData } from '@/store/graphStore'
+import type { EditorNode } from '@/types/graph'
+import { useComponentIndex, useIsArticulationPoint } from '@/store/selectors'
 import { TOKENS } from '@/lib/tokens'
 
 const nodeIcons = {
@@ -11,17 +12,16 @@ const nodeIcons = {
   firewall: ShieldCheck,
 }
 
-export const NetShieldCustomNode = memo(({ data, selected }: NodeProps) => {
-  const nodeData = data as unknown as NetShieldNodeData
-  const Icon = nodeIcons[nodeData.nodeType] || Network
-  const isFailed = nodeData.status === 'failed'
+export const NetShieldCustomNode = memo(({ id, data: nodeData, selected }: NodeProps<EditorNode>) => {
+  const Icon = nodeIcons[nodeData.nodeType]
+  const isFailed = nodeData.failed
+  // Annotations come from the latest up to date analysis result (analysisStore), never computed here.
+  const componentIndex = useComponentIndex(id)
+  const isArticulationPoint = useIsArticulationPoint(id)
 
-  // Component coloring if analysis has run
   const componentColor =
-    nodeData.componentIndex !== undefined
-      ? TOKENS.colors.components.palette[
-          nodeData.componentIndex % TOKENS.colors.components.palette.length
-        ]
+    componentIndex !== null
+      ? TOKENS.colors.components.palette[componentIndex % TOKENS.colors.components.palette.length]
       : undefined
 
   return (
@@ -47,7 +47,7 @@ export const NetShieldCustomNode = memo(({ data, selected }: NodeProps) => {
       />
 
       {/* Articulation point indicator banner */}
-      {nodeData.isArticulationPoint && !isFailed && (
+      {isArticulationPoint && !isFailed && (
         <div className="absolute -top-2.5 right-2 px-1.5 py-0.2 bg-accent-teal text-bg-primary text-[9px] font-mono font-bold uppercase rounded-[1px] tracking-tight">
           Cut Vertex
         </div>
@@ -86,11 +86,11 @@ export const NetShieldCustomNode = memo(({ data, selected }: NodeProps) => {
             <span
               className="w-2 h-2 rounded-full inline-block"
               style={{ backgroundColor: componentColor }}
-              title={`Component ${nodeData.componentIndex}`}
+              title={`Component ${componentIndex}`}
             />
           )}
           <span className="text-text-muted">
-            {componentColor && !isFailed ? `C${nodeData.componentIndex}` : ''}
+            {componentColor && !isFailed ? `C${componentIndex}` : ''}
           </span>
         </div>
 
