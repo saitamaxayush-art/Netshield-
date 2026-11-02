@@ -27,6 +27,16 @@ export const Dialog: React.FC<DialogProps> = ({
 }) => {
   const dialogRef = useRef<HTMLDivElement>(null)
 
+  // Move focus into the dialog and give it back when it closes.
+  useEffect(() => {
+    if (!isOpen) return
+    const previous = document.activeElement
+    dialogRef.current?.focus()
+    return () => {
+      if (previous instanceof HTMLElement) previous.focus()
+    }
+  }, [isOpen])
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
@@ -54,7 +64,8 @@ export const Dialog: React.FC<DialogProps> = ({
     >
       <div
         ref={dialogRef}
-        className="relative w-full max-w-md bg-bg-surface border border-border-strong rounded-[4px] shadow-2xl p-6 text-left animate-in fade-in zoom-in-95 duration-150"
+        tabIndex={-1}
+        className="relative w-full max-w-md max-h-[90dvh] overflow-y-auto outline-none bg-bg-surface border border-border-strong rounded-[4px] shadow-2xl p-6 text-left animate-in fade-in zoom-in-95 duration-150"
       >
         <div className="flex items-center justify-between pb-3 border-b border-border-subtle">
           <h2 id="dialog-title" className="text-base font-semibold text-text-primary">
@@ -62,7 +73,7 @@ export const Dialog: React.FC<DialogProps> = ({
           </h2>
           <button
             onClick={onClose}
-            className="text-text-muted hover:text-text-primary p-1 rounded-[2px] transition-colors"
+            className="text-text-muted hover:text-text-primary w-10 h-10 flex items-center justify-center rounded-[2px] transition-colors cursor-pointer"
             aria-label="Close dialog"
           >
             <X className="w-4 h-4" />

@@ -1,6 +1,6 @@
 /**
  * Saves the graph and the settings to localStorage as a versioned workspace:
- *   { version: 3, savedAt, graph, settings }
+ *   { version: 4, savedAt, graph (with viewport), settings }
  * Analysis results and the adapter mode are never saved.
  *
  * Every storage call is wrapped in try/catch (private windows, blocked storage, quota). Loaded data is
@@ -18,7 +18,7 @@ import { checkSettings, DEFAULT_SETTINGS, pickSettings, useSettingsStore, type S
 
 export const WORKSPACE_KEY = 'netshield_workspace'
 export const LEGACY_KEY = 'netshield_graph_state_v1'
-export const WORKSPACE_VERSION = 3
+export const WORKSPACE_VERSION = 4
 export const SAVE_DEBOUNCE_MS = 400
 
 const finite = z.number().refine(Number.isFinite, 'must be finite')
@@ -64,6 +64,7 @@ export const WorkspaceSchema = z.strictObject({
     nodes: z.array(SavedNode),
     edges: z.array(SavedEdge),
     example: z.enum(PRESET_NAMES).nullable(),
+    viewport: z.strictObject({ x: finite, y: finite, zoom: finite }).nullable(),
   }),
   settings: SavedSettings,
 })
@@ -100,7 +101,7 @@ const WorkspaceV2 = z.object({
 
 /**
  * Bring stored data of any known version to the current version, or return null if the version is
- * unknown. Versions 1 and 2 are converted; version 3 is current. Add a case here when the format changes.
+ * unknown. Versions 1 to 3 are converted; version 4 is current. Add a case here when the format changes.
  */
 export function migrate(raw: unknown): unknown {
   if (typeof raw !== 'object' || raw === null || !('version' in raw)) return null
@@ -110,7 +111,13 @@ export function migrate(raw: unknown): unknown {
     if (!v2.success) return null
     // Keep what version 2 meant: its terminals were the path endpoints.
     const { pathSource, pathTarget } = v2.data.settings
-    return { ...raw, version: WORKSPACE_VERSION, settings: { ...v2.data.settings, terminalSource: pathSource, terminalTarget: pathTarget } }
+    return migrate({ ...raw, version: 3, settings: { ...v2.data.settings, terminalSource: pathSource, terminalTarget: pathTarget } })
+  }
+  if (raw.version === 3) {
+    // Version 3 had no saved viewport.
+    const v3 = z.object({ graph: z.looseObject({}) }).safeParse(raw)
+    if (!v3.success) return null
+    return { ...raw, version: WORKSPACE_VERSION, graph: { ...v3.data.graph, viewport: null } }
   }
   if (raw.version === 1) {
     const v1 = LegacyV1.safeParse(raw)
@@ -137,6 +144,7 @@ export function migrate(raw: unknown): unknown {
           ...(e.data?.weight !== undefined && e.data.weight > 0 ? { weight: e.data.weight } : {}),
         })),
         example: null,
+        viewport: null,
       },
       settings,
     }
@@ -251,6 +259,7 @@ export function createPersistence(storage: StorageProvider = browserStorage, deb
           ...(e.data?.failureProbability !== undefined ? { failureProbability: e.data.failureProbability } : {}),
         })),
         example: g.example,
+        viewport: g.viewport,
       },
       settings: pickSettings(useSettingsStore.getState()),
     }
@@ -283,6 +292,7 @@ export function createPersistence(storage: StorageProvider = browserStorage, deb
     suspended = true
     try {
       useGraphStore.getState().replaceGraph(workspaceGraph(result.workspace), result.workspace.graph.example)
+      useGraphStore.setState({ viewport: result.workspace.graph.viewport })
       useSettingsStore.getState().replaceSettings(result.workspace.settings)
     } finally {
       suspended = false
@@ -300,7 +310,7 @@ export function createPersistence(storage: StorageProvider = browserStorage, deb
         remove(LEGACY_KEY)
       }
       const stopGraph = useGraphStore.subscribe((s, prev) => {
-        if (s.nodes !== prev.nodes || s.edges !== prev.edges || s.example !== prev.example) schedule()
+        if (s.nodes !== prev.nodes || s.edges !== prev.edges || s.example !== prev.example || s.viewport !== prev.viewport) schedule()
       })
       const stopSettings = useSettingsStore.subscribe((s, prev) => {
         if (s.adapterMode === prev.adapterMode) schedule()

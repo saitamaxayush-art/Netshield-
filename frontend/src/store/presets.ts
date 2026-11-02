@@ -31,10 +31,10 @@ function star(): EditorGraph {
     nodes: [
       node('hub', 'Core Router', 'router', 400, 250),
       node('srv', 'Primary Server', 'server', 400, 80),
-      node('fw', 'Border Firewall', 'firewall', 180, 250),
-      node('c1', 'Client 1', 'client', 620, 160),
-      node('c2', 'Client 2', 'client', 580, 380),
-      node('c3', 'Client 3', 'client', 260, 400),
+      node('fw', 'Border Firewall', 'firewall', 90, 250),
+      node('c1', 'Client 1', 'client', 700, 140),
+      node('c2', 'Client 2', 'client', 660, 400),
+      node('c3', 'Client 3', 'client', 170, 420),
     ],
     edges: [
       edge('e-hub-srv', 'hub', 'srv'),
@@ -77,11 +77,11 @@ function ring(): EditorGraph {
 function mesh(): EditorGraph {
   return {
     nodes: [
-      node('g1', 'Gateway 1', 'firewall', 220, 140),
+      node('g1', 'Gateway 1', 'firewall', 110, 140),
       node('core', 'Core Router', 'router', 420, 110),
-      node('g2', 'Gateway 2', 'firewall', 620, 140),
-      node('db', 'Database Cluster', 'server', 300, 320),
-      node('app', 'Application Cluster', 'server', 540, 320),
+      node('g2', 'Gateway 2', 'firewall', 730, 140),
+      node('db', 'Database Cluster', 'server', 230, 320),
+      node('app', 'Application Cluster', 'server', 610, 320),
       node('agg', 'Aggregation Switch', 'router', 420, 440),
     ],
     edges: [

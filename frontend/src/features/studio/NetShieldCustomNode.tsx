@@ -1,109 +1,103 @@
 import { memo } from 'react'
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import { Network, Server, Monitor, ShieldCheck, AlertCircle } from 'lucide-react'
-import type { EditorNode } from '@/types/graph'
+import type { EditorNode, NodeType } from '@/types/graph'
 import { useComponentIndex, useIsArticulationPoint } from '@/store/selectors'
 import { TOKENS } from '@/lib/tokens'
 
-const nodeIcons = {
-  router: Network,
-  server: Server,
-  client: Monitor,
-  firewall: ShieldCheck,
+const ICONS = { router: Network, server: Server, client: Monitor, firewall: ShieldCheck }
+
+/** Each type has its own icon and tile shape, so types differ without relying on colour. */
+const TILE_SHAPE: Record<NodeType, { className: string; clipPath?: string }> = {
+  router: { className: 'rounded-full' },
+  server: { className: 'rounded-none' },
+  client: { className: 'rounded-[6px_6px_0_0]' },
+  firewall: { className: '', clipPath: 'polygon(30% 0, 70% 0, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0 70%, 0 30%)' },
 }
 
-export const NetShieldCustomNode = memo(({ id, data: nodeData, selected }: NodeProps<EditorNode>) => {
-  const Icon = nodeIcons[nodeData.nodeType]
-  const isFailed = nodeData.failed
-  // Annotations come from the latest up to date analysis result (analysisStore), never computed here.
-  const componentIndex = useComponentIndex(id)
-  const isArticulationPoint = useIsArticulationPoint(id)
+export interface NodeBodyProps {
+  label: string
+  nodeType: NodeType
+  failed: boolean
+  selected: boolean
+  componentIndex: number | null
+  isArticulationPoint: boolean
+}
 
-  const componentColor =
-    componentIndex !== null
-      ? TOKENS.colors.components.palette[componentIndex % TOKENS.colors.components.palette.length]
-      : undefined
-
+/** Drawing only. Failed is shown by icon, label and dashed outline, not by colour alone. */
+export const NodeBody = memo(({ label, nodeType, failed, selected, componentIndex, isArticulationPoint }: NodeBodyProps) => {
+  const Icon = failed ? AlertCircle : ICONS[nodeType]
+  const palette = TOKENS.colors.components.palette
+  const color = componentIndex !== null && !failed ? palette[componentIndex % palette.length] : undefined
+  const tile = TILE_SHAPE[nodeType]
   return (
     <div
-      className={`relative px-3 py-2.5 rounded-[3px] transition-all select-none min-w-[130px] border ${
-        isFailed
-          ? 'bg-state-failure-dim border-state-failure text-state-failure shadow-sm'
-          : selected
-          ? 'bg-bg-surface-active border-accent-teal shadow-md ring-1 ring-accent-teal'
-          : 'bg-bg-surface border-border-strong hover:border-border-focus text-text-primary'
-      }`}
+      data-testid="node-body"
+      data-node-type={nodeType}
+      data-failed={failed}
+      data-selected={selected}
+      data-component={componentIndex ?? undefined}
+      style={color ? { borderLeftColor: color, borderLeftWidth: 4, borderLeftStyle: 'solid' } : undefined}
+      className={`relative px-3 py-2.5 rounded-[3px] select-none w-[176px] border ${
+        failed
+          ? 'bg-state-failure-dim border-2 border-dashed border-state-failure text-state-failure'
+          : 'bg-bg-surface border-border-strong text-text-primary'
+      } ${selected ? 'ring-2 ring-accent-cyan ring-offset-2 ring-offset-bg-primary' : ''}`}
     >
-      {/* Top and Bottom Connection Handles */}
-      <Handle
-        type="target"
-        position={Position.Top}
-        className="!w-2 !h-2 !bg-accent-teal !border-bg-primary !rounded-none -top-1"
-      />
-      <Handle
-        type="source"
-        position={Position.Bottom}
-        className="!w-2 !h-2 !bg-accent-teal !border-bg-primary !rounded-none -bottom-1"
-      />
-
-      {/* Articulation point indicator banner */}
-      {isArticulationPoint && !isFailed && (
-        <div className="absolute -top-2.5 right-2 px-1.5 py-0.2 bg-accent-teal text-bg-primary text-[9px] font-mono font-bold uppercase rounded-[1px] tracking-tight">
+      {isArticulationPoint && !failed && (
+        <div className="absolute -top-2.5 right-2 px-1.5 bg-accent-teal text-bg-primary text-[9px] font-mono font-bold uppercase rounded-[1px] tracking-tight">
           Cut Vertex
         </div>
       )}
-
-      {/* Node Header: Icon and Label */}
       <div className="flex items-center gap-2">
         <div
-          className={`w-6 h-6 rounded-[2px] flex items-center justify-center border ${
-            isFailed
-              ? 'bg-state-failure/20 border-state-failure text-state-failure'
-              : 'bg-bg-primary border-border-subtle text-accent-teal'
+          className={`w-7 h-7 shrink-0 flex items-center justify-center ${tile.className} ${
+            failed ? 'bg-state-failure/20 text-state-failure' : 'bg-bg-surface-active text-accent-teal'
           }`}
+          style={tile.clipPath ? { clipPath: tile.clipPath } : undefined}
         >
-          {isFailed ? <AlertCircle className="w-3.5 h-3.5" /> : <Icon className="w-3.5 h-3.5" />}
+          <Icon className="w-3.5 h-3.5" aria-hidden="true" />
         </div>
-
-        <div className="flex flex-col overflow-hidden">
-          <span
-            className={`text-xs font-semibold truncate ${
-              isFailed ? 'line-through text-state-failure' : 'text-text-primary'
-            }`}
-          >
-            {nodeData.label}
-          </span>
-          <span className="text-[10px] uppercase font-mono text-text-muted tracking-tight">
-            {nodeData.nodeType}
-          </span>
+        <div className="flex flex-col min-w-0">
+          <span className={`text-xs font-semibold truncate ${failed ? 'line-through text-state-failure' : 'text-text-primary'}`}>{label}</span>
+          <span className="text-[10px] uppercase font-mono text-text-muted tracking-tight">{nodeType}</span>
         </div>
       </div>
-
-      {/* Component Index and Status Footer */}
       <div className="mt-2 pt-1.5 border-t border-border-subtle flex items-center justify-between text-[10px] font-mono">
-        <div className="flex items-center gap-1.5">
-          {componentColor && !isFailed && (
-            <span
-              className="w-2 h-2 rounded-full inline-block"
-              style={{ backgroundColor: componentColor }}
-              title={`Component ${componentIndex}`}
-            />
-          )}
-          <span className="text-text-muted">
-            {componentColor && !isFailed ? `C${componentIndex}` : ''}
-          </span>
-        </div>
-
-        <span
-          className={`font-medium ${
-            isFailed ? 'text-state-failure' : 'text-state-success'
-          }`}
-        >
-          {isFailed ? 'FAILED' : 'ACTIVE'}
-        </span>
+        <span className="text-text-muted">{color ? `C${componentIndex}` : ''}</span>
+        <span className={`font-medium ${failed ? 'text-state-failure' : 'text-state-success'}`}>{failed ? 'FAILED' : 'ACTIVE'}</span>
       </div>
     </div>
   )
 })
+NodeBody.displayName = 'NodeBody'
 
+const SIDES = [
+  ['top', Position.Top],
+  ['right', Position.Right],
+  ['bottom', Position.Bottom],
+  ['left', Position.Left],
+] as const
+
+export const NetShieldCustomNode = memo(({ id, data, selected }: NodeProps<EditorNode>) => {
+  // Colours come from the latest up to date analysis (analysisStore), never computed here.
+  const componentIndex = useComponentIndex(id)
+  const isArticulationPoint = useIsArticulationPoint(id)
+  return (
+    <>
+      <NodeBody
+        label={data.label}
+        nodeType={data.nodeType}
+        failed={data.failed}
+        selected={selected}
+        componentIndex={componentIndex}
+        isArticulationPoint={isArticulationPoint}
+      />
+      {/* After the body, so handles paint and receive pointer events above it. */}
+      {SIDES.map(([side, position]) => (
+        <Handle key={side} id={side} type="source" position={position} className="ns-handle" aria-label={`Connect from ${data.label}, ${side} side`} />
+      ))}
+    </>
+  )
+})
 NetShieldCustomNode.displayName = 'NetShieldCustomNode'

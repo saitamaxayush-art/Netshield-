@@ -257,3 +257,55 @@ html, body {
 .react-flow__attribution {
   display: none !important;
 }
+
+/* Network Studio ------------------------------------------------------------------------------- */
+.ns-edge-line {
+  transition: opacity 0.2s ease, stroke-dashoffset 0.2s ease;
+}
+
+.ns-handle.react-flow__handle {
+  width: 10px;
+  height: 10px;
+  border-radius: 1px;
+  background: #2dd4bf;
+  border: 1px solid #13151f;
+}
+
+.ns-handle.clickconnecting,
+.ns-handle.connectingfrom {
+  background: #38bdf8;
+  outline: 2px solid #38bdf8;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ns-edge-line {
+    transition: none;
+  }
+}
+
+/* Touch: an invisible 40px target around each small handle. */
+@media (pointer: coarse) {
+  .ns-handle.react-flow__handle::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 40px;
+    height: 40px;
+    transform: translate(-50%, -50%);
+  }
+}
+
+/* Below the desktop layout every studio control is at least 40px. */
+@media (max-width: 1279.98px) {
+  .studio-root button,
+  .studio-root select,
+  .studio-root input:not([type='range']) {
+    min-height: 40px;
+    min-width: 40px;
+  }
+  .studio-root input[type='range'] {
+    height: 40px;
+  }
+}

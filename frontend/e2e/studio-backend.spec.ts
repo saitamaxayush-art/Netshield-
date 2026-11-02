@@ -6,7 +6,7 @@
  * make the request fail (HTTP error, wrong shape, network) and assert a visible error with Retry and
  * no result. Together they fail if any result is ever shown that did not come from the backend.
  */
-import { expect, test, type Page, type Response } from '@playwright/test'
+import { expect, test, type Page, type Request, type Response } from '@playwright/test'
 import { E2E_API_PORT } from '../playwright.config'
 
 test.use({ viewport: { width: 1440, height: 900 } })
@@ -69,7 +69,12 @@ function sixLeafStar() {
 const isPost = (path: string) => (r: Response) => r.url().endsWith(path) && r.request().method() === 'POST'
 
 async function openTab(page: Page, name: 'Analysis' | 'Simulator') {
+  // The page analyzes by itself 300 ms after load. Let that run settle, so it cannot land in the
+  // middle of what a test does next.
+  const isAnalyze = (r: Request) => r.url().endsWith('/api/analyze')
+  const settled = Promise.race([page.waitForEvent('requestfinished', isAnalyze), page.waitForEvent('requestfailed', isAnalyze)])
   await page.goto('/studio')
+  await settled
   await page.getByRole('button', { name, exact: true }).click()
 }
 

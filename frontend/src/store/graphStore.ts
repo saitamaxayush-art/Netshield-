@@ -52,7 +52,15 @@ export interface EdgePatch {
   failureProbability?: number | null
 }
 
+export interface Viewport {
+  x: number
+  y: number
+  zoom: number
+}
+
 export interface GraphState extends EditorGraph {
+  /** Pan and zoom of the canvas, saved with the graph. Null: fit the graph on first show. */
+  viewport: Viewport | null
   selectedNodeId: string | null
   selectedEdgeId: string | null
   /** The preset the graph was loaded from, so the UI can label it "Example". Null for the user's own graph. */
@@ -71,6 +79,10 @@ export interface GraphState extends EditorGraph {
   removeSelected: () => EditResult
   /** React Flow node changes: positions and dimensions, plus removals routed through removeNode. */
   applyNodeChanges: (changes: NodeChange<EditorNode>[]) => void
+
+  /** Commit final positions (end of a drag, or a keyboard nudge) as one undo step. */
+  moveNodes: (positions: Record<string, Position>) => void
+  setViewport: (viewport: Viewport) => void
 
   selectNode: (id: string | null) => void
   selectEdge: (id: string | null) => void
@@ -136,6 +148,7 @@ export const useGraphStore = create<GraphState>((set, get) => {
 
   return {
     ...initialGraph(),
+    viewport: null,
     selectedNodeId: null,
     selectedEdgeId: null,
     past: [],
@@ -241,6 +254,22 @@ export const useGraphStore = create<GraphState>((set, get) => {
       })
     },
 
+    moveNodes: (positions) => {
+      const s = get()
+      const moved = (n: EditorNode) => {
+        const p = positions[n.id]
+        return p !== undefined && (p.x !== n.position.x || p.y !== n.position.y)
+      }
+      if (!s.nodes.some(moved)) return
+      commit({ nodes: s.nodes.map((n) => (moved(n) ? { ...n, position: positions[n.id] } : n)) })
+    },
+
+    setViewport: (viewport) => {
+      const v = get().viewport
+      if (v && v.x === viewport.x && v.y === viewport.y && v.zoom === viewport.zoom) return
+      set({ viewport })
+    },
+
     selectNode: (id) => set({ selectedNodeId: id, selectedEdgeId: null }),
     selectEdge: (id) => set({ selectedEdgeId: id, selectedNodeId: null }),
 
@@ -302,5 +331,5 @@ function keepSelection(graph: EditorGraph, s: GraphState): Pick<GraphState, 'sel
 
 /** Back to the initial state (the star example, empty history). Used by tests and clearSavedData. */
 export function resetGraphStore(): void {
-  useGraphStore.setState({ ...initialGraph(), selectedNodeId: null, selectedEdgeId: null, past: [], future: [], dragging: false })
+  useGraphStore.setState({ ...initialGraph(), viewport: null, selectedNodeId: null, selectedEdgeId: null, past: [], future: [], dragging: false })
 }

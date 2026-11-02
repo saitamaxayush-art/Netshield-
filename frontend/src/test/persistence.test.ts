@@ -146,6 +146,7 @@ describe('loading', () => {
     graph().loadPreset('mesh')
     graph().failEdge('e-db-app')
     graph().applyNodeChanges([{ type: 'position', id: 'db', position: { x: 12.5, y: -3 }, dragging: false }])
+    graph().setViewport({ x: 10, y: -20, zoom: 0.75 })
     settings().update({ edgeFailureProbability: 0.35, seed: 42, mode: 'two-terminal', terminalSource: 'g1', terminalTarget: 'agg', pathTarget: 'db' })
     p.flush()
     const before = { api: toApiGraph(graph()), positions: graph().nodes.map((n) => n.position), example: graph().example }
@@ -155,6 +156,7 @@ describe('loading', () => {
     expect(toApiGraph(graph())).toEqual(before.api)
     expect(graph().nodes.map((n) => n.position)).toEqual(before.positions)
     expect(graph().example).toBe('mesh')
+    expect(graph().viewport).toEqual({ x: 10, y: -20, zoom: 0.75 })
     expect([settings().edgeFailureProbability, settings().seed, settings().mode, settings().terminalSource, settings().terminalTarget, settings().pathTarget]).toEqual([
       0.35, 42, 'two-terminal', 'g1', 'agg', 'db',
     ])
@@ -237,7 +239,7 @@ describe('migration', () => {
     })
     expect([settings().trials, settings().edgeFailureProbability, settings().nodeFailureProbability]).toEqual([500, 0.15, 0.15])
     expect(storage.data.has(LEGACY_KEY)).toBe(false)
-    expect(savedWorkspace().version).toBe(3)
+    expect(savedWorkspace().version).toBe(4)
   })
 
   it('maps failTarget edges and nodes to the matching probability only', () => {
@@ -252,17 +254,18 @@ describe('migration', () => {
     const p = start()
     graph().addNode({ nodeType: 'client' })
     p.flush()
-    const v3 = savedWorkspace()
-    const { terminalSource: _s, terminalTarget: _t, ...v2Settings } = { ...v3.settings, pathSource: 'hub', pathTarget: 'c3' }
-    const migrated = WorkspaceSchema.parse(migrate({ ...v3, version: 2, settings: v2Settings }))
-    expect([migrated.version, migrated.settings.terminalSource, migrated.settings.terminalTarget]).toEqual([3, 'hub', 'c3'])
+    const current = savedWorkspace()
+    const { terminalSource: _s, terminalTarget: _t, ...v2Settings } = { ...current.settings, pathSource: 'hub', pathTarget: 'c3' }
+    const { viewport: _v, ...v2Graph } = current.graph
+    const migrated = WorkspaceSchema.parse(migrate({ ...current, version: 2, graph: v2Graph, settings: v2Settings }))
+    expect([migrated.version, migrated.settings.terminalSource, migrated.settings.terminalTarget, migrated.graph.viewport]).toEqual([4, 'hub', 'c3', null])
     expect(migrate({ version: 2, settings: { trials: 'x' } })).toBeNull()
   })
 
   it('returns the current version unchanged and null for unknown versions', () => {
-    const current = { version: 3 }
+    const current = { version: 4 }
     expect(migrate(current)).toBe(current)
-    expect(migrate({ version: 4 })).toBeNull()
+    expect(migrate({ version: 5 })).toBeNull()
     expect(migrate({ version: 1, nodes: 'bad' })).toBeNull()
   })
 })

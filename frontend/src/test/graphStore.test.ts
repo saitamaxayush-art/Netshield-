@@ -236,6 +236,18 @@ describe('undo and redo', () => {
     expect(store().nodes[0].position).toEqual(start)
   })
 
+  it('moveNodes commits final positions as one undo step, and a no op adds none', () => {
+    abc()
+    const depth = store().past.length
+    const start = store().nodes[0].position
+    store().moveNodes({ A: { x: 5, y: 6 }, B: { x: 7, y: 8 } })
+    expect(store().past.length).toBe(depth + 1)
+    store().moveNodes({ A: { x: 5, y: 6 } })
+    expect(store().past.length).toBe(depth + 1)
+    store().undo()
+    expect(store().nodes[0].position).toEqual(start)
+  })
+
   it('undo drops a selection that no longer exists', () => {
     abc()
     store().selectNode('C')

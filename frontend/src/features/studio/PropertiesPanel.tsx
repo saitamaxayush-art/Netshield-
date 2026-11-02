@@ -55,11 +55,19 @@ const NodeProperties: React.FC<{ node: EditorNode }> = ({ node }) => {
         <label htmlFor="node-label" className="block text-[11px] font-mono text-text-muted uppercase mb-1.5">
           Label
         </label>
+        {/* Commits on blur or Enter, so one rename is one undo step. Keyed by value to follow undo. */}
         <input
+          key={node.data.label}
           id="node-label"
           type="text"
-          value={node.data.label}
-          onChange={(e) => report(updateNode(node.id, { label: e.target.value }))}
+          defaultValue={node.data.label}
+          aria-invalid={error !== null}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') e.currentTarget.blur()
+          }}
+          onBlur={(e) => {
+            if (e.target.value !== node.data.label) report(updateNode(node.id, { label: e.target.value }))
+          }}
           className="w-full px-3 py-1.5 bg-bg-primary border border-border-strong rounded-[2px] text-text-primary focus:border-accent-teal focus:outline-none font-sans text-xs"
         />
       </div>
@@ -86,6 +94,14 @@ const NodeProperties: React.FC<{ node: EditorNode }> = ({ node }) => {
 
       {/* Every value here is from the backend's latest analysis of this exact graph. */}
       <div className="p-3 bg-bg-primary rounded-[2px] border border-border-subtle space-y-2 font-mono text-[11px]" data-testid="node-analysis">
+        <div className="flex justify-between">
+          <span className="text-text-muted">Stored status:</span>
+          <span data-testid="stored-status">{isFailed ? 'Marked failed' : 'Healthy'}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-text-muted">Operational status:</span>
+          <span data-testid="operational-status">{isFailed ? 'Down' : 'Up'}</span>
+        </div>
         <div className="flex justify-between">
           <span className="text-text-muted">Degree deg(v), operational:</span>
           <span className="font-semibold text-text-primary" data-testid="node-degree">
@@ -141,8 +157,11 @@ const OptionalNumber: React.FC<{
   value: number | undefined
   placeholder: string
   step: string
+  min?: number
+  max?: number
+  invalid: boolean
   onCommit: (value: number | null) => void
-}> = ({ id, label, value, placeholder, step, onCommit }) => {
+}> = ({ id, label, value, placeholder, step, min, max, invalid, onCommit }) => {
   const [text, setText] = useState(value === undefined ? '' : String(value))
   return (
     <div>
@@ -153,9 +172,15 @@ const OptionalNumber: React.FC<{
         id={id}
         type="number"
         step={step}
+        min={min}
+        max={max}
         value={text}
         placeholder={placeholder}
+        aria-invalid={invalid}
         onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') e.currentTarget.blur()
+        }}
         onBlur={() => onCommit(text.trim() === '' ? null : Number(text))}
         className="w-full px-3 py-1.5 bg-bg-primary border border-border-strong rounded-[2px] text-text-primary focus:border-accent-teal focus:outline-none font-mono text-xs"
       />
@@ -169,6 +194,7 @@ const EdgeProperties: React.FC<{ edge: EditorEdge }> = ({ edge }) => {
   const [error, report] = useEditError()
   const isFailed = edge.data?.failed ?? false
   const labelOf = (id: string) => nodes.find((n) => n.id === id)?.data.label ?? id
+  const endpointFailed = nodes.some((n) => (n.id === edge.source || n.id === edge.target) && n.data.failed)
 
   return (
     <div className="p-5 space-y-5 text-xs text-text-primary">
@@ -190,6 +216,14 @@ const EdgeProperties: React.FC<{ edge: EditorEdge }> = ({ edge }) => {
           <span className="text-text-primary truncate max-w-[130px]">{labelOf(edge.target)}</span>
         </div>
         <div className="flex justify-between">
+          <span className="text-text-muted">Stored status:</span>
+          <span data-testid="stored-status">{isFailed ? 'Marked failed' : 'Healthy'}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-text-muted">Operational status:</span>
+          <span data-testid="operational-status">{isFailed ? 'Down' : endpointFailed ? 'Unavailable (endpoint failed)' : 'Up'}</span>
+        </div>
+        <div className="flex justify-between">
           <span className="text-text-muted">Bridge (Cut Edge):</span>
           <span className={isBridge ? 'text-accent-teal font-semibold' : 'text-text-muted'}>{isBridge ? 'Bridge' : 'Not a bridge, or not analyzed'}</span>
         </div>
@@ -197,7 +231,8 @@ const EdgeProperties: React.FC<{ edge: EditorEdge }> = ({ edge }) => {
 
       <div className="grid grid-cols-2 gap-3">
         <OptionalNumber
-          key={`w-${edge.id}`}
+          key={`w-${edge.id}-${edge.data?.weight}`}
+          invalid={error !== null}
           id="edge-weight"
           label="Weight"
           step="any"
@@ -206,7 +241,10 @@ const EdgeProperties: React.FC<{ edge: EditorEdge }> = ({ edge }) => {
           onCommit={(weight) => report(updateEdge(edge.id, { weight }))}
         />
         <OptionalNumber
-          key={`p-${edge.id}`}
+          key={`p-${edge.id}-${edge.data?.failureProbability}`}
+          invalid={error !== null}
+          min={0}
+          max={1}
           id="edge-failure-probability"
           label="Own failure p"
           step="0.01"
