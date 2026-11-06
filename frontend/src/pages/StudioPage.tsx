@@ -27,6 +27,7 @@ import { AnalysisAnnouncer } from '@/features/studio/AnalysisAnnouncer'
 import { useAnalysisStore } from '@/store/analysisStore'
 import { ANALYSIS_SECTIONS, useStudioView, type AnalysisSection, type PanelTab } from '@/store/studioViewStore'
 import { Sheet } from '@/components/ui/Sheet'
+import { ErrorBoundary, PanelErrorFallback } from '@/components/layout/ErrorBoundary'
 import { Button } from '@/components/ui/Button'
 import { useGraphStore } from '@/store/graphStore'
 import { PRESET_NAMES, PRESET_TITLES } from '@/store/presets'
@@ -146,6 +147,7 @@ const Panels: React.FC = () => {
         ))}
       </div>
       <div className="flex-1 min-h-0 overflow-y-auto">
+        <ErrorBoundary resetKey={activeTab} fallback={(error, reset) => <PanelErrorFallback error={error} reset={reset} name={TABS.find(([t]) => t === activeTab)?.[1] ?? 'details'} />}>
         {activeTab === 'properties' && (
           <>
             <FailureControls />
@@ -154,6 +156,7 @@ const Panels: React.FC = () => {
         )}
         {activeTab === 'analysis' && <AnalysisPanel />}
         {activeTab === 'simulation' && <SimulationPanel />}
+        </ErrorBoundary>
       </div>
     </div>
   )
@@ -309,7 +312,7 @@ const Studio: React.FC = () => {
   }, [removeSelected, selectNode, undo, redo])
 
   return (
-    <div className="studio-root h-dvh flex flex-col bg-bg-primary text-text-primary overflow-hidden">
+    <div className="studio-root h-[calc(100dvh-var(--ns-banner-h,0px))] flex flex-col bg-bg-primary text-text-primary overflow-hidden">
       <Navbar />
       <AnalysisAnnouncer />
       <div className="flex-1 min-h-0 flex flex-col pt-16">
@@ -348,7 +351,7 @@ const Studio: React.FC = () => {
                 fitView={initialViewport === null}
                 fitViewOptions={FIT_OPTIONS}
                 defaultViewport={initialViewport ?? undefined}
-                minZoom={0.1}
+                minZoom={0.005}
                 maxZoom={2.5}
                 proOptions={{ hideAttribution: true }}
               >

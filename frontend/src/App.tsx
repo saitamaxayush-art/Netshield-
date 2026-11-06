@@ -1,5 +1,6 @@
 import React, { Suspense, lazy } from 'react'
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
+import { AppErrorFallback, ErrorBoundary } from './components/layout/ErrorBoundary'
 
 // Lazy-load routes for optimized bundle splitting
 const LandingPage = lazy(() => import('./pages/LandingPage'))
@@ -9,7 +10,18 @@ const PrivacyPage = lazy(() => import('./pages/PrivacyPage'))
 const TermsPage = lazy(() => import('./pages/TermsPage'))
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'))
 // Its own chunk, loaded after first paint, so the landing page bundle stays free of the API layer.
-const DemoModeBanner = lazy(() => import('./components/layout/DemoModeBanner'))
+const StatusBanners = lazy(() => import('./components/layout/StatusBanners'))
+
+/** Server status and demo mode banners on app pages; the landing page does not use the backend. */
+const AppBanners: React.FC = () => {
+  const { pathname } = useLocation()
+  if (pathname === '/') return null
+  return (
+    <Suspense fallback={null}>
+      <StatusBanners />
+    </Suspense>
+  )
+}
 
 // Minimalist loading skeleton matching tokens
 const PageLoader: React.FC = () => {
@@ -30,6 +42,7 @@ const AppLoader: React.FC = () => (
 export function App() {
   return (
     <BrowserRouter>
+      <ErrorBoundary fallback={(error) => <AppErrorFallback error={error} />}>
       <Suspense fallback={<PageLoader />}>
         <Routes>
           <Route path="/" element={<LandingPage />} />
@@ -40,9 +53,8 @@ export function App() {
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </Suspense>
-      <Suspense fallback={null}>
-        <DemoModeBanner />
-      </Suspense>
+      <AppBanners />
+      </ErrorBoundary>
     </BrowserRouter>
   )
 }

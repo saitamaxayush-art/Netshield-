@@ -55,7 +55,7 @@ export const DashboardPage: React.FC = () => {
   const fresh = current && !analysis.stale ? current : null
 
   return (
-    <div className="min-h-screen flex flex-col bg-bg-primary text-text-primary">
+    <div className="app-page min-h-screen flex flex-col bg-bg-primary text-text-primary">
       <Navbar />
       <AnalysisAnnouncer />
       <main className="flex-1">

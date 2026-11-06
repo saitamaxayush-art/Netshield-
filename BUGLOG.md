@@ -161,3 +161,104 @@ is a bridge and failing the hub gives 6 components. Saved graphs are not changed
 
 `e2e/studio-failure.spec.ts` asserts 6 components from the real backend after failing the hub, and
 `e2e/studio-backend.spec.ts` asserts all 6 links are bridges.
+
+## Phase 7 bug hunt
+
+Each bug below was found in this phase, in code that existed before it, and has a regression test.
+
+### BUG-004: The backend read request bodies of any size
+
+* Symptom: a 2.6 MB body was read and parsed in full before the node limit rejected it.
+* Root cause: no body size limit anywhere in the stack.
+* Fix: `backend/app/middleware.py` rejects bodies over `NETSHIELD_MAX_REQUEST_BYTES` (1 MiB) with 413
+  `PAYLOAD_TOO_LARGE` before the app reads them, including chunked bodies without a length. Contract
+  section 5 amended.
+* Tests: `backend/tests/test_hardening.py` (`test_body_over_the_limit_is_413_before_parsing`,
+  `test_chunked_body_without_length_is_limited_too`, `test_a_graph_at_the_limits_fits_under_the_size_limit`),
+  `e2e/robustness.spec.ts` (limits test).
+
+### BUG-005: Malformed JSON was reported as an error "at [11]"
+
+* Symptom: `{"nodes": [` gave "Invalid request at [11]: JSON decode error." with `details[0].path` `"[11]"`.
+* Root cause: Pydantic puts the character offset in the error location; the handler formatted it as a
+  field path.
+* Fix: `backend/app/error_handlers.py` reports "Request body is not valid JSON (near character N)." with
+  `details` `[{"path": "", "message": "Malformed JSON"}]`.
+* Tests: `test_malformed_json_is_a_clear_validation_error` (4 bodies), `e2e/robustness.spec.ts`
+  (malformed JSON test against the real backend).
+
+### BUG-006: Blank and untrimmed labels were accepted
+
+* Symptom: a label of spaces was stored, rendering an empty node; leading and trailing spaces were kept.
+* Root cause: `checkLabel` checked only the length.
+* Fix: labels are trimmed in the store and on import; blank labels are refused; the input has
+  `maxLength=100`.
+* Tests: `src/test/robustness.test.tsx` "labels are trimmed, and blank or over long labels are refused",
+  import "trims imported labels and refuses blank ones", `e2e/robustness.spec.ts` (long labels).
+
+### BUG-007: Nodes with the same label could not be told apart in pickers
+
+* Symptom: two nodes labelled "Same" appeared as two identical options in the path, traversal, terminal
+  and link pickers, and in analysis lists.
+* Fix: `features/studio/nodeNames.ts` adds the id when a label is not unique ("Same (a)"); used by every
+  picker and analysis list.
+* Tests: "duplicate labels are told apart by id in every picker", `e2e/robustness.spec.ts` (duplicate labels).
+
+### BUG-008: Requests were not checked before sending
+
+* Symptom: settings or a graph that break a rule (for example from older saved data or a direct state
+  change) were sent, and only the backend's 422 caught them.
+* Fix: `analysisStore` checks every payload with the editing and settings rules first; a failure is a
+  `CLIENT_VALIDATION` error ("Not sent: ...") and nothing is sent.
+* Tests: "a payload that breaks a rule is never sent".
+
+### BUG-009: The last changes before a reload were lost
+
+* Symptom: choosing 20000 trials and reloading within 0.4 s brought back 1000.
+* Root cause: saves are debounced by 400 ms and nothing flushed them when the page went away.
+* Fix: `store/persistence.ts` writes pending changes on `pagehide`, `beforeunload` and when the tab is hidden.
+* Tests: `src/test/persistence.test.ts` "a pending debounced save is written on pagehide and when the tab is
+  hidden", `e2e/robustness.spec.ts` (reload in the middle of a simulation).
+
+### BUG-010: Far away nodes could not be brought into view
+
+* Symptom: a node at (999000, -999000) stayed off screen after Fit view, because the canvas could not zoom
+  out far enough (minimum zoom 0.1).
+* Fix: the store clamps every position (add, drag, nudge, move) to within 100000 of the origin; imported
+  files beyond that are refused with a message; the canvas and Fit view can zoom out to 0.005. Saved data
+  with far positions still loads (it is not discarded).
+* Tests: "the store clamps added, moved and nudged positions", import "refuses huge coordinates",
+  `e2e/robustness.spec.ts` (huge coordinates).
+
+### BUG-011: Muted and failure text failed WCAG AA contrast
+
+* Symptom: axe reported `color-contrast` on /studio, /dashboard and /privacy: muted text `#64748B` at
+  3.8:1 on the page background, failure text `#F43F5E` at 4.2:1 on its dim background.
+* Fix: token values (names unchanged) `--color-text-muted` `#8693A7` (at least 4.55:1 on every app
+  surface) and `--color-state-failure` `#F65A74` (at least 4.84:1), in `index.css` and `lib/tokens.ts`.
+* Tests: `e2e/accessibility.spec.ts` (axe, WCAG 2.1 AA, at 1440 and 390, in result, dialog and offline states).
+
+### BUG-012: Linking nodes needed a pointer, and the handles had invalid ARIA
+
+* Symptom: axe `aria-prohibited-attr` on all 28 handles (`aria-label` on a `div` without a role); there
+  was no way to create a link from the keyboard.
+* Fix: handles are `aria-hidden` (pointer only); the node properties panel has "Link to another node"
+  (select plus Add link), which uses the same store validation and messages.
+* Tests: axe spec, `e2e/accessibility.spec.ts` "add a node, link it, fail it and restore it, with the
+  keyboard alone".
+
+### BUG-013: The exact value inputs of the probability sliders had no label
+
+* Symptom: axe `label` (critical) on `#edge-p-value` and `#node-p-value`.
+* Fix: a visually hidden label ("Link failure probability (p), exact value").
+* Tests: axe spec.
+
+### BUG-014: The privacy page described a data flow the app does not have
+
+* Symptom: it named the old storage key `netshield_graph_state_v1` and said that when the backend is
+  offline "all computations execute locally in the browser", which is the silent fallback removed in
+  Phase 1B. It did not mention that labels are sent, what the server logs, or the uvicorn access log.
+* Fix: `/privacy` rewritten from the code: what is stored, what is sent and when, what the server logs
+  (and what it never logs), demo mode, Google Fonts; hosting retention and contact marked "Developer
+  review required".
+* Tests: `e2e/robustness.spec.ts` "the privacy page states the real data flow and keeps Clear saved data".

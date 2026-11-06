@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/Badge'
 
 export const TermsPage: React.FC = () => {
   return (
-    <div className="min-h-screen flex flex-col bg-bg-primary text-text-primary">
+    <div className="app-page min-h-screen flex flex-col bg-bg-primary text-text-primary">
       <Navbar />
 
       <main className="flex-1">

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button'
 import { ApiErrorBox, SourceBadge, StaleNotice } from './ResultStatus'
 import { AnalysisSkeleton, ComponentsSection, CompareSection, CriticalSection, DegreesSection, OverviewSection, PathsSection, TraversalSection } from './analysis/sections'
 import { Play, Network, HelpCircle } from 'lucide-react'
+import { nodeNames } from './nodeNames'
 
 const SECTION_NAMES: Record<AnalysisSection, string> = {
   overview: 'Overview',
@@ -28,7 +29,8 @@ export const AnalysisPanel: React.FC = () => {
   const result = slot.result
   const current = result?.current ?? null
   const isLoading = slot.status === 'loading'
-  const labelOf = (id: string) => nodes.find((n) => n.id === id)?.data.label ?? id
+  const names = nodeNames(nodes)
+  const labelOf = (id: string) => names.get(id) ?? id
   const linkName = (edgeId: string) => {
     const edge = edges.find((e) => e.id === edgeId)
     return edge ? `${labelOf(edge.source)} ↔ ${labelOf(edge.target)}` : edgeId

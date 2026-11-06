@@ -140,6 +140,22 @@ describe('saving', () => {
   })
 })
 
+describe('saving before the page goes away (BUG-009)', () => {
+  it('a pending debounced save is written on pagehide and when the tab is hidden', () => {
+    start()
+    settings().update({ trials: 20000 })
+    expect(storage.writes).toBe(0)
+    window.dispatchEvent(new Event('pagehide'))
+    expect(storage.writes).toBe(1)
+    expect(savedWorkspace().settings.trials).toBe(20000)
+    settings().update({ trials: 500 })
+    Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true })
+    document.dispatchEvent(new Event('visibilitychange'))
+    Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true })
+    expect(savedWorkspace().settings.trials).toBe(500)
+  })
+})
+
 describe('loading', () => {
   it('round trips graph, positions, example label and settings', () => {
     const p = start()

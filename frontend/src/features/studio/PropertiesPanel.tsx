@@ -6,6 +6,8 @@ import { NODE_TYPES, type EditorEdge, type EditorNode, type NodeType } from '@/t
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Sliders, Trash2, Layers, Activity } from 'lucide-react'
+import { clampInput } from './clamp'
+import { nodeNames } from './nodeNames'
 
 const TYPE_NAMES: Record<NodeType, string> = {
   router: 'Core Router',
@@ -28,6 +30,50 @@ const EditError: React.FC<{ error: string | null }> = ({ error }) =>
       {error}
     </p>
   ) : null
+
+/** Link the node to another without a pointer (the canvas handles are pointer only). */
+const ConnectTo: React.FC<{ nodeId: string; onResult: (result: EditResult) => void }> = ({ nodeId, onResult }) => {
+  const nodes = useGraphStore((s) => s.nodes)
+  const addEdge = useGraphStore((s) => s.addEdge)
+  const names = nodeNames(nodes)
+  const [target, setTarget] = useState('')
+  return (
+    <div className="space-y-1.5">
+      <label htmlFor="connect-to" className="block text-[11px] font-mono text-text-muted uppercase">
+        Link to another node
+      </label>
+      <div className="flex gap-2">
+        <select
+          id="connect-to"
+          value={target}
+          onChange={(e) => setTarget(e.target.value)}
+          className="flex-1 min-w-0 px-2 py-1.5 bg-bg-primary border border-border-strong rounded-[2px] text-text-primary text-xs focus:border-accent-teal focus:outline-none"
+        >
+          <option value="">(Select node)</option>
+          {nodes
+            .filter((n) => n.id !== nodeId)
+            .map((n) => (
+              <option key={n.id} value={n.id}>
+                {names.get(n.id)}
+              </option>
+            ))}
+        </select>
+        <Button
+          variant="secondary"
+          size="sm"
+          disabled={target === ''}
+          onClick={() => {
+            const result = addEdge({ source: nodeId, target })
+            onResult(result)
+            if (result.ok) setTarget('')
+          }}
+        >
+          Add link
+        </Button>
+      </div>
+    </div>
+  )
+}
 
 const NotAnalyzed = <span className="text-text-muted">Not analyzed</span>
 
@@ -60,6 +106,7 @@ const NodeProperties: React.FC<{ node: EditorNode }> = ({ node }) => {
           key={node.data.label}
           id="node-label"
           type="text"
+          maxLength={100}
           defaultValue={node.data.label}
           aria-invalid={error !== null}
           onKeyDown={(e) => {
@@ -123,6 +170,8 @@ const NodeProperties: React.FC<{ node: EditorNode }> = ({ node }) => {
           </span>
         </div>
       </div>
+
+      <ConnectTo nodeId={node.id} onResult={report} />
 
       <EditError error={error} />
 
@@ -241,7 +290,12 @@ const EdgeProperties: React.FC<{ edge: EditorEdge }> = ({ edge }) => {
           step="0.01"
           placeholder="use global"
           value={edge.data?.failureProbability}
-          onCommit={(failureProbability) => report(updateEdge(edge.id, { failureProbability }))}
+          onCommit={(typed) => {
+            // Clamped into [0, 1] with a note; only a non number is refused.
+            const clamped = typed === null ? { value: null, note: null } : clampInput(typed, 0, 1)
+            const result = updateEdge(edge.id, { failureProbability: clamped.value })
+            report(result.ok && clamped.note ? { ok: false, error: clamped.note } : result)
+          }}
         />
       </div>
 

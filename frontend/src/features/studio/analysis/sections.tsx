@@ -11,6 +11,7 @@ import { useGraphStore } from '@/store/graphStore'
 import { useSettingsStore } from '@/store/settingsStore'
 import { useStudioView } from '@/store/studioViewStore'
 import { EXPLANATIONS, type ExplanationKey } from '../explanations'
+import { nodeNames } from '../nodeNames'
 
 type LabelOf = (id: string) => string
 const card = 'p-3 bg-bg-surface-elevated rounded-[2px] border border-border-subtle space-y-2'
@@ -56,6 +57,11 @@ export const OverviewSection: React.FC<{ current: Analysis }> = ({ current }) =>
       <Stat label="Components" value={current.connectivity.componentCount} testId="analysis-component-count" />
       <Stat label="Density" value={current.summary.density.toFixed(4)} testId="analysis-density" />
     </div>
+    {current.summary.nodeCount > 0 && current.summary.operationalNodeCount === 0 && (
+      <p role="note" data-testid="all-failed-note" className="text-[11px] text-state-warning">
+        Every node is marked failed, so no node is operational and there is nothing to connect.
+      </p>
+    )}
     <p className="text-[11px] font-mono text-text-muted">
       Operational: {current.summary.operationalNodeCount} nodes, {current.summary.operationalEdgeCount} links. Failed: {current.summary.failedNodeCount} nodes,{' '}
       {current.summary.failedEdgeCount} links. Unavailable links in total: {current.summary.unavailableEdgeCount}.
@@ -244,7 +250,8 @@ const NodeSelect: React.FC<{ id: string; label: string; placeholder: string; val
 
 function useNodeOptions() {
   const nodes = useGraphStore((s) => s.nodes)
-  return nodes.map((n) => ({ id: n.id, label: n.data.label }))
+  const names = nodeNames(nodes)
+  return nodes.map((n) => ({ id: n.id, label: names.get(n.id) ?? n.id }))
 }
 
 export const TraversalSection: React.FC<{ current: Analysis; labelOf: LabelOf }> = ({ current, labelOf }) => {

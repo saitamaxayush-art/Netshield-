@@ -81,15 +81,3 @@ export function fromApiGraph(graph: ApiGraph, positions: Record<string, Position
     }),
   }
 }
-
-/**
- * A stable string for everything that affects computed results: node ids and failed flags, edge
- * endpoints, failed flags, weights and failure probabilities. Positions, selection, labels and node
- * types are excluded, so dragging or renaming a node does not mark results out of date.
- */
-export function graphSignature(graph: EditorGraph): string {
-  return JSON.stringify([
-    graph.nodes.map((n) => [n.id, n.data.failed]),
-    graph.edges.map((e) => [e.id, e.source, e.target, e.data?.failed ?? false, e.data?.weight ?? null, e.data?.failureProbability ?? null]),
-  ])
-}

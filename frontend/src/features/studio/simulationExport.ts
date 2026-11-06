@@ -78,7 +78,11 @@ export function toCsv({ run, sweep, exportedAt }: ExportInput): string {
 }
 
 export function download(filename: string, text: string, type: string): void {
-  const url = URL.createObjectURL(new Blob([text], { type }))
+  downloadBlob(filename, new Blob([text], { type }))
+}
+
+export function downloadBlob(filename: string, blob: Blob): void {
+  const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
   a.download = filename

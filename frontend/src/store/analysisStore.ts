@@ -15,8 +15,9 @@ import { getApi } from '@/services/api/registry'
 import type { AnalyzeResponseBody, SweepResponseBody } from '@/services/api/schemas'
 import { useGraphStore } from './graphStore'
 import { buildAnalyzeRequest, buildSimulateRequest, buildSweepRequest, inputKey, type RequestKind } from './requests'
-import { pickSettings, useSettingsStore } from './settingsStore'
+import { checkSettings, pickSettings, useSettingsStore } from './settingsStore'
 import { runBatches, type SimulationRun } from './simulationRuns'
+import { checkGraph } from './graphRules'
 
 export type RequestStatus = 'idle' | 'loading' | 'success' | 'error'
 
@@ -131,6 +132,13 @@ async function runSlot<T>(kind: RequestKind, acc: Accessor<T>): Promise<void> {
   const before = currentInputs()
   const key = inputKey(kind, before.graph, before.settings)
   const isLatest = () => acc.read(useAnalysisStore.getState()).requestId === requestId
+  // Every payload is checked against the same rules as the backend before anything is sent.
+  const problem = checkGraph(before.graph) ?? checkSettings(before.settings)
+  if (problem) {
+    update(acc, { status: 'error', result: null, error: new ApiError('validation', 'CLIENT_VALIDATION', `Not sent: ${problem}`), inputKey: null, stale: false, progress: null, cancelled: false })
+    if (controllers.get(kind) === controller) controllers.delete(kind)
+    return
+  }
   update(acc, { status: 'loading', error: null, requestId, startedAt: Date.now(), progress: null, cancelled: false })
   try {
     const result = await acc.fetch(controller.signal, (done, total) => {

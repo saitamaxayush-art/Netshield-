@@ -2,7 +2,9 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { HISTORY_LIMIT, useGraphStore } from '../store/graphStore'
 import { checkGraph, MAX_ID_LENGTH, MAX_NODES } from '../store/graphRules'
 import { preset, PRESET_NAMES } from '../store/presets'
-import { graphSignature, toApiGraph, fromApiGraph } from '../types/graph'
+import { toApiGraph, fromApiGraph } from '../types/graph'
+import { inputKey } from '../store/requests'
+import { DEFAULT_SETTINGS } from '../store/settingsStore'
 import { resetStores } from './fixtures'
 
 const store = () => useGraphStore.getState()
@@ -164,7 +166,8 @@ describe('failure flags', () => {
     expect(store().edges.every((e) => !e.data?.failed)).toBe(true)
   })
 
-  it('changes the signature, which ignores positions and labels', () => {
+  it('changes the analysis input key, which ignores positions and labels', () => {
+    const graphSignature = (g: ReturnType<typeof store>) => inputKey('analyze', g, DEFAULT_SETTINGS)
     const base = graphSignature(store())
     store().updateNode('A', { label: 'renamed' })
     store().applyNodeChanges([{ type: 'position', id: 'A', position: { x: 999, y: 1 }, dragging: false }])

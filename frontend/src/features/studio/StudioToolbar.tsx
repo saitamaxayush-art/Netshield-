@@ -14,7 +14,7 @@ import {
   ZoomIn,
   ZoomOut,
   HelpCircle,
-  Eraser,
+  FileJson,
   Wrench,
   PanelRight,
 } from 'lucide-react'
@@ -22,6 +22,7 @@ import { useGraphStore } from '@/store/graphStore'
 import { PRESET_NAMES, PRESET_TITLES, type PresetName } from '@/store/presets'
 import { clearSavedData } from '@/store/persistence'
 import { FIT_OPTIONS, useAddNodeAtCentre } from './studioActions'
+import { GraphDataDialog } from './GraphDataDialog'
 import { Button } from '@/components/ui/Button'
 import { Dialog } from '@/components/ui/Dialog'
 import { Sheet } from '@/components/ui/Sheet'
@@ -75,6 +76,7 @@ export const StudioToolbar: React.FC<{
   const [pendingPreset, setPendingPreset] = useState<PresetName | null>(null)
   const [confirmReset, setConfirmReset] = useState(false)
   const [confirmClear, setConfirmClear] = useState(false)
+  const [dataOpen, setDataOpen] = useState(false)
 
   const fit = () => void fitView(FIT_OPTIONS)
   // New nodes must be measured first; React Flow queues a fit requested after they are rendered.
@@ -127,7 +129,10 @@ export const StudioToolbar: React.FC<{
     ['Zoom out', <ZoomOut className="w-4 h-4" />, () => void zoomOut()],
     ['Restore all failed', <RefreshCw className="w-4 h-4" />, clearFailures],
     ['Reset canvas', <RotateCcw className="w-4 h-4" />, () => setConfirmReset(true)],
-    ['Clear saved data', <Eraser className="w-4 h-4" />, () => setConfirmClear(true)],
+    ['Import or export', <FileJson className="w-4 h-4" />, () => {
+      setToolsOpen(false)
+      setDataOpen(true)
+    }],
     ['Keyboard shortcuts', <HelpCircle className="w-4 h-4" />, () => onHelpChange(true)],
   ]
   const heading = 'text-[11px] font-mono text-text-muted uppercase tracking-wider'
@@ -229,6 +234,7 @@ export const StudioToolbar: React.FC<{
       >
         <p className="text-xs text-text-muted">The Privacy page offers the same action.</p>
       </Dialog>
+      <GraphDataDialog isOpen={dataOpen} onClose={() => setDataOpen(false)} onImported={fitSoon} onClearSaved={() => setConfirmClear(true)} />
       <Dialog isOpen={helpOpen} onClose={() => onHelpChange(false)} title="Keyboard shortcuts" cancelLabel="Close">
         <dl data-testid="shortcut-help" className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-xs">
           {SHORTCUTS.map(([key, what]) => (

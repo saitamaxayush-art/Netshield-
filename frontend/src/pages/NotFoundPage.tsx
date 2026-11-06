@@ -8,7 +8,7 @@ import { Network, ArrowLeft } from 'lucide-react'
 
 export const NotFoundPage: React.FC = () => {
   return (
-    <div className="min-h-screen flex flex-col bg-bg-primary text-text-primary">
+    <div className="app-page min-h-screen flex flex-col bg-bg-primary text-text-primary">
       <Navbar />
 
       <main className="flex-1 flex flex-col justify-center">

@@ -111,7 +111,8 @@ export const NetShieldCustomNode = memo(({ id, data, selected }: NodeProps<Edito
       />
       {/* After the body, so handles paint and receive pointer events above it. */}
       {SIDES.map(([side, position]) => (
-        <Handle key={side} id={side} type="source" position={position} className="ns-handle" aria-label={`Connect from ${data.label}, ${side} side`} />
+        // Pointer only, hidden from assistive technology: keyboard users link nodes from the properties panel.
+        <Handle key={side} id={side} type="source" position={position} className="ns-handle" aria-hidden="true" title={`Drag to connect from the ${side} side`} />
       ))}
     </>
   )

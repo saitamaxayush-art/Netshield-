@@ -231,20 +231,23 @@ describe('properties panel', () => {
     expect(screen.getByTestId('operational-status')).toHaveTextContent('Down')
   })
 
-  it('refuses a failure probability outside 0 to 1 and a weight of 0, with the reason', () => {
+  it('clamps a failure probability into 0 to 1 with a note, and refuses a weight of 0 with the reason', () => {
     graph().selectEdge('e-hub-srv')
     render(<PropertiesPanel />)
     const p = screen.getByLabelText('Own failure p')
     fireEvent.change(p, { target: { value: '1.5' } })
     fireEvent.blur(p)
-    expect(screen.getByTestId('edit-error')).toHaveTextContent('between 0 and 1')
-    expect(graph().edges[0].data?.failureProbability).toBeUndefined()
+    expect(screen.getByTestId('edit-error')).toHaveTextContent('Set to 1, the largest allowed value.')
+    expect(graph().edges[0].data?.failureProbability).toBe(1)
     const w = screen.getByLabelText('Weight')
     fireEvent.change(w, { target: { value: '0' } })
     fireEvent.blur(w)
+    fireEvent.change(w, { target: { value: '0' } })
+    fireEvent.blur(w)
     expect(screen.getByTestId('edit-error')).toHaveTextContent('greater than 0')
-    fireEvent.change(p, { target: { value: '0.25' } })
-    fireEvent.blur(p)
+    const p2 = screen.getByLabelText('Own failure p')
+    fireEvent.change(p2, { target: { value: '0.25' } })
+    fireEvent.blur(p2)
     expect(graph().edges[0].data?.failureProbability).toBe(0.25)
   })
 

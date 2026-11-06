@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useGraphStore } from '@/store/graphStore'
 import { useAnalysisStore } from '@/store/analysisStore'
-import { DEFAULT_SETTINGS, MAX_SEED, useSettingsStore, type Settings } from '@/store/settingsStore'
+import { DEFAULT_SETTINGS, MAX_SEED, MAX_SWEEP_POINTS, useSettingsStore, type Settings } from '@/store/settingsStore'
 import { BATCH_TRIALS } from '@/store/simulationRuns'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
@@ -10,6 +10,8 @@ import { CompareChart, HistogramChart, SweepChart, TrialsChart } from '@/feature
 import { ApiErrorBox, SourceBadge, StaleNotice } from './ResultStatus'
 import { Explain } from './analysis/sections'
 import { download, toCsv, toJson } from './simulationExport'
+import { nodeNames } from './nodeNames'
+import { clampInput } from './clamp'
 
 const TRIAL_OPTIONS = [100, 500, 1000, 5000, 20000] as const
 const pct = (v: number, digits = 1) => `${(v * 100).toFixed(digits)}%`
@@ -25,23 +27,31 @@ const NumberField: React.FC<{
   placeholder?: string
   toPatch: (value: number | null) => Partial<Settings>
   onError: (error: string | null) => void
-}> = ({ id, label, value, step, placeholder, toPatch, onError }) => {
+  /** Allowed range: out of range values are clamped (with a note), not refused. */
+  range?: { min: number; max: number; integer?: boolean }
+  /** Label for assistive technology when the visible label lives elsewhere. */
+  ariaLabel?: string
+}> = ({ id, label, value, step, placeholder, toPatch, onError, range, ariaLabel }) => {
   const update = useSettingsStore((s) => s.update)
   const commit = (text: string) => {
-    const result = update(toPatch(text.trim() === '' ? null : Number(text)))
-    onError(result.ok ? null : result.error)
+    const typed = text.trim() === '' ? null : Number(text)
+    const clamped = typed !== null && range ? clampInput(typed, range.min, range.max, range.integer) : { value: typed, note: null }
+    const result = update(toPatch(clamped.value))
+    onError(result.ok ? clamped.note : result.error)
     return result.ok
   }
   return (
     <div>
-      <label htmlFor={id} className="block text-[10px] text-text-muted mb-1 font-mono">
-        {label}
+      <label htmlFor={id} className={ariaLabel ? 'sr-only' : 'block text-[10px] text-text-muted mb-1 font-mono'}>
+        {ariaLabel ?? label}
       </label>
       <input
         key={String(value)}
         id={id}
         type="number"
         step={step}
+        min={range?.min}
+        max={range?.max}
         defaultValue={value === null ? '' : String(value)}
         placeholder={placeholder}
         onKeyDown={(e) => {
@@ -72,7 +82,7 @@ const ProbabilityField: React.FC<{ id: string; label: string; value: number; pat
           {label}
         </label>
         <div className="w-24">
-          <NumberField id={`${id}-value`} label="" value={value} step="0.01" toPatch={(v) => patch(v ?? Number.NaN)} onError={onError} />
+          <NumberField id={`${id}-value`} label="" ariaLabel={`${label.replace(/:$/, '')}, exact value`} value={value} step="0.01" range={{ min: 0, max: 1 }} toPatch={(v) => patch(v ?? Number.NaN)} onError={onError} />
         </div>
       </div>
       <input
@@ -142,7 +152,8 @@ export const SimulationPanel: React.FC = () => {
   const first = result?.batches[0]
   const isSimulating = simulate.status === 'loading'
   const isSweeping = sweep.status === 'loading'
-  const labelOf = (id: string) => nodes.find((n) => n.id === id)?.data.label ?? id
+  const names = nodeNames(nodes)
+  const labelOf = (id: string) => names.get(id) ?? id
   const twoTerminal = settings.mode === 'two-terminal'
   const trialOptions = TRIAL_OPTIONS.some((t) => t === settings.trials) ? TRIAL_OPTIONS : [...TRIAL_OPTIONS, settings.trials].sort((a, b) => a - b)
   const freshAnalysis = analyze.result && !analyze.stale ? analyze.result : null
@@ -205,7 +216,7 @@ export const SimulationPanel: React.FC = () => {
             </select>
           </div>
           <div>
-            <NumberField id="seed" label="Seed (optional):" value={settings.seed} step="1" placeholder="backend picks" toPatch={(seed) => ({ seed })} onError={setSettingError} />
+            <NumberField id="seed" label="Seed (optional):" value={settings.seed} step="1" placeholder="backend picks" range={{ min: 0, max: MAX_SEED, integer: true }} toPatch={(seed) => ({ seed })} onError={setSettingError} />
           </div>
         </div>
         <div className="flex justify-end">
@@ -378,9 +389,9 @@ export const SimulationPanel: React.FC = () => {
       <div className="space-y-3 bg-bg-primary p-4 rounded-[2px] border border-border-subtle">
         <div className={heading}>Reliability sweep</div>
         <div className="grid grid-cols-3 gap-2">
-          <NumberField id="sweep-min" label="p from:" value={settings.sweepPMin} step="0.05" toPatch={(v) => ({ sweepPMin: v ?? Number.NaN })} onError={setSettingError} />
-          <NumberField id="sweep-max" label="to:" value={settings.sweepPMax} step="0.05" toPatch={(v) => ({ sweepPMax: v ?? Number.NaN })} onError={setSettingError} />
-          <NumberField id="sweep-points" label="points:" value={settings.sweepPoints} step="1" toPatch={(v) => ({ sweepPoints: v ?? Number.NaN })} onError={setSettingError} />
+          <NumberField id="sweep-min" label="p from:" value={settings.sweepPMin} step="0.05" range={{ min: 0, max: 1 }} toPatch={(v) => ({ sweepPMin: v ?? Number.NaN })} onError={setSettingError} />
+          <NumberField id="sweep-max" label="to:" value={settings.sweepPMax} step="0.05" range={{ min: 0, max: 1 }} toPatch={(v) => ({ sweepPMax: v ?? Number.NaN })} onError={setSettingError} />
+          <NumberField id="sweep-points" label="points:" value={settings.sweepPoints} step="1" range={{ min: 1, max: MAX_SWEEP_POINTS, integer: true }} toPatch={(v) => ({ sweepPoints: v ?? Number.NaN })} onError={setSettingError} />
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" className="flex-1" leftIcon={<TrendingDown className="w-3.5 h-3.5" />} isLoading={isSweeping} disabled={nodes.length === 0} onClick={() => void run('sweep')}>

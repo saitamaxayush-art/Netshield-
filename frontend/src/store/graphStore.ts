@@ -14,6 +14,7 @@ import {
   checkNewEdge,
   checkProbability,
   checkWeight,
+  clampPosition,
   fail,
   MAX_NODES,
   nextId,
@@ -105,6 +106,8 @@ export interface GraphState extends EditorGraph {
   redo: () => boolean
 
   loadPreset: (name: PresetName) => void
+  /** Replace the graph with an imported one: validated, recorded in history so it can be undone. */
+  importGraph: (graph: EditorGraph) => EditResult
   /** Replace the whole graph (saved data): validated, clears history. */
   replaceGraph: (graph: EditorGraph, example?: PresetName | null) => EditResult
   /** Empty canvas. Recorded in history so it can be undone. */
@@ -175,8 +178,8 @@ export const useGraphStore = create<GraphState>((set, get) => {
       const node: EditorNode = {
         id: nodeId,
         type: 'netshieldNode',
-        position: position ?? { x: 200 + (s.nodes.length % 5) * 90, y: 150 + Math.floor(s.nodes.length / 5) * 90 },
-        data: { label: label ?? `${TYPE_LABELS[nodeType]} ${count + 1}`, nodeType, failed: false },
+        position: clampPosition(position ?? { x: 200 + (s.nodes.length % 5) * 90, y: 150 + Math.floor(s.nodes.length / 5) * 90 }),
+        data: { label: label?.trim() ?? `${TYPE_LABELS[nodeType]} ${count + 1}`, nodeType, failed: false },
       }
       return commit({ nodes: [...s.nodes, node], selectedNodeId: nodeId, selectedEdgeId: null }, nodeId)
     },
@@ -188,7 +191,8 @@ export const useGraphStore = create<GraphState>((set, get) => {
         const problem = checkLabel(patch.label)
         if (problem) return fail(problem)
       }
-      return commit({ nodes: s.nodes.map((n) => (n.id === id ? { ...n, data: { ...n.data, ...patch } } : n)) }, id)
+      const clean = patch.label === undefined ? patch : { ...patch, label: patch.label.trim() }
+      return commit({ nodes: s.nodes.map((n) => (n.id === id ? { ...n, data: { ...n.data, ...clean } } : n)) }, id)
     },
 
     removeNode: (id) => {
@@ -256,7 +260,10 @@ export const useGraphStore = create<GraphState>((set, get) => {
       set((s) => {
         const dragStart = !s.dragging && rest.some((c) => c.type === 'position' && c.dragging === true)
         const dragEnd = rest.some((c) => c.type === 'position' && c.dragging === false)
-        const nodes = applyNodeChanges(rest, s.nodes)
+        const nodes = applyNodeChanges(rest, s.nodes).map((n) => {
+          const p = clampPosition(n.position)
+          return p.x === n.position.x && p.y === n.position.y ? n : { ...n, position: p }
+        })
         const next: Partial<GraphState> = { nodes, dragging: dragEnd ? false : s.dragging || dragStart }
         // One history entry per drag: the graph as it was before the drag started.
         return dragStart ? withHistory(s, next) : next
@@ -270,7 +277,7 @@ export const useGraphStore = create<GraphState>((set, get) => {
         return p !== undefined && (p.x !== n.position.x || p.y !== n.position.y)
       }
       if (!s.nodes.some(moved)) return
-      commit({ nodes: s.nodes.map((n) => (moved(n) ? { ...n, position: positions[n.id] } : n)) })
+      commit({ nodes: s.nodes.map((n) => (moved(n) ? { ...n, position: clampPosition(positions[n.id]) } : n)) })
     },
 
     setViewport: (viewport) => {
@@ -326,6 +333,12 @@ export const useGraphStore = create<GraphState>((set, get) => {
 
     loadPreset: (name) => {
       commit({ ...preset(name), example: name, selectedNodeId: null, selectedEdgeId: null })
+    },
+
+    importGraph: (graph) => {
+      const problem = checkGraph(graph)
+      if (problem) return fail(problem)
+      return commit({ nodes: graph.nodes, edges: graph.edges, example: null, selectedNodeId: null, selectedEdgeId: null })
     },
 
     replaceGraph: (graph, example = null) => {

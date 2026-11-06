@@ -223,7 +223,7 @@ describe('simulation panel states', () => {
     expect(screen.getByTestId('trials-warning')).toHaveTextContent('4 batches')
   })
 
-  it('probabilities are validated: number input refuses 1.5, slider and input stay in step', () => {
+  it('probabilities are clamped: 1.5 becomes 1 with a note, text is refused, slider and input stay in step', () => {
     render(<SimulationPanel />)
     const input = screen.getByLabelText('Link failure probability (p):', { selector: '#edge-p' })
     fireEvent.change(input, { target: { value: '0.35' } })
@@ -233,8 +233,14 @@ describe('simulation panel states', () => {
     if (!text) throw new Error('missing input')
     fireEvent.change(text, { target: { value: '1.5' } })
     fireEvent.blur(text)
+    expect(screen.getByTestId('setting-error')).toHaveTextContent('Set to 1, the largest allowed value.')
+    expect(useSettingsStore.getState().edgeFailureProbability).toBe(1)
+    const again = document.querySelector<HTMLInputElement>('#edge-p-value')
+    if (!again) throw new Error('missing input')
+    fireEvent.change(again, { target: { value: '' } })
+    fireEvent.blur(again)
     expect(screen.getByTestId('setting-error')).toHaveTextContent('between 0 and 1')
-    expect(useSettingsStore.getState().edgeFailureProbability).toBe(0.35)
+    expect(useSettingsStore.getState().edgeFailureProbability).toBe(1)
   })
 
   it('Randomise sets a seed and Reset restores defaults and clears results', () => {

@@ -158,10 +158,15 @@ Every non 2xx response, including 404, 405 and 500, has exactly this shape:
 | 422 | `SELF_LOOP` | `source == target` on an edge | `{ "edgeId": string }` |
 | 422 | `PARALLEL_EDGE` | Two edges connect the same unordered pair | `{ "edgeIds": [string, string], "nodes": [string, string] }` |
 | 422 | `LIMIT_EXCEEDED` | See section 4 | `{ "limit": string, "max": number, "actual": number }` |
+| 413 | `PAYLOAD_TOO_LARGE` | Request body larger than `NETSHIELD_MAX_REQUEST_BYTES` (default 1048576 bytes; a graph at the node and edge limits is about 0.3 MB). Checked before the body is parsed, including chunked bodies without a length. | `{ "limit": "maxRequestBytes", "max": number }` |
 | 504 | `TIMEOUT` | A simulation or sweep exceeded the server side time budget (`NETSHIELD_SIMULATION_BUDGET_MS`, default 10000 ms) | `{ "budgetMs": number, "completedTrials": number, "requestedTrials": number }` |
 | 404 | `NOT_FOUND` | Unknown path | none |
 | 405 | `METHOD_NOT_ALLOWED` | Wrong method on a known path | none |
 | 500 | `INTERNAL_ERROR` | Unexpected server failure. Never includes a stack trace. | none |
+
+For a body that is not valid JSON, `VALIDATION_ERROR` has the message "Request body is not valid JSON (near character N)." and `details` `[{"path": "", "message": "Malformed JSON"}]`.
+
+Logging: the server writes one JSON line per request (request id, method, path, status, duration, body size), never request or response bodies, and for an unexpected error only the exception type and code locations. Each response carries an `X-Request-Id` header.
 
 Validation order: schema, then limits, then graph structure (duplicates, unknown endpoints, self
 loops, parallel edges). The first failing check is reported.

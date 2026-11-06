@@ -23,7 +23,7 @@ export const SAVE_DEBOUNCE_MS = 400
 
 const finite = z.number().refine(Number.isFinite, 'must be finite')
 
-const SavedNode = z.strictObject({
+export const SavedNode = z.strictObject({
   id: z.string().min(1).max(64),
   label: z.string().max(100),
   nodeType: z.enum(NODE_TYPES),
@@ -31,7 +31,7 @@ const SavedNode = z.strictObject({
   position: z.strictObject({ x: finite, y: finite }),
 })
 
-const SavedEdge = z.strictObject({
+export const SavedEdge = z.strictObject({
   id: z.string().min(1).max(64),
   source: z.string(),
   target: z.string(),
@@ -322,7 +322,24 @@ export function createPersistence(storage: StorageProvider = browserStorage, deb
       const stopSettings = useSettingsStore.subscribe((s, prev) => {
         if (s.adapterMode === prev.adapterMode) schedule()
       })
+      // A reload or a closed tab must not lose the last changes still waiting for the debounce.
+      const flushNow = () => {
+        if (timer !== null) {
+          clearTimeout(timer)
+          write()
+        }
+      }
+      const onHidden = () => {
+        if (document.visibilityState === 'hidden') flushNow()
+      }
+      const target = typeof window === 'undefined' ? null : window
+      target?.addEventListener('pagehide', flushNow)
+      target?.addEventListener('beforeunload', flushNow)
+      if (typeof document !== 'undefined') document.addEventListener('visibilitychange', onHidden)
       return () => {
+        target?.removeEventListener('pagehide', flushNow)
+        target?.removeEventListener('beforeunload', flushNow)
+        if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', onHidden)
         stopGraph()
         stopSettings()
         if (timer !== null) clearTimeout(timer)

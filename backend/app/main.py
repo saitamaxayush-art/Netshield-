@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.app.error_handlers import install_error_handlers
+from backend.app.middleware import BodyLimitAndLogging, configure_logging
 from backend.app.routers import analyze, health, simulate
 from backend.app.version import API_VERSION
 
@@ -21,6 +22,7 @@ def cors_origins_from_env(raw: str | None) -> list[str]:
 
 
 def create_app() -> FastAPI:
+    configure_logging()
     app = FastAPI(
         title="NetShield Reliability API",
         description="Authoritative graph theoretic network reliability and failure simulation service.",
@@ -32,7 +34,10 @@ def create_app() -> FastAPI:
         allow_credentials=False,
         allow_methods=["GET", "POST", "OPTIONS"],
         allow_headers=["Content-Type"],
+        expose_headers=["X-Request-Id", "Server-Timing"],
     )
+    # Outermost: the size limit applies before anything reads the body, and every request is logged.
+    app.add_middleware(BodyLimitAndLogging)
     install_error_handlers(app)
     app.include_router(health.router)
     app.include_router(analyze.router)

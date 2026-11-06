@@ -8,7 +8,7 @@ import type { NodeType, Position } from '@/types/graph'
 export const NODE_WIDTH = 176
 export const NODE_HEIGHT = 84
 /** Tight margins so phones use their width; capped so a small graph is not oversized on a desktop. */
-export const FIT_OPTIONS = { padding: 0.1, maxZoom: 1.1 }
+export const FIT_OPTIONS = { padding: 0.1, maxZoom: 1.1, minZoom: 0.005 }
 
 /** Add a link, or explain in a toast why it is refused (self loop, duplicate). */
 export function connectOrExplain(source: string, target: string): boolean {

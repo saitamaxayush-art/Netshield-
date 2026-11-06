@@ -23,9 +23,20 @@ export function checkId(id: string, kind: 'Node' | 'Edge'): string | null {
   return null
 }
 
+/** Labels are stored trimmed. */
 export function checkLabel(label: string): string | null {
-  return label.length > MAX_LABEL_LENGTH ? `Label must be at most ${MAX_LABEL_LENGTH} characters.` : null
+  const trimmed = label.trim()
+  if (trimmed.length === 0) return 'Label must not be empty.'
+  return trimmed.length > MAX_LABEL_LENGTH ? `Label must be at most ${MAX_LABEL_LENGTH} characters.` : null
 }
+
+/** Positions are kept within this distance of the origin (clamped in the store, refused in imported files), so the canvas can always fit them. */
+export const MAX_COORDINATE = 100_000
+
+export const clampPosition = (p: { x: number; y: number }) => ({
+  x: Math.max(-MAX_COORDINATE, Math.min(MAX_COORDINATE, p.x)),
+  y: Math.max(-MAX_COORDINATE, Math.min(MAX_COORDINATE, p.y)),
+})
 
 export function checkWeight(weight: number): string | null {
   return Number.isFinite(weight) && weight > 0 ? null : 'Weight must be a finite number greater than 0.'

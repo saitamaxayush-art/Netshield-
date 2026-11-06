@@ -1,6 +1,7 @@
 """Renders every failure as {"error": {"code", "message", "details"?}} (API_CONTRACT.md section 5)."""
 
 import logging
+import traceback
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -40,6 +41,14 @@ async def _api_error(_: Request, exc: Exception) -> JSONResponse:
 
 async def _validation_error(_: Request, exc: Exception) -> JSONResponse:
     assert isinstance(exc, RequestValidationError)
+    errors = exc.errors()
+    if any(e.get("type") == "json_invalid" for e in errors):
+        # Pydantic reports the character offset as the location; it is not a field path.
+        position = next((e["loc"][-1] for e in errors if e.get("type") == "json_invalid" and e.get("loc")), None)
+        at = f" (near character {position})" if isinstance(position, int) else ""
+        return error_response(
+            422, "VALIDATION_ERROR", f"Request body is not valid JSON{at}.", [{"path": "", "message": "Malformed JSON"}]
+        )
     details = [
         {"path": _path(tuple(e.get("loc", ()))), "message": _message(str(e.get("msg", "")))} for e in exc.errors()
     ]
@@ -54,8 +63,13 @@ async def _http_error(_: Request, exc: Exception) -> JSONResponse:
     return error_response(exc.status_code, code, str(exc.detail))
 
 
-async def _unexpected(_: Request, exc: Exception) -> JSONResponse:
-    logger.exception("Unhandled error", exc_info=exc)
+async def _unexpected(request: Request, exc: Exception) -> JSONResponse:
+    # The exception type and the code locations only: never the message or locals, which can hold graph data.
+    frames = [f"{f.filename.rsplit('/', 1)[-1]}:{f.lineno} {f.name}" for f in traceback.extract_tb(exc.__traceback__)]
+    logger.error(
+        "unhandled_error",
+        extra={"fields": {"path": request.url.path, "exception": type(exc).__name__, "frames": frames}},
+    )
     return error_response(500, "INTERNAL_ERROR", "Unexpected server error.")
 
 

@@ -11,7 +11,7 @@
 
   --color-text-primary: #E9ECEE;
   --color-text-secondary: #94A3B8;
-  --color-text-muted: #64748B;
+  --color-text-muted: #8693A7; /* AA (4.5:1) on every app surface; was #64748B (3.8:1) */
   --color-text-dim: #475569;
 
   --color-border-subtle: #222638;
@@ -25,7 +25,7 @@
 
   --color-state-success: #10B981;
   --color-state-success-dim: rgba(16, 185, 129, 0.12);
-  --color-state-failure: #F43F5E;
+  --color-state-failure: #F65A74; /* AA as text on its dim background (4.8:1); was #F43F5E (4.2:1) */
   --color-state-failure-dim: rgba(244, 63, 94, 0.12);
   --color-state-warning: #F59E0B;
   --color-state-warning-dim: rgba(245, 158, 11, 0.12);
@@ -74,7 +74,7 @@
 
   --text-primary: #E9ECEE;
   --text-secondary: #94A3B8;
-  --text-muted: #64748B;
+  --text-muted: #8693A7;
 
   --border-subtle: #222638;
   --border-strong: #2F364E;
@@ -84,7 +84,7 @@
   --accent-cyan: #38BDF8;
 
   --state-success: #10B981;
-  --state-failure: #F43F5E;
+  --state-failure: #F65A74;
   --state-warning: #F59E0B;
 
   --focus-ring: 0 0 0 2px #13151F, 0 0 0 4px #2DD4BF;
@@ -341,5 +341,26 @@ html, body {
     animation: none;
     width: 100%;
     opacity: 0.5;
+  }
+}
+
+/* Leave room for the status banners at the bottom of scrolling app pages. */
+body {
+  padding-bottom: var(--ns-banner-h, 0px);
+}
+
+/* App pages (not the landing page, which has its own focus and motion rules). */
+:where(.studio-root, .app-page) :focus-visible {
+  outline: 2px solid #2dd4bf;
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  :where(.studio-root, .app-page) *,
+  :where(.studio-root, .app-page) *::before,
+  :where(.studio-root, .app-page) *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

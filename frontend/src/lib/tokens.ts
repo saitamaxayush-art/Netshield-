@@ -18,7 +18,7 @@ export const TOKENS = {
     text: {
       primary: '#E9ECEE',
       secondary: '#94A3B8',
-      muted: '#64748B',
+      muted: '#8693A7',
       dim: '#475569',
     },
     border: {
@@ -35,7 +35,7 @@ export const TOKENS = {
     state: {
       success: '#10B981',
       successDim: 'rgba(16, 185, 129, 0.12)',
-      failure: '#F43F5E',
+      failure: '#F65A74',
       failureDim: 'rgba(244, 63, 94, 0.12)',
       warning: '#F59E0B',
       warningDim: 'rgba(245, 158, 11, 0.12)',

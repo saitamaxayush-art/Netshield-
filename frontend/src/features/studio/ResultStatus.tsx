@@ -9,6 +9,14 @@ import { useSettingsStore } from '@/store/settingsStore'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 
+/** Friendlier headings for codes where the kind alone is too vague. */
+const CODE_LABEL: Record<string, string> = {
+  LIMIT_EXCEEDED: 'Network too large for the server',
+  PAYLOAD_TOO_LARGE: 'Request too large for the server',
+  CLIENT_VALIDATION: 'Not sent: the network breaks a rule',
+  TIMEOUT: 'The server ran out of time',
+}
+
 const KIND_LABEL: Record<ApiError['kind'], string> = {
   network: 'Backend unreachable',
   timeout: 'Request timed out',
@@ -55,7 +63,7 @@ export const ApiErrorBox: React.FC<{ title: string; error: ApiError; testId: str
       <div className="flex items-center gap-1.5 font-semibold text-xs">
         <AlertTriangle className="w-4 h-4" />
         <span>
-          {title}: {KIND_LABEL[error.kind]}
+          {title}: {CODE_LABEL[error.code] ?? KIND_LABEL[error.kind]}
         </span>
       </div>
       <p className="text-[11px]">{error.message}</p>
