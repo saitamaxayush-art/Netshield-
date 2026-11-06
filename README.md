@@ -106,7 +106,7 @@ small separate package with its own TypeScript 5.9, installed automatically by `
 
 ```bash
 cd frontend
-npm run test:e2e                    # 79 tests: landing audits, interactions, scroll, routes, contrast, and the studio against the real backend
+npm run test:e2e                    # 81 tests: landing audits, interactions, scroll, routes, contrast, and the studio against the real backend
 node scripts/alignment-report.mjs   # regenerates ../ALIGNMENT_AUDIT.md from the audit measurements
 node scripts/perf.mjs               # full page scroll profile at 1440x900 (needs the preview server on :4317)
 node scripts/contrast.mjs           # WCAG ratios for every landing colour pair

@@ -248,6 +248,22 @@ describe('undo and redo', () => {
     expect(store().nodes[0].position).toEqual(start)
   })
 
+  it('undoing Fail random restores the element and takes back the pick, so the same draw repeats', () => {
+    const before = toApiGraph(store())
+    const first = store().failRandom(3)
+    const pick = store().lastRandom
+    expect(first.ok).toBe(true)
+    expect(pick?.draw).toBe(1)
+    store().undo()
+    expect(toApiGraph(store())).toEqual(before)
+    expect([store().lastRandom, store().randomDraw]).toEqual([null, 0])
+    store().redo()
+    expect(store().lastRandom).toEqual(pick)
+    store().undo()
+    store().failRandom(3)
+    expect(store().lastRandom).toEqual(pick)
+  })
+
   it('undo drops a selection that no longer exists', () => {
     abc()
     store().selectNode('C')

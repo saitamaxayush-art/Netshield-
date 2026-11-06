@@ -111,9 +111,10 @@ export interface GraphState extends EditorGraph {
   reset: () => void
 }
 
-export type HistoryEntry = EditorGraph & { example: PresetName | null }
+/** The random draw state is part of history, so undoing a "Fail random" also takes back its pick. */
+export type HistoryEntry = EditorGraph & Pick<GraphState, 'example' | 'randomDraw' | 'lastRandom'>
 
-const snapshot = (s: HistoryEntry): HistoryEntry => ({ nodes: s.nodes, edges: s.edges, example: s.example })
+const snapshot = (s: HistoryEntry): HistoryEntry => ({ nodes: s.nodes, edges: s.edges, example: s.example, randomDraw: s.randomDraw, lastRandom: s.lastRandom })
 
 /** State update that records the current graph in the undo history first. */
 function withHistory(s: GraphState, next: Partial<GraphState>): Partial<GraphState> {
@@ -302,8 +303,9 @@ export const useGraphStore = create<GraphState>((set, get) => {
       const draw = s.randomDraw + 1
       const pick = pickRandomOperational(s, seed, draw)
       if (!pick) return fail('Nothing is left to fail: no node or link is operational.')
-      set({ randomDraw: draw, lastRandom: { ...pick, seed, draw } })
-      return setFailure(pick.kind, pick.id, true)
+      // One commit: the history entry holds the draw state from before this pick.
+      const failed = pick.kind === 'node' ? { nodes: setNodeFailed(s.nodes, pick.id, true) } : { edges: setEdgeFailed(s.edges, pick.id, true) }
+      return commit({ ...failed, randomDraw: draw, lastRandom: { ...pick, seed, draw } }, pick.id)
     },
 
     undo: () => {

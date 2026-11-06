@@ -8,7 +8,7 @@ import { expect, test } from './helpers'
 test.use({ viewport: { width: 1440, height: 900 } })
 
 interface Body {
-  current: { connectivity: { connected: boolean; componentCount: number; reason: string }; summary: { density: number; nodeCount: number; edgeCount: number }; bridges: { edgeIds: string[] }; articulationPoints: { nodeIds: string[] } }
+  current: { connectivity: { connected: boolean; componentCount: number; reason: string }; summary: { density: number; nodeCount: number; edgeCount: number }; bridges: { edgeIds: string[] }; articulationPoints: { nodeIds: string[] }; path: { nodeIds: string[] | null; metric: string; length: number | null } | null }
   meta: { engine: string }
 }
 const isAnalyze = (r: Response) => r.url().endsWith('/api/analyze') && r.request().method() === 'POST'
@@ -205,6 +205,83 @@ test('dashboard values match the studio and the backend, and metrics link to the
 
   await page.getByTestId('metric-bridges').click()
   await expect(page).toHaveURL(/section=critical/)
+  await expect(page.getByTestId('section-critical')).toBeVisible()
+  expect(issues).toEqual([])
+})
+
+test('weighted shortest path: offered when every link has a weight, sent to and answered by the backend', async ({ page, issues }) => {
+  // Ring r1..r6 with one expensive link (r3-r4). By hops r1 to r4 is r1 r2 r3 r4; by weight it is r1 r6 r5 r4.
+  const ids = ['r1', 'r2', 'r3', 'r4', 'r5', 'r6']
+  const workspace = {
+    version: 5,
+    savedAt: '2026-01-01T00:00:00.000Z',
+    graph: {
+      nodes: ids.map((id, i) => ({ id, label: id.toUpperCase(), nodeType: 'router', failed: false, position: { x: 300 * Math.cos(i), y: 300 * Math.sin(i) } })),
+      edges: ids.map((id, i) => {
+        const next = ids[(i + 1) % ids.length]
+        return { id: `e-${id}-${next}`, source: id, target: next, failed: false, weight: id === 'r3' ? 10 : 1 }
+      }),
+      example: null,
+      viewport: null,
+    },
+    settings: {
+      edgeFailureProbability: 0.1, nodeFailureProbability: 0, trials: 100, seed: null, mode: 'all-terminal', traversalStart: null,
+      pathSource: null, pathTarget: null, useWeights: false, terminalSource: null, terminalTarget: null, sweepPMin: 0, sweepPMax: 1, sweepPoints: 3, trialsPerPoint: 10,
+    },
+  }
+  await page.addInitScript((v) => {
+    if (sessionStorage.getItem('seeded') === null) {
+      localStorage.setItem('netshield_workspace', v)
+      sessionStorage.setItem('seeded', '1')
+    }
+  }, JSON.stringify(workspace))
+  await page.goto('/studio')
+  await expect(node(page, 'r1')).toBeVisible()
+  await tab(page, 'Analysis')
+  await tab(page, 'Paths')
+  await page.locator('#path-source').selectOption('r1')
+  const hops = await analysisAfter(page, () => page.locator('#path-target').selectOption('r4').then(() => undefined))
+  const hopsPath = hops.current.path
+  expect([hopsPath?.metric, hopsPath?.nodeIds]).toEqual(['hops', ['r1', 'r2', 'r3', 'r4']])
+  await expect(page.getByTestId('analysis-path')).toContainText('R1 → R2 → R3 → R4 (3 hops)')
+
+  const [response] = await Promise.all([page.waitForResponse(isAnalyze), page.getByTestId('path-use-weights').check()])
+  expect((response.request().postDataJSON() as { useWeights?: boolean }).useWeights).toBe(true)
+  const weighted = ((await response.json()) as Body).current.path
+  expect([weighted?.metric, weighted?.nodeIds, weighted?.length]).toEqual(['weight', ['r1', 'r6', 'r5', 'r4'], 3])
+  await expect(page.getByTestId('analysis-path')).toContainText('R1 → R6 → R5 → R4 (3 hops, total weight 3)')
+  await expect(page.getByTestId('explain-shortest_path_weighted')).toBeVisible()
+  for (const id of ['e-r6-r1', 'e-r5-r6', 'e-r4-r5']) await expect(edge(page, id)).toHaveAttribute('data-highlighted', 'true')
+  await expect(edge(page, 'e-r1-r2')).toHaveAttribute('data-highlighted', 'false')
+
+  // Removing one weight withdraws the option.
+  await tab(page, 'Properties')
+  await page.locator('.react-flow__edge[data-id="e-r1-r2"]').click({ force: true })
+  await page.getByLabel('Weight').fill('')
+  await page.getByLabel('Weight').blur()
+  await tab(page, 'Analysis')
+  await expect(page.getByTestId('path-use-weights')).toHaveCount(0)
+  expect(issues).toEqual([])
+})
+
+test('Critical section: clicking a bridge or a cut vertex selects and highlights it on the canvas', async ({ page, issues }) => {
+  await page.goto('/studio')
+  await expect(node(page, 'hub')).toBeVisible()
+  await tab(page, 'Analysis')
+  await tab(page, 'Critical')
+  await expect(page.locator('[data-testid="analysis-bridges"] li')).toHaveCount(6)
+
+  await page.getByRole('button', { name: 'Core Router ↔ Client 1', exact: true }).click()
+  await expect(edge(page, 'e-hub-c1')).toHaveAttribute('data-highlighted', 'true')
+  await expect(edge(page, 'e-hub-c1')).toHaveAttribute('data-selected', 'true')
+  await expect(page.getByRole('button', { name: 'Core Router ↔ Client 1', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  // The panel stays on the analysis while the canvas shows the selection.
+  await expect(page.getByTestId('section-critical')).toBeVisible()
+
+  await page.locator('[data-testid="analysis-articulation"]').getByRole('button', { name: 'Core Router', exact: true }).click()
+  await expect(node(page, 'hub').getByTestId('node-body')).toHaveAttribute('data-highlighted', 'true')
+  await expect(node(page, 'hub').getByTestId('node-body')).toHaveAttribute('data-selected', 'true')
+  await expect(edge(page, 'e-hub-c1')).toHaveAttribute('data-highlighted', 'false')
   await expect(page.getByTestId('section-critical')).toBeVisible()
   expect(issues).toEqual([])
 })
