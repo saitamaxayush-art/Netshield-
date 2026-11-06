@@ -5,6 +5,13 @@
 import { devices, type Locator, type Page } from '@playwright/test'
 import { expect, test } from './helpers'
 
+// Frame gaps recorded in the page by the 200 node performance test.
+declare global {
+  interface Window {
+    __frameGaps?: number[]
+  }
+}
+
 const nodes = (page: Page) => page.locator('.react-flow__node')
 const edges = (page: Page) => page.locator('.react-flow__edge')
 const handle = (page: Page, id: string, side: string) => page.locator(`.react-flow__node[data-id="${id}"] .react-flow__handle[data-handleid="${side}"]`)
@@ -239,12 +246,12 @@ test.describe('desktop specifics', () => {
     const node = page.locator('.react-flow__node[data-id="n50"]')
     const c = await centre(node)
     await page.evaluate(() => {
-      const w = window as unknown as { gaps: number[] }
-      w.gaps = []
+      const gaps: number[] = []
+      window.__frameGaps = gaps
       let last = performance.now()
       const tick = () => {
         const now = performance.now()
-        w.gaps.push(now - last)
+        gaps.push(now - last)
         last = now
         requestAnimationFrame(tick)
       }
@@ -259,7 +266,7 @@ test.describe('desktop specifics', () => {
     expect(await saved(page)).toBe(await page.evaluate(() => localStorage.getItem('probe')))
     await page.mouse.up()
     await expect.poll(() => saved(page)).not.toBe(await page.evaluate(() => localStorage.getItem('probe')))
-    const gaps = await page.evaluate(() => (window as unknown as { gaps: number[] }).gaps)
+    const gaps = await page.evaluate(() => window.__frameGaps ?? [])
     const sorted = [...gaps].sort((a, b) => a - b)
     const p95 = sorted[Math.floor(sorted.length * 0.95)]
     console.log(`200/600 drag: frames=${gaps.length} p95=${p95.toFixed(1)}ms max=${sorted[sorted.length - 1].toFixed(1)}ms`)
