@@ -54,7 +54,7 @@ for (const mode of ['desktop', 'phone'] as const) {
 
     test('add, connect, validate, delete, undo, reload', async ({ page, issues }) => {
       await page.goto('/studio')
-      await expect(nodes(page)).toHaveCount(6)
+      await expect(nodes(page)).toHaveCount(7)
 
       await tool(page, 'Reset canvas')
       await press(page.getByRole('dialog').last().getByRole('button', { name: 'Reset canvas' }))
@@ -115,7 +115,7 @@ for (const mode of ['desktop', 'phone'] as const) {
       for (const [name, label, n, m] of [
         ['Ring', 'Example: ring network', 6, 6],
         ['Mesh', 'Example: partial mesh', 6, 9],
-        ['Star', 'Example: star network', 6, 6],
+        ['Star', 'Example: star network', 7, 6],
       ] as const) {
         await tool(page, name)
         const dialog = page.getByRole('dialog').last()
@@ -134,7 +134,7 @@ for (const mode of ['desktop', 'phone'] as const) {
       await expect.poll(() => saved(page)).toContain('firewall-1')
       await tool(page, 'Clear saved data')
       await press(page.getByRole('dialog').last().getByRole('button', { name: 'Clear saved data' }))
-      await expect(nodes(page)).toHaveCount(6)
+      await expect(nodes(page)).toHaveCount(7)
       await page.waitForTimeout(700)
       expect(await saved(page)).not.toContain('firewall-1')
       expect(issues).toEqual([])
@@ -147,7 +147,7 @@ test.describe('phone specifics', () => {
 
   test('toolbar and sheet controls are at least 40px; details open in a sheet', async ({ page }) => {
     await page.goto('/studio')
-    await expect(nodes(page)).toHaveCount(6)
+    await expect(nodes(page)).toHaveCount(7)
     const small = async (scope: Locator) =>
       scope.locator('button:visible').evaluateAll((els) => els.filter((e) => e.getBoundingClientRect().height < 40 || e.getBoundingClientRect().width < 40).map((e) => e.getAttribute('aria-label') ?? e.textContent))
     expect(await small(toolbar(page))).toEqual([])
@@ -192,10 +192,10 @@ test.describe('desktop specifics', () => {
 
   test('drag from the palette places a node at the drop point', async ({ page }) => {
     await page.goto('/studio')
-    await expect(nodes(page)).toHaveCount(6)
+    await expect(nodes(page)).toHaveCount(7)
     const canvas = page.getByTestId('studio-canvas')
     await toolbar(page).getByRole('button', { name: 'Server', exact: true }).dragTo(canvas, { targetPosition: { x: 80, y: 60 } })
-    await expect(nodes(page)).toHaveCount(7)
+    await expect(nodes(page)).toHaveCount(8)
     const box = await page.locator('.react-flow__node[data-id="server-1"]').boundingBox()
     const area = await canvas.boundingBox()
     expect(Math.abs((box?.x ?? 0) + (box?.width ?? 0) / 2 - ((area?.x ?? 0) + 80))).toBeLessThan(10)
@@ -209,9 +209,9 @@ test.describe('desktop specifics', () => {
     await srv.click()
     await page.getByRole('button', { name: 'Fail Selected Node' }).click()
     await expect(srv.getByTestId('node-body')).toHaveAttribute('data-failed', 'true')
-    await page.locator('.react-flow__edge[data-id="e-c1-c2"]').click({ force: true })
-    await page.getByRole('button', { name: 'Sever Connection Link' }).click()
-    await expect(page.getByTestId('edge-cross-e-c1-c2')).toBeVisible()
+    await page.locator('.react-flow__edge[data-id="e-hub-c1"]').click({ force: true })
+    await page.getByRole('button', { name: 'Fail selected edge' }).click()
+    await expect(page.getByTestId('edge-cross-e-hub-c1')).toBeVisible()
   })
 
   test('toolbar and panel headers line up', async ({ page }) => {
@@ -271,7 +271,7 @@ test('no horizontal page scroll from 360 to 1920', async ({ page }) => {
   for (const width of [360, 390, 768, 1024, 1280, 1440, 1920]) {
     await page.setViewportSize({ width, height: 800 })
     await page.goto('/studio')
-    await expect(nodes(page)).toHaveCount(6)
+    await expect(nodes(page)).toHaveCount(7)
     const over = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)
     expect(over, `width ${width}`).toBeLessThanOrEqual(0)
   }

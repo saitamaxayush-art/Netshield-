@@ -32,9 +32,10 @@ function star(): EditorGraph {
       node('hub', 'Core Router', 'router', 400, 250),
       node('srv', 'Primary Server', 'server', 400, 80),
       node('fw', 'Border Firewall', 'firewall', 90, 250),
-      node('c1', 'Client 1', 'client', 700, 140),
-      node('c2', 'Client 2', 'client', 660, 400),
-      node('c3', 'Client 3', 'client', 170, 420),
+      node('c1', 'Client 1', 'client', 700, 110),
+      node('c2', 'Client 2', 'client', 720, 310),
+      node('c3', 'Client 3', 'client', 150, 450),
+      node('c4', 'Client 4', 'client', 560, 480),
     ],
     edges: [
       edge('e-hub-srv', 'hub', 'srv'),
@@ -42,7 +43,7 @@ function star(): EditorGraph {
       edge('e-hub-c1', 'hub', 'c1'),
       edge('e-hub-c2', 'hub', 'c2'),
       edge('e-hub-c3', 'hub', 'c3'),
-      edge('e-c1-c2', 'c1', 'c2'),
+      edge('e-hub-c4', 'hub', 'c4'),
     ],
   }
 }

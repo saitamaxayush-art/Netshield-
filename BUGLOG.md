@@ -141,3 +141,23 @@ define both request and response shapes, and the Simulator panel and sweep chart
 * `src/test/schemas.test.ts`: the schemas parse real responses captured from the backend.
 * `e2e/studio-backend.spec.ts`: the simulation and sweep tests assert that every displayed value
   equals the real backend response.
+
+## BUG-003: The Star example was not a star
+
+### Symptom
+
+Failing the hub of the Star example gave 4 components, not one per leaf, and the example had a triangle.
+
+### Root cause
+
+The preset, carried over from the original studio, had 5 leaves and an extra `c1-c2` link.
+
+### Fix (Phase 5)
+
+`src/store/presets.ts`: Star is now a true star, a hub with 6 leaves and no other links, so every link
+is a bridge and failing the hub gives 6 components. Saved graphs are not changed.
+
+### Tests that now catch it
+
+`e2e/studio-failure.spec.ts` asserts 6 components from the real backend after failing the hub, and
+`e2e/studio-backend.spec.ts` asserts all 6 links are bridges.

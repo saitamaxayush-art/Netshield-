@@ -3,6 +3,7 @@ import type { Analysis, AnalyzeResponseBody } from '../services/api/schemas'
 import { resetGraphStore } from '../store/graphStore'
 import { useAnalysisStore } from '../store/analysisStore'
 import { DEFAULT_SETTINGS, useSettingsStore } from '../store/settingsStore'
+import { useStudioView } from '../store/studioViewStore'
 
 /** A complete, typed analysis for unit tests; override the parts a test cares about. */
 export function analysis(overrides: Partial<Analysis> = {}): Analysis {
@@ -105,6 +106,7 @@ export function resetStores(): void {
   resetGraphStore()
   useSettingsStore.setState({ ...DEFAULT_SETTINGS, adapterMode: 'backend' })
   useAnalysisStore.getState().clearAll()
+  useStudioView.getState().resetView()
 }
 
 export async function settle(): Promise<void> {

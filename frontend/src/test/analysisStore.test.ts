@@ -183,11 +183,16 @@ describe('request builders', () => {
     expect([stale.pathSource, stale.pathTarget]).toEqual([undefined, undefined])
   })
 
-  it('asks for a weighted path as soon as any link has a weight', () => {
+  it('asks for a weighted path only when chosen and every link has a weight', () => {
     const g = preset('star')
-    g.edges[0] = { ...g.edges[0], data: { failed: false, weight: 2 } }
-    settings().update({ pathSource: 'hub', pathTarget: 'c3' })
+    settings().update({ pathSource: 'hub', pathTarget: 'c3', useWeights: true })
+    expect(buildAnalyzeRequest(g, settings()).useWeights).toBeUndefined()
+    g.edges = g.edges.map((e, i) => (i === 0 ? e : { ...e, data: { failed: false, weight: 2 } }))
+    expect(buildAnalyzeRequest(g, settings()).useWeights).toBeUndefined()
+    g.edges = g.edges.map((e) => ({ ...e, data: { failed: false, weight: 2 } }))
     expect(buildAnalyzeRequest(g, settings()).useWeights).toBe(true)
+    settings().update({ useWeights: false })
+    expect(buildAnalyzeRequest(g, settings()).useWeights).toBeUndefined()
   })
 
   it('simulate and sweep carry the settings; the seed only when set', () => {

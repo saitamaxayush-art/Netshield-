@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -21,6 +22,10 @@ import { PropertiesPanel } from '@/features/studio/PropertiesPanel'
 import { AnalysisPanel } from '@/features/studio/AnalysisPanel'
 import { SimulationPanel } from '@/features/studio/SimulationPanel'
 import { PersistenceNotice } from '@/features/studio/PersistenceNotice'
+import { FAILURE_RULE, FailureControls } from '@/features/studio/FailureControls'
+import { AnalysisAnnouncer } from '@/features/studio/AnalysisAnnouncer'
+import { useAnalysisStore } from '@/store/analysisStore'
+import { ANALYSIS_SECTIONS, useStudioView, type AnalysisSection, type PanelTab } from '@/store/studioViewStore'
 import { Sheet } from '@/components/ui/Sheet'
 import { Button } from '@/components/ui/Button'
 import { useGraphStore } from '@/store/graphStore'
@@ -40,6 +45,7 @@ const isTyping = () => {
 }
 // The navbar's menu overlay stays mounted while hidden, so only a visible dialog counts.
 const dialogOpen = () => [...document.querySelectorAll('[role="dialog"]')].some((d) => d.checkVisibility({ visibilityProperty: true, opacityProperty: true }))
+const isDesktopNow = () => typeof window.matchMedia !== 'function' || window.matchMedia('(min-width: 1280px)').matches
 const isNodeType = (value: string): value is NodeType => NODE_TYPES.some((t) => t === value)
 
 // Display copies with aria labels, cached per store object so unchanged nodes and edges keep their
@@ -110,21 +116,16 @@ const EmptyCanvas: React.FC = () => {
   )
 }
 
-type Tab = 'properties' | 'analysis' | 'simulation'
-const TABS: ReadonlyArray<[Tab, string, typeof Sliders]> = [
+const TABS: ReadonlyArray<[PanelTab, string, typeof Sliders]> = [
   ['properties', 'Properties', Sliders],
   ['analysis', 'Analysis', Network],
   ['simulation', 'Simulator', Activity],
 ]
 
 const Panels: React.FC = () => {
-  const selectedId = useGraphStore((s) => s.selectedNodeId ?? s.selectedEdgeId)
-  const [activeTab, setActiveTab] = useState<Tab>('properties')
-  const [prevSelectedId, setPrevSelectedId] = useState(selectedId)
-  if (selectedId !== prevSelectedId) {
-    setPrevSelectedId(selectedId)
-    if (selectedId) setActiveTab('properties')
-  }
+  const activeTab = useStudioView((s) => s.panelTab)
+  const setActiveTab = useStudioView((s) => s.setPanelTab)
+  const analysisFailed = useAnalysisStore((s) => s.analyze.error !== null)
   return (
     <div className="flex flex-col h-full min-h-0">
       <div className="flex items-center border-b border-border-subtle bg-bg-surface shrink-0 text-xs font-mono h-12" data-testid="panel-tabs">
@@ -140,11 +141,17 @@ const Panels: React.FC = () => {
           >
             <Icon className="w-3.5 h-3.5" />
             <span>{name}</span>
+            {tab === 'analysis' && analysisFailed && <span aria-hidden="true" data-testid="analysis-tab-error" className="w-1.5 h-1.5 bg-state-failure" />}
           </button>
         ))}
       </div>
       <div className="flex-1 min-h-0 overflow-y-auto">
-        {activeTab === 'properties' && <PropertiesPanel />}
+        {activeTab === 'properties' && (
+          <>
+            <FailureControls />
+            <PropertiesPanel />
+          </>
+        )}
         {activeTab === 'analysis' && <AnalysisPanel />}
         {activeTab === 'simulation' && <SimulationPanel />}
       </div>
@@ -159,12 +166,14 @@ const Studio: React.FC = () => {
   const selectedNodeId = useGraphStore((s) => s.selectedNodeId)
   const selectedEdgeId = useGraphStore((s) => s.selectedEdgeId)
   const example = useGraphStore((s) => s.example)
+  const anyNodeFailed = useGraphStore((s) => s.nodes.some((n) => n.data.failed))
   const { applyNodeChanges, moveNodes, removeEdge, selectNode, selectEdge, removeSelected, undo, redo } = useGraphStore.getState()
   const { screenToFlowPosition } = useReactFlow()
   const isDesktop = useMediaQuery('(min-width: 1280px)')
 
   const [helpOpen, setHelpOpen] = useState(false)
-  const [detailsOpen, setDetailsOpen] = useState(false)
+  // A dashboard link opens the details sheet straight away on small screens.
+  const [detailsOpen, setDetailsOpen] = useState(() => new URLSearchParams(window.location.search).has('panel') && !isDesktopNow())
   // The only state outside the store: positions during a drag, committed once when it ends. The store,
   // the stale check and the save do not run on every drag tick.
   const [dragging, setDragging] = useState<Record<string, Position> | null>(null)
@@ -172,6 +181,16 @@ const Studio: React.FC = () => {
   const [initialViewport] = useState(() => useGraphStore.getState().viewport)
 
   useAutoAnalyze()
+
+  // Dashboard metrics link to the panel that explains them.
+  const [params] = useSearchParams()
+  useEffect(() => {
+    const view = useStudioView.getState()
+    const panel = params.get('panel')
+    if (panel === 'analysis' || panel === 'simulation' || panel === 'properties') view.setPanelTab(panel)
+    const section = ANALYSIS_SECTIONS.find((s): s is AnalysisSection => s === params.get('section'))
+    if (section) view.setSection(section)
+  }, [params])
 
   const flowNodes = useMemo(
     () =>
@@ -229,8 +248,21 @@ const Studio: React.FC = () => {
     [removeEdge, selectEdge]
   )
   const handleConnect = useCallback((connection: Connection) => void connectOrExplain(connection.source, connection.target), [])
-  const handleNodeClick = useCallback((_: React.MouseEvent, node: EditorNode) => selectNode(node.id), [selectNode])
-  const handleEdgeClick = useCallback((_: React.MouseEvent, edge: EditorEdge) => selectEdge(edge.id), [selectEdge])
+  // Selecting on the canvas opens its properties. Selecting from an analysis list stays in the analysis.
+  const handleNodeClick = useCallback(
+    (_: React.MouseEvent, node: EditorNode) => {
+      selectNode(node.id)
+      useStudioView.getState().setPanelTab('properties')
+    },
+    [selectNode]
+  )
+  const handleEdgeClick = useCallback(
+    (_: React.MouseEvent, edge: EditorEdge) => {
+      selectEdge(edge.id)
+      useStudioView.getState().setPanelTab('properties')
+    },
+    [selectEdge]
+  )
   const handlePaneClick = useCallback(() => selectNode(null), [selectNode])
 
   const handleDrop = (e: React.DragEvent) => {
@@ -279,6 +311,7 @@ const Studio: React.FC = () => {
   return (
     <div className="studio-root h-dvh flex flex-col bg-bg-primary text-text-primary overflow-hidden">
       <Navbar />
+      <AnalysisAnnouncer />
       <div className="flex-1 min-h-0 flex flex-col pt-16">
         <PersistenceNotice />
         <div className="flex-1 min-h-0 flex">
@@ -332,6 +365,11 @@ const Studio: React.FC = () => {
                 </span>
               )}
               <StudioToast />
+              {anyNodeFailed && (
+                <p data-testid="failure-rule-note" className="absolute bottom-3 left-3 z-10 max-w-[min(26rem,calc(100%-1.5rem))] px-2 py-1 bg-bg-surface border border-border-subtle rounded-[2px] text-[11px] text-text-secondary">
+                  {FAILURE_RULE}
+                </p>
+              )}
             </div>
           </div>
           {isDesktop && (

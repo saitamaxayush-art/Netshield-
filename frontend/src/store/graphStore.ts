@@ -21,6 +21,7 @@ import {
   type EditResult,
 } from './graphRules'
 import { preset, type PresetName } from './presets'
+import { pickRandomOperational, type RandomPick } from './randomFailure'
 
 export const HISTORY_LIMIT = 100
 
@@ -67,6 +68,9 @@ export interface GraphState extends EditorGraph {
   example: PresetName | null
   past: HistoryEntry[]
   future: HistoryEntry[]
+  /** Draws made by failRandom so far, and what the last one picked (shown to the user). */
+  randomDraw: number
+  lastRandom: (RandomPick & { seed: number; draw: number }) | null
   /** True between the first position change of a drag and its end (history is recorded once per drag). */
   dragging: boolean
 
@@ -94,6 +98,8 @@ export interface GraphState extends EditorGraph {
   restoreEdge: (id: string) => EditResult
   toggleEdgeFailure: (id: string) => EditResult
   clearFailures: () => void
+  /** Fail one operational node or link, picked from the seed and the next draw number. */
+  failRandom: (seed: number) => EditResult
 
   undo: () => boolean
   redo: () => boolean
@@ -153,6 +159,8 @@ export const useGraphStore = create<GraphState>((set, get) => {
     selectedEdgeId: null,
     past: [],
     future: [],
+    randomDraw: 0,
+    lastRandom: null,
     dragging: false,
 
     addNode: ({ nodeType, id, label, position }) => {
@@ -288,6 +296,16 @@ export const useGraphStore = create<GraphState>((set, get) => {
       })
     },
 
+    failRandom: (seed) => {
+      if (!Number.isInteger(seed) || seed < 0) return fail('Seed must be a whole number, 0 or more.')
+      const s = get()
+      const draw = s.randomDraw + 1
+      const pick = pickRandomOperational(s, seed, draw)
+      if (!pick) return fail('Nothing is left to fail: no node or link is operational.')
+      set({ randomDraw: draw, lastRandom: { ...pick, seed, draw } })
+      return setFailure(pick.kind, pick.id, true)
+    },
+
     undo: () => {
       const s = get()
       const previous = s.past[s.past.length - 1]
@@ -331,5 +349,5 @@ function keepSelection(graph: EditorGraph, s: GraphState): Pick<GraphState, 'sel
 
 /** Back to the initial state (the star example, empty history). Used by tests and clearSavedData. */
 export function resetGraphStore(): void {
-  useGraphStore.setState({ ...initialGraph(), viewport: null, selectedNodeId: null, selectedEdgeId: null, past: [], future: [], dragging: false })
+  useGraphStore.setState({ ...initialGraph(), viewport: null, selectedNodeId: null, selectedEdgeId: null, past: [], future: [], randomDraw: 0, lastRandom: null, dragging: false })
 }

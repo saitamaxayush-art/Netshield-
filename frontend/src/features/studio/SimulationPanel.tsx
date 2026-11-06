@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Activity, Play, TrendingDown, Info, Square } from 'lucide-react'
 import { ReliabilitySweepChart } from '@/features/analytics/ReliabilitySweepChart'
 import { ApiErrorBox, SourceBadge, StaleNotice } from './ResultStatus'
+import { Explain } from './analysis/sections'
 
 const pct = (v: number, digits = 1) => `${(v * 100).toFixed(digits)}%`
 const field = 'w-full px-2 py-1.5 bg-bg-surface border border-border-strong rounded-[2px] text-text-primary text-xs focus:border-accent-teal focus:outline-none'
@@ -292,6 +293,8 @@ export const SimulationPanel: React.FC = () => {
             </div>
           </div>
 
+          <Explain k={sim.explanationKey} />
+          {sim.criticalEdge && <Explain k={sim.criticalEdge.explanationKey} />}
           <ul className="text-[10px] text-text-muted leading-tight list-disc pl-4 space-y-0.5" data-testid="simulation-assumptions">
             {sim.assumptions.map((a) => (
               <li key={a}>{a}</li>
@@ -308,6 +311,7 @@ export const SimulationPanel: React.FC = () => {
       {sweep.result && (
         <div className="pt-2 border-t border-border-subtle">
           <ReliabilitySweepChart result={sweep.result} />
+          <Explain k={sweep.result.explanationKey} />
         </div>
       )}
     </div>

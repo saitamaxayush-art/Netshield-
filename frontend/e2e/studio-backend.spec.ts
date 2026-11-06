@@ -90,13 +90,16 @@ async function runAnalysis(page: Page) {
 /** Every displayed analysis value equals the backend's response body. */
 async function expectPanelShows(page: Page, body: AnalyzeBody) {
   const c = body.current
+  await page.getByRole('button', { name: 'Overview', exact: true }).click()
   await expect(page.getByTestId('analysis-source')).toHaveText('FastAPI NetworkX')
   await expect(page.getByTestId('analysis-source')).toHaveAttribute('data-source', 'backend')
   await expect(page.getByTestId('analysis-engine')).toHaveText(`NetworkX ${body.meta.engineVersion}, API ${body.meta.apiVersion}`)
-  await expect(page.getByTestId('analysis-connected')).toHaveText(c.connectivity.connected ? 'Fully Connected' : 'Disconnected')
+  await expect(page.getByTestId('analysis-connected')).toHaveText(c.connectivity.connected ? 'Connected' : 'Not connected')
   await expect(page.getByTestId('analysis-reason')).toHaveText(c.connectivity.reason)
   await expect(page.getByTestId('analysis-component-count')).toHaveText(String(c.connectivity.componentCount))
   await expect(page.getByTestId('analysis-density')).toHaveText(c.summary.density.toFixed(4))
+  await page.getByRole('button', { name: 'Critical', exact: true }).click()
+  await expect(page.getByTestId('section-critical')).toBeVisible()
   const shownBridges = await page.locator('[data-testid="analysis-bridges"] li').evaluateAll((els) => els.map((e) => e.getAttribute('data-edge-id')))
   expect(shownBridges).toEqual(c.bridges.edgeIds)
   const shownCut = await page.locator('[data-testid="analysis-articulation"] li').evaluateAll((els) => els.map((e) => e.getAttribute('data-node-id')))
@@ -127,8 +130,8 @@ test('analysis of the built-in Star example comes from the real backend', async 
   const body = (await response.json()) as AnalyzeBody
   expect(body.meta.engine).toBe('networkx')
 
-  // Hand verified: hub joins srv, fw, c3 (bridges) and the triangle hub, c1, c2.
-  expect(body.current.bridges.edgeIds).toEqual(['e-hub-c3', 'e-hub-fw', 'e-hub-srv'])
+  // Hand verified: in a true star every link is a bridge and the hub is the only cut vertex.
+  expect(body.current.bridges.edgeIds).toEqual(['e-hub-c1', 'e-hub-c2', 'e-hub-c3', 'e-hub-c4', 'e-hub-fw', 'e-hub-srv'])
   expect(body.current.articulationPoints.nodeIds).toEqual(['hub'])
   expect(body.current.connectivity.reason).toBe('Single component')
   await expectPanelShows(page, body)
@@ -168,16 +171,20 @@ test('traversal and shortest path shown are the backend values', async ({ page }
   const star = sixLeafStar()
   await seedGraph(page, star.nodes, star.edges)
   await openTab(page, 'Analysis')
-  await page.locator('select', { has: page.locator('option', { hasText: '(Select start)' }) }).selectOption('L1')
-  await page.locator('select', { has: page.locator('option', { hasText: '(Select target)' }) }).selectOption('L4')
+  await page.getByRole('button', { name: 'Traversal', exact: true }).click()
+  await page.locator('#traversal-start').selectOption('L1')
+  await page.getByRole('button', { name: 'Paths', exact: true }).click()
+  await page.locator('#path-source').selectOption('L1')
+  await page.locator('#path-target').selectOption('L4')
   const body = (await (await runAnalysis(page)).json()) as AnalyzeBody
   const label = (id: string) => (id === 'hub' ? 'Hub' : `Leaf ${id.slice(1)}`)
   expect(body.current.path?.nodeIds).toEqual(['L1', 'hub', 'L4'])
+  await expect(page.getByTestId('analysis-path')).toContainText(`${['L1', 'hub', 'L4'].map(label).join(' → ')} (2 hops)`)
+  await page.getByRole('button', { name: 'Traversal', exact: true }).click()
   await expect(page.getByTestId('analysis-bfs')).toHaveText(
     body.current.traversal!.bfs.map((s) => `${label(s.nodeId)} (${s.layer})`).join(' → ')
   )
   await expect(page.getByTestId('analysis-dfs')).toHaveText(body.current.traversal!.dfs.map(label).join(' → '))
-  await expect(page.getByTestId('analysis-path')).toContainText(`${['L1', 'hub', 'L4'].map(label).join(' → ')} (2 hops)`)
 })
 
 // --- Analysis: every failure is visible, never a substitute result ------------------------------

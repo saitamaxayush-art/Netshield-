@@ -309,3 +309,17 @@ html, body {
     height: 40px;
   }
 }
+
+/* Failure and recolouring transitions. They follow store state, in both directions. */
+.ns-node {
+  transition: border-left-color 0.35s ease, background-color 0.2s ease;
+}
+.ns-node-cross {
+  transition: opacity 0.25s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ns-node,
+  .ns-node-cross {
+    transition: none;
+  }
+}

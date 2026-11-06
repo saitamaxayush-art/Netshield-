@@ -8,6 +8,7 @@ import { connectOrExplain } from '../features/studio/studioActions'
 import { StudioToast } from '../features/studio/StudioToast'
 import { StudioToolbar } from '../features/studio/StudioToolbar'
 import { PropertiesPanel } from '../features/studio/PropertiesPanel'
+import { FailureControls } from '../features/studio/FailureControls'
 import { Sheet } from '../components/ui/Sheet'
 import { useGraphStore } from '../store/graphStore'
 import { useToastStore } from '../store/toastStore'
@@ -179,7 +180,7 @@ describe('toolbar', () => {
     expect(graph().selectedNodeId).toBeNull()
     fireEvent.click(undo)
     fireEvent.click(screen.getByRole('button', { name: 'Redo' }))
-    expect(graph().nodes.length).toBe(6)
+    expect(graph().nodes.length).toBe(7)
   })
 
   it('on small screens the tools move into a sheet', () => {
@@ -225,7 +226,8 @@ describe('properties panel', () => {
     expect(graph().nodes[0].data.label).toBe('Renamed')
     expect(graph().past.length).toBe(depth + 1)
     expect(screen.getByTestId('stored-status')).toHaveTextContent('Healthy')
-    fireEvent.click(screen.getByRole('button', { name: 'Fail Selected Node' }))
+    render(<FailureControls />)
+    fireEvent.click(screen.getByRole('button', { name: 'Fail selected node' }))
     expect(screen.getByTestId('operational-status')).toHaveTextContent('Down')
   })
 

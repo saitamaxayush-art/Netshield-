@@ -239,7 +239,7 @@ describe('migration', () => {
     })
     expect([settings().trials, settings().edgeFailureProbability, settings().nodeFailureProbability]).toEqual([500, 0.15, 0.15])
     expect(storage.data.has(LEGACY_KEY)).toBe(false)
-    expect(savedWorkspace().version).toBe(4)
+    expect(savedWorkspace().version).toBe(5)
   })
 
   it('maps failTarget edges and nodes to the matching probability only', () => {
@@ -255,17 +255,18 @@ describe('migration', () => {
     graph().addNode({ nodeType: 'client' })
     p.flush()
     const current = savedWorkspace()
-    const { terminalSource: _s, terminalTarget: _t, ...v2Settings } = { ...current.settings, pathSource: 'hub', pathTarget: 'c3' }
+    const { terminalSource: _s, terminalTarget: _t, useWeights: _w, ...v2Settings } = { ...current.settings, pathSource: 'hub', pathTarget: 'c3' }
     const { viewport: _v, ...v2Graph } = current.graph
     const migrated = WorkspaceSchema.parse(migrate({ ...current, version: 2, graph: v2Graph, settings: v2Settings }))
-    expect([migrated.version, migrated.settings.terminalSource, migrated.settings.terminalTarget, migrated.graph.viewport]).toEqual([4, 'hub', 'c3', null])
+    expect([migrated.version, migrated.settings.terminalSource, migrated.settings.terminalTarget, migrated.graph.viewport]).toEqual([5, 'hub', 'c3', null])
+    expect(migrated.settings.useWeights).toBe(false)
     expect(migrate({ version: 2, settings: { trials: 'x' } })).toBeNull()
   })
 
   it('returns the current version unchanged and null for unknown versions', () => {
-    const current = { version: 4 }
+    const current = { version: 5 }
     expect(migrate(current)).toBe(current)
-    expect(migrate({ version: 5 })).toBeNull()
+    expect(migrate({ version: 6 })).toBeNull()
     expect(migrate({ version: 1, nodes: 'bad' })).toBeNull()
   })
 })

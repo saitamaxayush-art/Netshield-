@@ -24,6 +24,8 @@ export interface Settings {
   /** Shortest path endpoints. */
   pathSource: string | null
   pathTarget: string | null
+  /** Weighted shortest path. Offered, and sent, only when every link has a weight. */
+  useWeights: boolean
   /** The two terminals for two-terminal simulation and sweeps (independent of the path endpoints). */
   terminalSource: string | null
   terminalTarget: string | null
@@ -44,6 +46,7 @@ export const DEFAULT_SETTINGS: Settings = {
   traversalStart: null,
   pathSource: null,
   pathTarget: null,
+  useWeights: false,
   terminalSource: null,
   terminalTarget: null,
   sweepPMin: 0,
@@ -115,6 +118,7 @@ export function pickSettings(s: Settings): Settings {
     traversalStart: s.traversalStart,
     pathSource: s.pathSource,
     pathTarget: s.pathTarget,
+    useWeights: s.useWeights,
     terminalSource: s.terminalSource,
     terminalTarget: s.terminalTarget,
     sweepPMin: s.sweepPMin,

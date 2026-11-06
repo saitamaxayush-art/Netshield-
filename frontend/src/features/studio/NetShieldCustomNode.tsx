@@ -2,7 +2,7 @@ import { memo } from 'react'
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import { Network, Server, Monitor, ShieldCheck, AlertCircle } from 'lucide-react'
 import type { EditorNode, NodeType } from '@/types/graph'
-import { useComponentIndex, useIsArticulationPoint } from '@/store/selectors'
+import { useComponentIndex, useIsArticulationPoint, useNodeHighlight } from '@/store/selectors'
 import { TOKENS } from '@/lib/tokens'
 
 const ICONS = { router: Network, server: Server, client: Monitor, firewall: ShieldCheck }
@@ -22,10 +22,13 @@ export interface NodeBodyProps {
   selected: boolean
   componentIndex: number | null
   isArticulationPoint: boolean
+  /** Marked by the open analysis section; the badge names why (path or traversal step). */
+  highlighted?: boolean
+  badge?: string
 }
 
 /** Drawing only. Failed is shown by icon, label and dashed outline, not by colour alone. */
-export const NodeBody = memo(({ label, nodeType, failed, selected, componentIndex, isArticulationPoint }: NodeBodyProps) => {
+export const NodeBody = memo(({ label, nodeType, failed, selected, componentIndex, isArticulationPoint, highlighted = false, badge = '' }: NodeBodyProps) => {
   const Icon = failed ? AlertCircle : ICONS[nodeType]
   const palette = TOKENS.colors.components.palette
   const color = componentIndex !== null && !failed ? palette[componentIndex % palette.length] : undefined
@@ -37,13 +40,23 @@ export const NodeBody = memo(({ label, nodeType, failed, selected, componentInde
       data-failed={failed}
       data-selected={selected}
       data-component={componentIndex ?? undefined}
+      data-highlighted={highlighted}
       style={color ? { borderLeftColor: color, borderLeftWidth: 4, borderLeftStyle: 'solid' } : undefined}
-      className={`relative px-3 py-2.5 rounded-[3px] select-none w-[176px] border ${
+      className={`ns-node relative px-3 py-2.5 rounded-[3px] select-none w-[176px] border ${
         failed
           ? 'bg-state-failure-dim border-2 border-dashed border-state-failure text-state-failure'
           : 'bg-bg-surface border-border-strong text-text-primary'
-      } ${selected ? 'ring-2 ring-accent-cyan ring-offset-2 ring-offset-bg-primary' : ''}`}
+      } ${selected ? 'ring-2 ring-accent-cyan ring-offset-2 ring-offset-bg-primary' : ''} ${highlighted ? 'outline-2 outline-offset-4 outline-state-warning' : ''}`}
     >
+      {/* Always rendered: its opacity follows the failed flag, in both directions. */}
+      <svg data-testid="node-cross" aria-hidden="true" viewBox="0 0 100 40" preserveAspectRatio="none" className={`ns-node-cross absolute inset-0 w-full h-full pointer-events-none ${failed ? 'opacity-40' : 'opacity-0'}`}>
+        <path d="M0 0L100 40M0 40L100 0" stroke="#F43F5E" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+      </svg>
+      {highlighted && badge && (
+        <div data-testid="node-badge" className="absolute -bottom-2.5 left-2 z-10 px-1.5 bg-state-warning text-bg-primary text-[9px] font-mono font-bold rounded-[1px]">
+          {badge}
+        </div>
+      )}
       {isArticulationPoint && !failed && (
         <div className="absolute -top-2.5 right-2 px-1.5 bg-accent-teal text-bg-primary text-[9px] font-mono font-bold uppercase rounded-[1px] tracking-tight">
           Cut Vertex
@@ -83,6 +96,7 @@ export const NetShieldCustomNode = memo(({ id, data, selected }: NodeProps<Edito
   // Colours come from the latest up to date analysis (analysisStore), never computed here.
   const componentIndex = useComponentIndex(id)
   const isArticulationPoint = useIsArticulationPoint(id)
+  const mark = useNodeHighlight(id)
   return (
     <>
       <NodeBody
@@ -92,6 +106,8 @@ export const NetShieldCustomNode = memo(({ id, data, selected }: NodeProps<Edito
         selected={selected}
         componentIndex={componentIndex}
         isArticulationPoint={isArticulationPoint}
+        highlighted={mark !== undefined}
+        badge={mark}
       />
       {/* After the body, so handles paint and receive pointer events above it. */}
       {SIDES.map(([side, position]) => (

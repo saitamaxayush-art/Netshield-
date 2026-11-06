@@ -1,6 +1,6 @@
 /**
  * Saves the graph and the settings to localStorage as a versioned workspace:
- *   { version: 4, savedAt, graph (with viewport), settings }
+ *   { version: 5, savedAt, graph (with viewport), settings }
  * Analysis results and the adapter mode are never saved.
  *
  * Every storage call is wrapped in try/catch (private windows, blocked storage, quota). Loaded data is
@@ -18,7 +18,7 @@ import { checkSettings, DEFAULT_SETTINGS, pickSettings, useSettingsStore, type S
 
 export const WORKSPACE_KEY = 'netshield_workspace'
 export const LEGACY_KEY = 'netshield_graph_state_v1'
-export const WORKSPACE_VERSION = 4
+export const WORKSPACE_VERSION = 5
 export const SAVE_DEBOUNCE_MS = 400
 
 const finite = z.number().refine(Number.isFinite, 'must be finite')
@@ -49,6 +49,7 @@ const SavedSettings = z.strictObject({
   traversalStart: z.string().nullable(),
   pathSource: z.string().nullable(),
   pathTarget: z.string().nullable(),
+  useWeights: z.boolean(),
   terminalSource: z.string().nullable(),
   terminalTarget: z.string().nullable(),
   sweepPMin: finite,
@@ -96,12 +97,12 @@ const LegacyV1 = z.object({
 /** Version 2 (Phase 3): the two-terminal terminals were the path endpoints, so it had no terminal fields. */
 const WorkspaceV2 = z.object({
   version: z.literal(2),
-  settings: SavedSettings.omit({ terminalSource: true, terminalTarget: true }),
+  settings: SavedSettings.omit({ terminalSource: true, terminalTarget: true, useWeights: true }),
 })
 
 /**
  * Bring stored data of any known version to the current version, or return null if the version is
- * unknown. Versions 1 to 3 are converted; version 4 is current. Add a case here when the format changes.
+ * unknown. Versions 1 to 4 are converted; version 5 is current. Add a case here when the format changes.
  */
 export function migrate(raw: unknown): unknown {
   if (typeof raw !== 'object' || raw === null || !('version' in raw)) return null
@@ -117,7 +118,13 @@ export function migrate(raw: unknown): unknown {
     // Version 3 had no saved viewport.
     const v3 = z.object({ graph: z.looseObject({}) }).safeParse(raw)
     if (!v3.success) return null
-    return { ...raw, version: WORKSPACE_VERSION, graph: { ...v3.data.graph, viewport: null } }
+    return migrate({ ...raw, version: 4, graph: { ...v3.data.graph, viewport: null } })
+  }
+  if (raw.version === 4) {
+    // Version 4 had no weighted path setting.
+    const v4 = z.object({ settings: z.looseObject({}) }).safeParse(raw)
+    if (!v4.success) return null
+    return { ...raw, version: WORKSPACE_VERSION, settings: { ...v4.data.settings, useWeights: false } }
   }
   if (raw.version === 1) {
     const v1 = LegacyV1.safeParse(raw)

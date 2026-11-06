@@ -75,7 +75,7 @@ every result is labelled **Demo result**. "Exit demo mode" in the banner goes ba
 The app never switches to demo mode by itself.
 
 **Saved data**: the studio graph and settings are saved in this browser's `localStorage` under
-`netshield_workspace` (version 4, including the canvas viewport; older versions and the version 1 key `netshield_graph_state_v1` are migrated once).
+`netshield_workspace` (version 5, including the canvas viewport; older versions and the version 1 key `netshield_graph_state_v1` are migrated once).
 Results are never saved. "Clear saved data" is in the studio tools and on the Privacy page.
 
 **Studio**: press `?` for keyboard shortcuts. Below 1280px wide, the tools and panels open as sheets from the toolbar. On touch, tap a handle on one node and then on another to connect them.
@@ -89,6 +89,7 @@ Results are never saved. "Clear saved data" is in the studio tools and on the Pr
 | `npm --prefix frontend run lint` | ESLint with typescript-eslint and React hooks rules |
 | `npm --prefix frontend test` | Vitest unit tests (React Testing Library available) |
 | `npm --prefix frontend run test:e2e` | Production build, then Playwright (local Google Chrome). Starts the real FastAPI backend on port 8799 for the studio tests in `e2e/studio-backend.spec.ts`; needs `.venv` |
+| `npx --prefix frontend playwright test e2e/studio-failure.spec.ts` (from `frontend/`, after a build) | Failure simulation against the real backend, no mocks: Star, Ring, paths, traversal, dashboard values |
 | `npm --prefix frontend run build` | Type check and Vite production build |
 | `npm --prefix frontend run gen:api` | Regenerates `frontend/src/types/api.generated.ts` from the FastAPI OpenAPI schema |
 | `npm --prefix frontend run check:api-types` | Fails if the generated API types are out of date |
@@ -105,7 +106,7 @@ small separate package with its own TypeScript 5.9, installed automatically by `
 
 ```bash
 cd frontend
-npm run test:e2e                    # 74 tests: landing audits, interactions, scroll, routes, contrast, and the studio against the real backend
+npm run test:e2e                    # 79 tests: landing audits, interactions, scroll, routes, contrast, and the studio against the real backend
 node scripts/alignment-report.mjs   # regenerates ../ALIGNMENT_AUDIT.md from the audit measurements
 node scripts/perf.mjs               # full page scroll profile at 1440x900 (needs the preview server on :4317)
 node scripts/contrast.mjs           # WCAG ratios for every landing colour pair

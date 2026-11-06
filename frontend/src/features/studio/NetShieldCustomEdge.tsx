@@ -1,7 +1,7 @@
 import { memo } from 'react'
 import { BaseEdge, useInternalNode, type EdgeProps } from '@xyflow/react'
-import type { EditorEdge } from '@/types/graph'
-import { useIsBridge } from '@/store/selectors'
+import type { EditorEdge, EditorNode } from '@/types/graph'
+import { useEdgeHighlighted, useIsBridge } from '@/store/selectors'
 import { floatingEnds } from './floatingEdge'
 
 export interface EdgeViewProps {
@@ -12,25 +12,29 @@ export interface EdgeViewProps {
   failed: boolean
   selected: boolean
   bridge: boolean
+  /** Its own flag is healthy, but an endpoint node failed. */
+  unavailable?: boolean
+  highlighted?: boolean
 }
 
 /** Drawing only. Colour and width change at once; opacity and dash offset animate (index.css). */
-export const EdgeView = memo(({ id, path, midX, midY, failed, selected, bridge }: EdgeViewProps) => {
-  const isBridge = bridge && !failed
-  const stroke = failed ? '#F43F5E' : selected ? '#38BDF8' : isBridge ? '#2DD4BF' : '#3D4663'
-  const state = failed ? 'failed' : isBridge ? 'bridge' : 'normal'
+export const EdgeView = memo(({ id, path, midX, midY, failed, selected, bridge, unavailable = false, highlighted = false }: EdgeViewProps) => {
+  const down = failed || unavailable
+  const isBridge = bridge && !down
+  const stroke = failed ? '#F43F5E' : unavailable ? '#64748B' : highlighted ? '#F59E0B' : selected ? '#38BDF8' : isBridge ? '#2DD4BF' : '#3D4663'
+  const state = failed ? 'failed' : unavailable ? 'unavailable' : isBridge ? 'bridge' : 'normal'
   return (
-    <g data-testid={`edge-${id}`} data-state={state} data-selected={selected}>
+    <g data-testid={`edge-${id}`} data-state={state} data-selected={selected} data-highlighted={highlighted}>
       <BaseEdge
         id={id}
         path={path}
         className="ns-edge-line"
         style={{
           stroke,
-          strokeWidth: selected ? 2.5 : isBridge ? 2 : 1.5,
-          strokeDasharray: failed ? '6 5' : isBridge ? '8 3' : undefined,
-          strokeDashoffset: failed ? 0 : 11,
-          opacity: failed ? 0.65 : 1,
+          strokeWidth: highlighted ? 3 : selected ? 2.5 : isBridge ? 2 : 1.5,
+          strokeDasharray: failed ? '6 5' : unavailable ? '4 5' : isBridge ? '8 3' : undefined,
+          strokeDashoffset: down ? 0 : 11,
+          opacity: failed ? 0.65 : unavailable ? 0.7 : 1,
         }}
       />
       {failed && (
@@ -54,9 +58,10 @@ EdgeView.displayName = 'EdgeView'
 
 export const NetShieldCustomEdge = memo(({ id, source, target, data, selected }: EdgeProps<EditorEdge>) => {
   // Each edge follows only its own two nodes, so a drag redraws only the links it moves.
-  const a = useInternalNode(source)
-  const b = useInternalNode(target)
+  const a = useInternalNode<EditorNode>(source)
+  const b = useInternalNode<EditorNode>(target)
   const bridge = useIsBridge(id)
+  const highlighted = useEdgeHighlighted(id)
   if (!a?.measured.width || !a.measured.height || !b?.measured.width || !b.measured.height) return null
   const { source: s, target: t } = floatingEnds(
     { ...a.internals.positionAbsolute, width: a.measured.width, height: a.measured.height },
@@ -71,6 +76,8 @@ export const NetShieldCustomEdge = memo(({ id, source, target, data, selected }:
       failed={data?.failed ?? false}
       selected={selected ?? false}
       bridge={bridge}
+      unavailable={a.data.failed || b.data.failed}
+      highlighted={highlighted}
     />
   )
 })

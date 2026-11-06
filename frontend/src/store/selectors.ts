@@ -4,6 +4,7 @@
  * out of date, failed, or missing: annotations come from the backend (or a labelled demo result) only.
  */
 import { useAnalysisStore, type AnalysisState } from './analysisStore'
+import { useHighlight } from './studioViewStore'
 
 const freshAnalysis = (s: AnalysisState) => (s.analyze.result && !s.analyze.stale ? s.analyze.result.current : null)
 
@@ -20,3 +21,8 @@ export const useIsBridge = (edgeId: string): boolean =>
 /** Operational and stored degree from the backend's analysis, or null when there is none. */
 export const useDegree = (nodeId: string): { operational: number; stored: number } | null =>
   useAnalysisStore((s) => freshAnalysis(s)?.degrees.byNode[nodeId] ?? null)
+
+/** The badge of a highlighted node ('' for no badge), or undefined when it is not highlighted. */
+export const useNodeHighlight = (nodeId: string): string | undefined => useHighlight((s) => s.nodes[nodeId])
+
+export const useEdgeHighlighted = (edgeId: string): boolean => useHighlight((s) => s.edges[edgeId] === true)

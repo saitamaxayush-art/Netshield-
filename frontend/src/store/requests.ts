@@ -20,8 +20,7 @@ export function buildAnalyzeRequest(graph: EditorGraph, settings: Settings): Ana
   if (source && target) {
     body.pathSource = source
     body.pathTarget = target
-    // Any weight asks for a weighted path; the backend reports MISSING_WEIGHTS if some links have none.
-    if (graph.edges.some((e) => e.data?.weight !== undefined)) body.useWeights = true
+    if (settings.useWeights && graph.edges.length > 0 && graph.edges.every((e) => e.data?.weight !== undefined)) body.useWeights = true
   }
   return body
 }

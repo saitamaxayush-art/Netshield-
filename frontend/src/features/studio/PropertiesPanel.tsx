@@ -5,7 +5,7 @@ import type { EditResult } from '@/store/graphRules'
 import { NODE_TYPES, type EditorEdge, type EditorNode, type NodeType } from '@/types/graph'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
-import { Sliders, AlertTriangle, CheckCircle2, Trash2, Layers, Activity } from 'lucide-react'
+import { Sliders, Trash2, Layers, Activity } from 'lucide-react'
 
 const TYPE_NAMES: Record<NodeType, string> = {
   router: 'Core Router',
@@ -32,7 +32,7 @@ const EditError: React.FC<{ error: string | null }> = ({ error }) =>
 const NotAnalyzed = <span className="text-text-muted">Not analyzed</span>
 
 const NodeProperties: React.FC<{ node: EditorNode }> = ({ node }) => {
-  const { updateNode, toggleNodeFailure, removeNode } = useGraphStore()
+  const { updateNode, removeNode } = useGraphStore()
   const degree = useDegree(node.id)
   const componentIndex = useComponentIndex(node.id)
   const isArticulationPoint = useIsArticulationPoint(node.id)
@@ -128,15 +128,6 @@ const NodeProperties: React.FC<{ node: EditorNode }> = ({ node }) => {
 
       <div className="pt-2 flex flex-col gap-2">
         <Button
-          variant={isFailed ? 'secondary' : 'danger'}
-          size="sm"
-          className="w-full"
-          leftIcon={isFailed ? <CheckCircle2 className="w-3.5 h-3.5 text-state-success" /> : <AlertTriangle className="w-3.5 h-3.5" />}
-          onClick={() => report(toggleNodeFailure(node.id))}
-        >
-          {isFailed ? 'Restore Node Online' : 'Fail Selected Node'}
-        </Button>
-        <Button
           variant="ghost"
           size="sm"
           className="w-full text-text-muted hover:text-state-failure"
@@ -189,7 +180,7 @@ const OptionalNumber: React.FC<{
 }
 
 const EdgeProperties: React.FC<{ edge: EditorEdge }> = ({ edge }) => {
-  const { nodes, updateEdge, toggleEdgeFailure, removeEdge } = useGraphStore()
+  const { nodes, updateEdge, removeEdge } = useGraphStore()
   const isBridge = useIsBridge(edge.id)
   const [error, report] = useEditError()
   const isFailed = edge.data?.failed ?? false
@@ -258,15 +249,6 @@ const EdgeProperties: React.FC<{ edge: EditorEdge }> = ({ edge }) => {
 
       <div className="pt-2 flex flex-col gap-2">
         <Button
-          variant={isFailed ? 'secondary' : 'danger'}
-          size="sm"
-          className="w-full"
-          leftIcon={isFailed ? <CheckCircle2 className="w-3.5 h-3.5 text-state-success" /> : <AlertTriangle className="w-3.5 h-3.5" />}
-          onClick={() => report(toggleEdgeFailure(edge.id))}
-        >
-          {isFailed ? 'Restore Connection' : 'Sever Connection Link'}
-        </Button>
-        <Button
           variant="ghost"
           size="sm"
           className="w-full text-text-muted hover:text-state-failure"
@@ -291,7 +273,7 @@ export const PropertiesPanel: React.FC = () => {
       <Sliders className="w-8 h-8 stroke-1 text-border-strong mb-3" />
       <div className="text-xs font-semibold text-text-secondary mb-1">No Selection</div>
       <p className="text-[11px] text-text-muted max-w-[200px] leading-relaxed">
-        Select any node or connection on the canvas to edit it, see its analysis, or toggle its failure state.
+        Select any node or connection on the canvas to edit it and see its analysis.
       </p>
     </div>
   )
