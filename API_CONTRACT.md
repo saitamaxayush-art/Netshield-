@@ -377,6 +377,13 @@ Implemented in Phase 3 (`frontend/src/services/api/`: `client.ts`, `schemas.ts`,
   settings stop changing (not for moves, renames or type changes), and only for a non empty graph.
   A result whose inputs changed afterwards is flagged `stale` and shown as "Results out of date".
   A failed request clears the earlier result; it is never shown next to an error.
+* Simulations above 5000 trials are sent as batches of at most 5000 (`frontend/src/store/simulationRuns.ts`).
+  Batch 0 uses the run seed (the user's, or the one the backend returned for batch 0); batch i uses
+  `(seed + i * 0x9E3779B1) mod 2^32`. The client combines batches by counting only: trials, successful
+  trials and histogram bins are summed, and average components is the trial weighted mean. The Wilson
+  interval and standard error of the combined counts are computed in the browser from those counts
+  and labelled as combined. The most critical link is shown per batch, never combined. A single
+  request shows the backend's values unchanged.
 * When the backend is unreachable or returns an error, the UI shows the error message and a Retry
   action. It does not switch to the demo adapter by itself.
 * The demo adapter is used only when `VITE_USE_DEMO_ADAPTER=true` or after the explicit "Switch to

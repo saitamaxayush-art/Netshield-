@@ -90,6 +90,7 @@ Results are never saved. "Clear saved data" is in the studio tools and on the Pr
 | `npm --prefix frontend test` | Vitest unit tests (React Testing Library available) |
 | `npm --prefix frontend run test:e2e` | Production build, then Playwright (local Google Chrome). Starts the real FastAPI backend on port 8799 for the studio tests in `e2e/studio-backend.spec.ts`; needs `.venv` |
 | `npx --prefix frontend playwright test e2e/studio-failure.spec.ts` (from `frontend/`, after a build) | Failure simulation against the real backend, no mocks: Star, Ring, paths, traversal, dashboard values |
+| `npx playwright test e2e/simulation.spec.ts` (from `frontend/`, after a build) | Real simulations on a 6 node cycle: estimate within 4 standard errors of the closed form, batching, same seed reproduces |
 | `npm --prefix frontend run build` | Type check and Vite production build |
 | `npm --prefix frontend run gen:api` | Regenerates `frontend/src/types/api.generated.ts` from the FastAPI OpenAPI schema |
 | `npm --prefix frontend run check:api-types` | Fails if the generated API types are out of date |
@@ -106,7 +107,7 @@ small separate package with its own TypeScript 5.9, installed automatically by `
 
 ```bash
 cd frontend
-npm run test:e2e                    # 81 tests: landing audits, interactions, scroll, routes, contrast, and the studio against the real backend
+npm run test:e2e                    # 86 tests: landing audits, interactions, scroll, routes, contrast, and the studio against the real backend
 node scripts/alignment-report.mjs   # regenerates ../ALIGNMENT_AUDIT.md from the audit measurements
 node scripts/perf.mjs               # full page scroll profile at 1440x900 (needs the preview server on :4317)
 node scripts/contrast.mjs           # WCAG ratios for every landing colour pair

@@ -13,7 +13,7 @@ import { GraphMiniMap } from '@/features/dashboard/GraphMiniMap'
 import { AnalysisSkeleton } from '@/features/studio/analysis/sections'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
-import { ArrowRight, FolderOpen, Network } from 'lucide-react'
+import { Activity, ArrowRight, FolderOpen, Network } from 'lucide-react'
 import '@/store/bootstrap'
 
 const Metric: React.FC<{ label: string; value: React.ReactNode; detail?: string; to: string; testId: string }> = ({ label, value, detail, to, testId }) => (
@@ -73,11 +73,20 @@ export const DashboardPage: React.FC = () => {
               <h1 className="headline-sub text-text-primary">Network Reliability Dashboard</h1>
               <p className="text-xs sm:text-sm text-text-secondary mt-1">Results for your current workspace graph.</p>
             </div>
-            <Link to="/studio">
-              <Button variant="primary" size="md" rightIcon={<ArrowRight className="w-4 h-4" />}>
-                Open Studio
-              </Button>
-            </Link>
+            <div className="flex flex-wrap gap-2">
+              {nodes.length > 0 && (
+                <Link to="/studio?panel=simulation" data-testid="dashboard-run-simulation">
+                  <Button variant="secondary" size="md" leftIcon={<Activity className="w-4 h-4" />}>
+                    Run simulation
+                  </Button>
+                </Link>
+              )}
+              <Link to="/studio">
+                <Button variant="primary" size="md" rightIcon={<ArrowRight className="w-4 h-4" />}>
+                  Open Studio
+                </Button>
+              </Link>
+            </div>
           </div>
 
           {nodes.length === 0 ? (
@@ -117,8 +126,8 @@ export const DashboardPage: React.FC = () => {
                   {sim ? (
                     <Metric
                       label={`Latest simulation${sim.isDemo ? ' (Demo result)' : ''}`}
-                      value={`${(sim.estimate * 100).toFixed(1)}%`}
-                      detail={`${sim.trials} trials, 95% Wilson [${(sim.wilson95.low * 100).toFixed(1)}%, ${(sim.wilson95.high * 100).toFixed(1)}%]${simulate.stale ? '. Results out of date' : ''}`}
+                      value={`${(sim.combined.estimate * 100).toFixed(1)}%`}
+                      detail={`Estimate from ${sim.combined.trials} trials at p = ${sim.request.edgeFailureProbability}, seed ${sim.seed}, 95% Wilson [${(sim.combined.wilson95.low * 100).toFixed(1)}%, ${(sim.combined.wilson95.high * 100).toFixed(1)}%]${simulate.stale ? '. Results out of date' : ''}`}
                       to="/studio?panel=simulation"
                       testId="simulation"
                     />

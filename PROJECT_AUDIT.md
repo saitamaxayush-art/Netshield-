@@ -288,3 +288,12 @@ the app stays on TypeScript 7 (`tsc -b`). `npm install` in `frontend/` installs 
   the defaults apply. In Phase 0 Vite chose 5174 because 5173 was busy; in Phase 0B 5173 was free.
 * Playwright e2e covers the landing page and route smoke tests; studio and dashboard flows have no e2e
   tests yet.
+
+## 9. Open items for the Phase 8 QA sweep
+
+Tracked here so they are not left only in phase reports. Each line says where it lives and what to decide.
+
+| # | Item | Where | Risk | What Phase 8 should do |
+| :-- | :-- | :-- | :-- | :-- |
+| 9.1 | The cancel test assumes Cancel is clicked before the first of 4 batches returns. It passes today (the first 5000 trial batch takes long enough), but a much faster backend could finish batch 1 first, so the run would still be cancelled but the assertion on the "No result." text could race. | `frontend/e2e/simulation.spec.ts`, test "cancel stops a running batched simulation and says so" | Flaky test, not a product bug | Make the timing deterministic, for example hold the first `/api/simulate` response with `page.route` until Cancel has been clicked, then release it, and assert no result and no later batches. |
+| 9.2 | When one batch of a batched simulation fails, the whole run reports the error and the batches that already finished are discarded; no partial result is shown. This is deliberate (a partial run is not the run the user asked for), but it throws away valid backend results. | `frontend/src/store/simulationRuns.ts` (`runBatches`), `frontend/src/store/analysisStore.ts` (`runSlot`) | Lost work on long runs; no wrong numbers | Decide: keep as is, or offer the completed batches as a clearly labelled partial result ("3 of 4 batches, 15000 trials") with Retry for the rest. Add a test either way. |

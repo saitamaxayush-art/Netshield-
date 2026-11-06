@@ -13,7 +13,7 @@ export const AnalysisAnnouncer: React.FC = () => {
   }
   let simulationText = ''
   if (simulate.error) simulationText = `Simulation failed: ${simulate.error.message}`
-  else if (simulate.status === 'success' && simulate.result) simulationText = `Simulation finished: estimated reliability ${(simulate.result.estimate * 100).toFixed(1)} percent.`
+  else if (simulate.status === 'success' && simulate.result) simulationText = `Simulation finished: estimated reliability ${(simulate.result.combined.estimate * 100).toFixed(1)} percent.`
   return (
     <div className="sr-only">
       <div role="status" aria-live="polite" data-testid="analysis-announcer">

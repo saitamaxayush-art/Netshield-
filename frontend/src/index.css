@@ -323,3 +323,23 @@ html, body {
     transition: none;
   }
 }
+
+/* Indeterminate progress: one request, so the bar moves without claiming a share. */
+@keyframes ns-indeterminate {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(300%);
+  }
+}
+.ns-indeterminate {
+  animation: ns-indeterminate 1.2s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ns-indeterminate {
+    animation: none;
+    width: 100%;
+    opacity: 0.5;
+  }
+}

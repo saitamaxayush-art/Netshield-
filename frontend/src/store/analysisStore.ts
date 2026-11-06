@@ -12,10 +12,11 @@
 import { create } from 'zustand'
 import { ApiError, type Stamped } from '@/services/api/client'
 import { getApi } from '@/services/api/registry'
-import type { AnalyzeResponseBody, SimulateResponseBody, SweepResponseBody } from '@/services/api/schemas'
+import type { AnalyzeResponseBody, SweepResponseBody } from '@/services/api/schemas'
 import { useGraphStore } from './graphStore'
 import { buildAnalyzeRequest, buildSimulateRequest, buildSweepRequest, inputKey, type RequestKind } from './requests'
 import { pickSettings, useSettingsStore } from './settingsStore'
+import { runBatches, type SimulationRun } from './simulationRuns'
 
 export type RequestStatus = 'idle' | 'loading' | 'success' | 'error'
 
@@ -28,17 +29,23 @@ export interface Slot<T> {
   /** inputKey of the request that produced `result`. */
   inputKey: string | null
   stale: boolean
+  /** When the current run started (ms since the epoch), for elapsed time. */
+  startedAt: number | null
+  /** Trials done and total while a batched simulation runs; null otherwise. */
+  progress: { done: number; total: number } | null
+  /** True when the last run was cancelled by the user (any earlier result is kept). */
+  cancelled: boolean
 }
 
 interface Results {
   analyze: AnalyzeResponseBody
-  simulate: SimulateResponseBody
+  simulate: SimulationRun
   sweep: SweepResponseBody
 }
 
 export interface AnalysisState {
   analyze: Slot<AnalyzeResponseBody>
-  simulate: Slot<SimulateResponseBody>
+  simulate: Slot<SimulationRun>
   sweep: Slot<SweepResponseBody>
   run: (kind: RequestKind) => Promise<void>
   cancel: (kind: RequestKind) => void
@@ -47,7 +54,17 @@ export interface AnalysisState {
   clearAll: () => void
 }
 
-const emptySlot = <T,>(requestId = 0): Slot<T> => ({ status: 'idle', result: null, error: null, requestId, inputKey: null, stale: false })
+const emptySlot = <T,>(requestId = 0): Slot<T> => ({
+  status: 'idle',
+  result: null,
+  error: null,
+  requestId,
+  inputKey: null,
+  stale: false,
+  startedAt: null,
+  progress: null,
+  cancelled: false,
+})
 
 const controllers = new Map<RequestKind, AbortController>()
 let lastRequestId = 0
@@ -66,7 +83,7 @@ function toApiError(error: unknown): ApiError {
 interface Accessor<T> {
   read: (s: AnalysisState) => Slot<T>
   write: (slot: Slot<T>) => Partial<AnalysisState>
-  fetch: (signal: AbortSignal) => Promise<Stamped<T>>
+  fetch: (signal: AbortSignal, report: (done: number, total: number) => void) => Promise<Stamped<T>>
 }
 
 /** Per kind: where its slot lives and how to fetch it. Keeps every update fully typed. */
@@ -82,9 +99,12 @@ const ACCESS: { [K in RequestKind]: Accessor<Results[K]> } = {
   simulate: {
     read: (s) => s.simulate,
     write: (simulate) => ({ simulate }),
-    fetch: (signal) => {
+    fetch: async (signal, report) => {
       const { graph, settings } = currentInputs()
-      return activeApi().simulate(buildSimulateRequest(graph, settings), { signal, supersede: false })
+      const api = activeApi()
+      // Runs above BATCH_TRIALS trials are split into batches so progress can be shown.
+      const run = await runBatches(buildSimulateRequest(graph, settings), { simulate: (body, s) => api.simulate(body, { signal: s, supersede: false }) }, signal, report)
+      return { ...run, isDemo: api.isDemo }
     },
   },
   sweep: {
@@ -111,20 +131,22 @@ async function runSlot<T>(kind: RequestKind, acc: Accessor<T>): Promise<void> {
   const before = currentInputs()
   const key = inputKey(kind, before.graph, before.settings)
   const isLatest = () => acc.read(useAnalysisStore.getState()).requestId === requestId
-  update(acc, { status: 'loading', error: null, requestId })
+  update(acc, { status: 'loading', error: null, requestId, startedAt: Date.now(), progress: null, cancelled: false })
   try {
-    const result = await acc.fetch(controller.signal)
+    const result = await acc.fetch(controller.signal, (done, total) => {
+      if (isLatest()) update(acc, { progress: { done, total } })
+    })
     if (!isLatest()) return
     const now = currentInputs()
-    update(acc, { status: 'success', result, error: null, inputKey: key, stale: inputKey(kind, now.graph, now.settings) !== key })
+    update(acc, { status: 'success', result, error: null, inputKey: key, stale: inputKey(kind, now.graph, now.settings) !== key, progress: null })
   } catch (error) {
     if (!isLatest()) return
     const apiError = toApiError(error)
     if (apiError.isCancelled) {
       // Cancelled on purpose: keep whatever result was there (it carries its own stale flag).
-      update(acc, { status: acc.read(useAnalysisStore.getState()).result ? 'success' : 'idle', error: null })
+      update(acc, { status: acc.read(useAnalysisStore.getState()).result ? 'success' : 'idle', error: null, progress: null, cancelled: true })
     } else {
-      update(acc, { status: 'error', result: null, error: apiError, inputKey: null, stale: false })
+      update(acc, { status: 'error', result: null, error: apiError, inputKey: null, stale: false, progress: null })
     }
   } finally {
     if (controllers.get(kind) === controller) controllers.delete(kind)

@@ -40,7 +40,7 @@ export const StaleNotice: React.FC<{ testId: string; onRefresh: () => void; isLo
   </div>
 )
 
-export const ApiErrorBox: React.FC<{ title: string; error: ApiError; testId: string; onRetry: () => void }> = ({ title, error, testId, onRetry }) => {
+export const ApiErrorBox: React.FC<{ title: string; error: ApiError; testId: string; onRetry: () => void; hint?: string }> = ({ title, error, testId, onRetry, hint }) => {
   const adapterMode = useSettingsStore((s) => s.adapterMode)
   const switchToDemoMode = useSettingsStore((s) => s.switchToDemoMode)
   const unreachable = error.isNetworkError || error.isTimeout
@@ -59,6 +59,11 @@ export const ApiErrorBox: React.FC<{ title: string; error: ApiError; testId: str
         </span>
       </div>
       <p className="text-[11px]">{error.message}</p>
+      {hint && (
+        <p className="text-[11px]" data-testid={`${testId}-hint`}>
+          {hint}
+        </p>
+      )}
       <p className="text-[11px]">No result is shown. Nothing was computed in the browser.</p>
       <div className="flex flex-wrap gap-2">
         <Button variant="outline" size="sm" leftIcon={<RotateCcw className="w-3 h-3" />} onClick={onRetry}>

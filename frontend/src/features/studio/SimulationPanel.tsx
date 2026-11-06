@@ -1,19 +1,23 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useGraphStore } from '@/store/graphStore'
 import { useAnalysisStore } from '@/store/analysisStore'
-import { MAX_SEED, MAX_TRIALS, useSettingsStore, type Settings } from '@/store/settingsStore'
+import { DEFAULT_SETTINGS, MAX_SEED, useSettingsStore, type Settings } from '@/store/settingsStore'
+import { BATCH_TRIALS } from '@/store/simulationRuns'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
-import { Activity, Play, TrendingDown, Info, Square } from 'lucide-react'
-import { ReliabilitySweepChart } from '@/features/analytics/ReliabilitySweepChart'
+import { Activity, Play, TrendingDown, Info, Square, Shuffle, RotateCcw, Download } from 'lucide-react'
+import { CompareChart, HistogramChart, SweepChart, TrialsChart } from '@/features/analytics/charts'
 import { ApiErrorBox, SourceBadge, StaleNotice } from './ResultStatus'
 import { Explain } from './analysis/sections'
+import { download, toCsv, toJson } from './simulationExport'
 
+const TRIAL_OPTIONS = [100, 500, 1000, 5000, 20000] as const
 const pct = (v: number, digits = 1) => `${(v * 100).toFixed(digits)}%`
 const field = 'w-full px-2 py-1.5 bg-bg-surface border border-border-strong rounded-[2px] text-text-primary text-xs focus:border-accent-teal focus:outline-none'
+const heading = 'text-[11px] font-mono text-text-muted uppercase'
 
-/** Number input that commits on blur and shows the store's reason when a value is refused. */
-const SettingNumber: React.FC<{
+/** Text input for a number; commits on blur or Enter, shows the store's reason when refused. Keyed by value so it follows the store. */
+const NumberField: React.FC<{
   id: string
   label: string
   value: number | null
@@ -23,26 +27,103 @@ const SettingNumber: React.FC<{
   onError: (error: string | null) => void
 }> = ({ id, label, value, step, placeholder, toPatch, onError }) => {
   const update = useSettingsStore((s) => s.update)
-  const [text, setText] = useState(value === null ? '' : String(value))
+  const commit = (text: string) => {
+    const result = update(toPatch(text.trim() === '' ? null : Number(text)))
+    onError(result.ok ? null : result.error)
+    return result.ok
+  }
   return (
     <div>
       <label htmlFor={id} className="block text-[10px] text-text-muted mb-1 font-mono">
         {label}
       </label>
       <input
+        key={String(value)}
         id={id}
         type="number"
         step={step}
-        value={text}
+        defaultValue={value === null ? '' : String(value)}
         placeholder={placeholder}
-        onChange={(e) => setText(e.target.value)}
-        onBlur={() => {
-          const result = update(toPatch(text.trim() === '' ? null : Number(text)))
-          onError(result.ok ? null : result.error)
-          if (!result.ok) setText(value === null ? '' : String(value))
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') e.currentTarget.blur()
+        }}
+        onBlur={(e) => {
+          if (!commit(e.currentTarget.value)) e.currentTarget.value = value === null ? '' : String(value)
         }}
         className={`${field} font-mono`}
       />
+    </div>
+  )
+}
+
+/** Slider plus validated number input for a probability in [0, 1]. */
+const ProbabilityField: React.FC<{ id: string; label: string; value: number; patch: (v: number) => Partial<Settings>; onError: (e: string | null) => void }> = ({
+  id,
+  label,
+  value,
+  patch,
+  onError,
+}) => {
+  const update = useSettingsStore((s) => s.update)
+  return (
+    <div>
+      <div className="flex justify-between items-end gap-3 text-[11px] font-mono mb-1">
+        <label htmlFor={id} className="text-text-muted">
+          {label}
+        </label>
+        <div className="w-24">
+          <NumberField id={`${id}-value`} label="" value={value} step="0.01" toPatch={(v) => patch(v ?? Number.NaN)} onError={onError} />
+        </div>
+      </div>
+      <input
+        id={id}
+        type="range"
+        min="0"
+        max="1"
+        step="0.01"
+        value={value}
+        aria-valuetext={pct(value, 0)}
+        onChange={(e) => onError(update(patch(Number(e.target.value))).ok ? null : 'Invalid value')}
+        className="w-full accent-accent-teal cursor-pointer"
+      />
+    </div>
+  )
+}
+
+function useElapsed(startedAt: number | null, running: boolean): number {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    if (!running) return
+    const timer = setInterval(() => setNow(Date.now()), 100)
+    return () => clearInterval(timer)
+  }, [running])
+  return running && startedAt !== null ? Math.max(0, now - startedAt) : 0
+}
+
+const RunProgress: React.FC<{ startedAt: number | null; progress: { done: number; total: number } | null }> = ({ startedAt, progress }) => {
+  const elapsed = useElapsed(startedAt, true)
+  const batched = progress !== null && progress.total > BATCH_TRIALS
+  const share = batched ? progress.done / progress.total : null
+  return (
+    <div className="space-y-1.5" data-testid="simulation-progress" data-batched={batched}>
+      <div
+        role="progressbar"
+        aria-label="Simulation progress"
+        aria-valuemin={0}
+        aria-valuemax={batched ? progress.total : undefined}
+        aria-valuenow={batched ? progress.done : undefined}
+        aria-valuetext={batched ? `${progress.done} of ${progress.total} trials` : 'Running'}
+        className="h-1.5 bg-bg-surface-active rounded-[1px] overflow-hidden"
+      >
+        {share !== null ? (
+          <div className="h-full bg-accent-teal transition-[width] duration-200" style={{ width: `${share * 100}%` }} />
+        ) : (
+          <div className="h-full w-1/3 bg-accent-teal ns-indeterminate" />
+        )}
+      </div>
+      <p className="text-[10px] font-mono text-text-muted" data-testid="simulation-progress-text">
+        {batched ? `${progress.done} of ${progress.total} trials` : 'Running on the backend'}, {(elapsed / 1000).toFixed(1)} s
+      </p>
     </div>
   )
 }
@@ -52,97 +133,97 @@ export const SimulationPanel: React.FC = () => {
   const settings = useSettingsStore()
   const simulate = useAnalysisStore((s) => s.simulate)
   const sweep = useAnalysisStore((s) => s.sweep)
-  const run = useAnalysisStore((s) => s.run)
-  const cancel = useAnalysisStore((s) => s.cancel)
+  const analyze = useAnalysisStore((s) => s.analyze)
+  const { run, cancel, clear } = useAnalysisStore.getState()
   const [settingError, setSettingError] = useState<string | null>(null)
 
-  const sim = simulate.result
+  const result = simulate.result
+  const c = result?.combined
+  const first = result?.batches[0]
   const isSimulating = simulate.status === 'loading'
   const isSweeping = sweep.status === 'loading'
   const labelOf = (id: string) => nodes.find((n) => n.id === id)?.data.label ?? id
   const twoTerminal = settings.mode === 'two-terminal'
+  const trialOptions = TRIAL_OPTIONS.some((t) => t === settings.trials) ? TRIAL_OPTIONS : [...TRIAL_OPTIONS, settings.trials].sort((a, b) => a - b)
+  const freshAnalysis = analyze.result && !analyze.stale ? analyze.result : null
+
+  const reset = () => {
+    clear('simulate')
+    clear('sweep')
+    const d = DEFAULT_SETTINGS
+    settings.update({
+      edgeFailureProbability: d.edgeFailureProbability,
+      nodeFailureProbability: d.nodeFailureProbability,
+      trials: d.trials,
+      seed: d.seed,
+      mode: d.mode,
+      sweepPMin: d.sweepPMin,
+      sweepPMax: d.sweepPMax,
+      sweepPoints: d.sweepPoints,
+    })
+    setSettingError(null)
+  }
+  const randomise = () => {
+    const value = new Uint32Array(1)
+    crypto.getRandomValues(value)
+    settings.update({ seed: value[0] % (MAX_SEED + 1) })
+  }
+  const exportAs = (kind: 'csv' | 'json') => {
+    const input = { run: result, sweep: sweep.result, exportedAt: new Date().toISOString() }
+    const stamp = input.exportedAt.slice(0, 19).replace(/[:T]/g, '-')
+    if (kind === 'csv') download(`netshield-simulation-${stamp}.csv`, toCsv(input), 'text/csv')
+    else download(`netshield-simulation-${stamp}.json`, toJson(input), 'application/json')
+  }
+  const timeoutHint = 'The run took too long. Try fewer trials or a smaller network. Runs above 5000 trials are sent as batches of 5000.'
 
   return (
-    <div className="p-5 space-y-6 text-xs text-text-primary">
+    <div className="p-5 space-y-5 text-xs text-text-primary">
       <div className="flex items-center justify-between pb-3 border-b border-border-subtle">
         <div className="flex items-center gap-2">
           <Activity className="w-4 h-4 text-accent-cyan" />
           <span className="font-semibold uppercase tracking-wider text-[11px] font-mono">Failure Simulator</span>
         </div>
-        {sim && <SourceBadge isDemo={sim.isDemo} testId="simulation-source" backendLabel="FastAPI Backend" />}
+        {result && <SourceBadge isDemo={result.isDemo} testId="simulation-source" backendLabel="FastAPI Backend" />}
       </div>
 
       <div className="space-y-4 bg-bg-primary p-4 rounded-[2px] border border-border-subtle">
-        <div className="text-[11px] font-mono text-text-muted uppercase">Monte Carlo Configuration</div>
-
-        <div>
-          <div className="flex justify-between text-[11px] font-mono mb-1.5">
-            <label htmlFor="edge-p" className="text-text-muted">
-              Link failure probability (p):
-            </label>
-            <span className="text-accent-teal font-semibold">{pct(settings.edgeFailureProbability, 0)}</span>
-          </div>
-          <input
-            id="edge-p"
-            type="range"
-            min="0"
-            max="1"
-            step="0.01"
-            value={settings.edgeFailureProbability}
-            onChange={(e) => settings.update({ edgeFailureProbability: Number(e.target.value) })}
-            className="w-full accent-accent-teal cursor-pointer"
-          />
-        </div>
-
-        <div>
-          <div className="flex justify-between text-[11px] font-mono mb-1.5">
-            <label htmlFor="node-p" className="text-text-muted">
-              Node failure probability:
-            </label>
-            <span className="text-accent-teal font-semibold">{pct(settings.nodeFailureProbability, 0)}</span>
-          </div>
-          <input
-            id="node-p"
-            type="range"
-            min="0"
-            max="1"
-            step="0.01"
-            value={settings.nodeFailureProbability}
-            onChange={(e) => settings.update({ nodeFailureProbability: Number(e.target.value) })}
-            className="w-full accent-accent-teal cursor-pointer"
-          />
-        </div>
+        <div className={heading}>Monte Carlo configuration</div>
+        <ProbabilityField id="edge-p" label="Link failure probability (p):" value={settings.edgeFailureProbability} patch={(v) => ({ edgeFailureProbability: v })} onError={setSettingError} />
+        <ProbabilityField id="node-p" label="Node failure probability:" value={settings.nodeFailureProbability} patch={(v) => ({ nodeFailureProbability: v })} onError={setSettingError} />
 
         <div className="grid grid-cols-2 gap-3">
-          <SettingNumber
-            id="trials"
-            label={`Trials N (1 to ${MAX_TRIALS}):`}
-            value={settings.trials}
-            step="1"
-            toPatch={(v) => ({ trials: v ?? Number.NaN })}
-            onError={setSettingError}
-          />
-          <SettingNumber
-            id="seed"
-            label="Seed (optional):"
-            value={settings.seed}
-            step="1"
-            placeholder={`0 to ${MAX_SEED}`}
-            toPatch={(seed) => ({ seed })}
-            onError={setSettingError}
-          />
+          <div>
+            <label htmlFor="trials" className="block text-[10px] text-text-muted mb-1 font-mono">
+              Trials:
+            </label>
+            <select id="trials" value={settings.trials} onChange={(e) => settings.update({ trials: Number(e.target.value) })} className={`${field} cursor-pointer`}>
+              {trialOptions.map((t) => (
+                <option key={t} value={t}>
+                  {t.toLocaleString('en-US')}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <NumberField id="seed" label="Seed (optional):" value={settings.seed} step="1" placeholder="backend picks" toPatch={(seed) => ({ seed })} onError={setSettingError} />
+          </div>
         </div>
+        <div className="flex justify-end">
+          <Button variant="ghost" size="sm" leftIcon={<Shuffle className="w-3.5 h-3.5" />} onClick={randomise}>
+            Randomise seed
+          </Button>
+        </div>
+        {settings.trials > BATCH_TRIALS && (
+          <p role="note" data-testid="trials-warning" className="text-[11px] text-state-warning">
+            {settings.trials.toLocaleString('en-US')} trials take longer. They are sent as {Math.ceil(settings.trials / BATCH_TRIALS)} batches of up to {BATCH_TRIALS}, with seeds derived from the run seed.
+          </p>
+        )}
 
         <div>
           <label htmlFor="mode" className="block text-[10px] text-text-muted mb-1 font-mono">
             Success means:
           </label>
-          <select
-            id="mode"
-            value={settings.mode}
-            onChange={(e) => settings.update({ mode: e.target.value === 'two-terminal' ? 'two-terminal' : 'all-terminal' })}
-            className={`${field} cursor-pointer`}
-          >
+          <select id="mode" value={settings.mode} onChange={(e) => settings.update({ mode: e.target.value === 'two-terminal' ? 'two-terminal' : 'all-terminal' })} className={`${field} cursor-pointer`}>
             <option value="all-terminal">All surviving nodes connected (all-terminal)</option>
             <option value="two-terminal">Two chosen nodes connected (two-terminal)</option>
           </select>
@@ -151,14 +232,9 @@ export const SimulationPanel: React.FC = () => {
               {(['terminalSource', 'terminalTarget'] as const).map((key) => (
                 <div key={key}>
                   <label htmlFor={key} className="block text-[10px] text-text-muted mb-1 font-mono">
-                    {key === 'terminalSource' ? 'Terminal s:' : 'Terminal t:'}
+                    {key === 'terminalSource' ? 'Source s:' : 'Target t:'}
                   </label>
-                  <select
-                    id={key}
-                    value={settings[key] ?? ''}
-                    onChange={(e) => settings.update({ [key]: e.target.value || null })}
-                    className={`${field} cursor-pointer`}
-                  >
+                  <select id={key} value={settings[key] ?? ''} onChange={(e) => settings.update({ [key]: e.target.value || null })} className={`${field} cursor-pointer`}>
                     <option value="">(Select node)</option>
                     {nodes.map((n) => (
                       <option key={n.id} value={n.id}>
@@ -178,17 +254,9 @@ export const SimulationPanel: React.FC = () => {
           </p>
         )}
 
-        <div className="pt-2 flex flex-col gap-2">
+        <div className="pt-1 space-y-2">
           <div className="flex gap-2">
-            <Button
-              variant="primary"
-              size="sm"
-              className="flex-1"
-              leftIcon={<Play className="w-3.5 h-3.5 fill-current" />}
-              isLoading={isSimulating}
-              disabled={nodes.length === 0}
-              onClick={() => void run('simulate')}
-            >
+            <Button variant="primary" size="sm" className="flex-1" leftIcon={<Play className="w-3.5 h-3.5 fill-current" />} isLoading={isSimulating} disabled={nodes.length === 0} onClick={() => void run('simulate')}>
               Run Monte Carlo Simulation
             </Button>
             {isSimulating && (
@@ -197,121 +265,157 @@ export const SimulationPanel: React.FC = () => {
               </Button>
             )}
           </div>
-
-          <div className="grid grid-cols-3 gap-2">
-            <SettingNumber id="sweep-min" label="Sweep p from:" value={settings.sweepPMin} step="0.05" toPatch={(v) => ({ sweepPMin: v ?? Number.NaN })} onError={setSettingError} />
-            <SettingNumber id="sweep-max" label="to:" value={settings.sweepPMax} step="0.05" toPatch={(v) => ({ sweepPMax: v ?? Number.NaN })} onError={setSettingError} />
-            <SettingNumber id="sweep-points" label="points:" value={settings.sweepPoints} step="1" toPatch={(v) => ({ sweepPoints: v ?? Number.NaN })} onError={setSettingError} />
-          </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex-1"
-              leftIcon={<TrendingDown className="w-3.5 h-3.5" />}
-              isLoading={isSweeping}
-              disabled={nodes.length === 0}
-              onClick={() => void run('sweep')}
-            >
-              Run Reliability Sweep
-            </Button>
-            {isSweeping && (
-              <Button variant="outline" size="sm" leftIcon={<Square className="w-3 h-3" />} onClick={() => cancel('sweep')}>
-                Cancel
-              </Button>
-            )}
-          </div>
+          {isSimulating && <RunProgress startedAt={simulate.startedAt} progress={simulate.progress} />}
+          <Button variant="ghost" size="sm" className="w-full" leftIcon={<RotateCcw className="w-3.5 h-3.5" />} disabled={isSimulating || isSweeping} onClick={reset}>
+            Reset simulation
+          </Button>
         </div>
       </div>
 
       <div className="p-3 bg-bg-surface-elevated rounded-[2px] border border-border-subtle flex items-start gap-2 text-[11px] text-text-secondary leading-relaxed">
         <Info className="w-4 h-4 text-accent-cyan shrink-0 mt-0.5" />
         <div>
-          <span className="font-semibold text-text-primary">Failed elements stay failed:</span> nodes and links you marked failed are
-          failed in every trial, and a link whose endpoint fails is unavailable in that trial. A link with its own failure probability
-          uses it instead of p.
+          <span className="font-semibold text-text-primary">Failed elements stay failed:</span> nodes and links you marked failed are failed in every trial, and a link whose
+          endpoint fails is unavailable in that trial. A link with its own failure probability uses it instead of p.
         </div>
       </div>
 
       {simulate.error && (
-        <ApiErrorBox title="Simulation Execution Error" error={simulate.error} testId="simulation-error" onRetry={() => void run('simulate')} />
+        <ApiErrorBox
+          title="Simulation Execution Error"
+          error={simulate.error}
+          testId="simulation-error"
+          onRetry={() => void run('simulate')}
+          hint={simulate.error.isTimeout || simulate.error.code === 'TIMEOUT' ? timeoutHint : undefined}
+        />
       )}
+      {simulate.cancelled && !isSimulating && (
+        <p role="status" data-testid="simulation-cancelled" className="text-[11px] font-mono text-text-secondary">
+          Run cancelled. {result ? 'The previous result is still shown.' : 'No result.'}
+        </p>
+      )}
+      {result && simulate.stale && <StaleNotice testId="simulation-stale" onRefresh={() => void run('simulate')} isLoading={isSimulating} />}
 
-      {sim && simulate.stale && <StaleNotice testId="simulation-stale" onRefresh={() => void run('simulate')} isLoading={isSimulating} />}
-
-      {sim && (
+      {result && c && first && (
         <div className="p-4 bg-bg-surface-elevated rounded-[2px] border border-border-subtle space-y-3" data-testid="simulation-results">
           <div className="flex items-center justify-between pb-2 border-b border-border-subtle">
-            <span className="text-[11px] font-mono uppercase text-text-muted">Estimated Reliability R&#770;</span>
+            <span className="text-[11px] font-mono uppercase text-text-muted">Estimate: reliability R&#770;</span>
             <Badge variant="accent" size="md" data-testid="simulation-reliability">
-              {pct(sim.estimate)}
+              {pct(c.estimate)}
             </Badge>
           </div>
-
+          {result.isBatched && (
+            <p className="text-[10px] font-mono text-state-warning" data-testid="simulation-combined">
+              Combined from {result.batches.length} backend requests: counts are summed; the interval and standard error are computed in the browser from those counts.
+            </p>
+          )}
           <div className="grid grid-cols-2 gap-2 font-mono text-[11px]">
             <div className="p-2 bg-bg-primary rounded-[2px] border border-border-subtle">
-              <div className="text-[10px] text-text-muted">Successful Trials:</div>
+              <div className="text-[10px] text-text-muted">Successful / total trials:</div>
               <div className="text-sm font-semibold text-text-primary mt-0.5" data-testid="simulation-connected">
-                {sim.connectedTrials} / {sim.trials}
+                {c.connectedTrials} / {c.trials}
               </div>
             </div>
             <div className="p-2 bg-bg-primary rounded-[2px] border border-border-subtle">
-              <div className="text-[10px] text-text-muted">Standard Error (SE):</div>
+              <div className="text-[10px] text-text-muted">Standard error (SE):</div>
               <div className="text-sm font-semibold text-text-primary mt-0.5" data-testid="simulation-se">
-                &plusmn;{pct(sim.standardError, 2)}
+                &plusmn;{pct(c.standardError, 2)}
               </div>
             </div>
           </div>
-
-          <div className="p-2 bg-bg-primary rounded-[2px] border border-border-subtle font-mono text-[10px] text-text-secondary flex justify-between">
-            <span>95% Wilson interval:</span>
-            <span className="text-text-primary font-semibold" data-testid="simulation-ci">
-              [{pct(sim.wilson95.low)}, {pct(sim.wilson95.high)}]
-            </span>
-          </div>
-
           <div className="p-2 bg-bg-primary rounded-[2px] border border-border-subtle font-mono text-[10px] text-text-secondary space-y-1">
-            <div className="flex justify-between">
+            <div className="flex justify-between gap-2">
+              <span>95% Wilson interval:</span>
+              <span className="text-text-primary font-semibold" data-testid="simulation-ci">
+                [{pct(c.wilson95.low)}, {pct(c.wilson95.high)}]
+              </span>
+            </div>
+            <div className="flex justify-between gap-2">
               <span>Average components:</span>
               <span className="text-text-primary" data-testid="simulation-avg-components">
-                {sim.averageComponents.toFixed(3)}
+                {c.averageComponents.toFixed(3)}
               </span>
             </div>
-            <div className="flex justify-between">
-              <span>Most critical link:</span>
-              <span className="text-text-primary" data-testid="simulation-critical-edge">
-                {sim.criticalEdge
-                  ? `${sim.criticalEdge.edgeId} (pivotal in ${pct(sim.criticalEdge.share)} of trials)`
-                  : 'None (no single link failure decided a trial)'}
+            <div className="flex justify-between gap-3">
+              <span className="shrink-0">Seed used:</span>
+              <span className="text-text-primary text-right break-words min-w-0" data-testid="simulation-seed">
+                {result.seed}
+                {result.isBatched ? ` (batches: ${result.batches.map((b) => b.seed).join(', ')})` : ''}
               </span>
             </div>
-            <div className="flex justify-between">
-              <span>Seed:</span>
-              <span className="text-text-primary" data-testid="simulation-seed">
-                {sim.seed}
+            <div className="flex justify-between gap-3">
+              <span className="shrink-0">Most critical link:</span>
+              <span className="text-text-primary text-right break-words min-w-0" data-testid="simulation-critical-edge">
+                {result.isBatched
+                  ? `per batch: ${result.batches.map((b) => b.criticalEdge?.edgeId ?? 'none').join(', ')}`
+                  : first.criticalEdge
+                    ? `${first.criticalEdge.edgeId} (pivotal in ${pct(first.criticalEdge.share)} of trials)`
+                    : 'None (no single link failure decided a trial)'}
               </span>
             </div>
           </div>
-
-          <Explain k={sim.explanationKey} />
-          {sim.criticalEdge && <Explain k={sim.criticalEdge.explanationKey} />}
-          <ul className="text-[10px] text-text-muted leading-tight list-disc pl-4 space-y-0.5" data-testid="simulation-assumptions">
-            {sim.assumptions.map((a) => (
-              <li key={a}>{a}</li>
-            ))}
-            <li>Computed in {sim.elapsedMs} ms.</li>
-          </ul>
+          <Explain k={first.explanationKey} />
+          {first.criticalEdge && <Explain k={first.criticalEdge.explanationKey} />}
+          <div>
+            <div className={`${heading} mb-1`}>Assumptions (from the {result.isDemo ? 'demo adapter' : 'backend'})</div>
+            {result.isBatched && (
+              <p className="text-[10px] text-text-muted mb-1" data-testid="simulation-assumptions-batched">
+                As reported for batch 1. Every batch used the same model; batch sizes and seeds are listed above and in the export.
+              </p>
+            )}
+            <ul className="text-[10px] text-text-muted leading-tight list-disc pl-4 space-y-0.5" data-testid="simulation-assumptions">
+              {first.assumptions.map((a) => (
+                <li key={a}>{a}</li>
+              ))}
+              <li>Computed in {result.batches.reduce((sum, b) => sum + b.elapsedMs, 0).toFixed(1)} ms of backend time.</li>
+            </ul>
+          </div>
+          <TrialsChart run={result} />
+          <HistogramChart run={result} />
         </div>
       )}
 
-      {sweep.error && <ApiErrorBox title="Reliability Sweep Error" error={sweep.error} testId="sweep-error" onRetry={() => void run('sweep')} />}
+      <div className="space-y-3 bg-bg-primary p-4 rounded-[2px] border border-border-subtle">
+        <div className={heading}>Reliability sweep</div>
+        <div className="grid grid-cols-3 gap-2">
+          <NumberField id="sweep-min" label="p from:" value={settings.sweepPMin} step="0.05" toPatch={(v) => ({ sweepPMin: v ?? Number.NaN })} onError={setSettingError} />
+          <NumberField id="sweep-max" label="to:" value={settings.sweepPMax} step="0.05" toPatch={(v) => ({ sweepPMax: v ?? Number.NaN })} onError={setSettingError} />
+          <NumberField id="sweep-points" label="points:" value={settings.sweepPoints} step="1" toPatch={(v) => ({ sweepPoints: v ?? Number.NaN })} onError={setSettingError} />
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" className="flex-1" leftIcon={<TrendingDown className="w-3.5 h-3.5" />} isLoading={isSweeping} disabled={nodes.length === 0} onClick={() => void run('sweep')}>
+            Run Reliability Sweep
+          </Button>
+          {isSweeping && (
+            <Button variant="outline" size="sm" leftIcon={<Square className="w-3 h-3" />} onClick={() => cancel('sweep')}>
+              Cancel
+            </Button>
+          )}
+        </div>
+        {isSweeping && <RunProgress startedAt={sweep.startedAt} progress={null} />}
+      </div>
 
+      {sweep.error && (
+        <ApiErrorBox title="Reliability Sweep Error" error={sweep.error} testId="sweep-error" onRetry={() => void run('sweep')} hint={sweep.error.isTimeout || sweep.error.code === 'TIMEOUT' ? timeoutHint : undefined} />
+      )}
       {sweep.result && sweep.stale && <StaleNotice testId="sweep-stale" onRefresh={() => void run('sweep')} isLoading={isSweeping} />}
-
       {sweep.result && (
-        <div className="pt-2 border-t border-border-subtle">
-          <ReliabilitySweepChart result={sweep.result} />
+        <div className="space-y-2">
+          <SweepChart result={sweep.result} />
           <Explain k={sweep.result.explanationKey} />
+        </div>
+      )}
+
+      {freshAnalysis?.healthy && <CompareChart current={freshAnalysis.current} healthy={freshAnalysis.healthy} />}
+
+      {(result || sweep.result) && (
+        <div className="grid grid-cols-2 gap-2" data-testid="simulation-export">
+          <Button variant="secondary" size="sm" leftIcon={<Download className="w-3.5 h-3.5" />} onClick={() => exportAs('csv')}>
+            Download CSV
+          </Button>
+          <Button variant="secondary" size="sm" leftIcon={<Download className="w-3.5 h-3.5" />} onClick={() => exportAs('json')}>
+            Download JSON
+          </Button>
         </div>
       )}
     </div>
