@@ -28,8 +28,9 @@ import { useAnalysisStore } from '@/store/analysisStore'
 import { ANALYSIS_SECTIONS, useStudioView, type AnalysisSection, type PanelTab } from '@/store/studioViewStore'
 import { Sheet } from '@/components/ui/Sheet'
 import { ErrorBoundary, PanelErrorFallback } from '@/components/layout/ErrorBoundary'
+import { CrashProbe } from '@/components/layout/CrashProbe'
 import { Button } from '@/components/ui/Button'
-import { useGraphStore } from '@/store/graphStore'
+import { useGraphStore, type Viewport } from '@/store/graphStore'
 import { PRESET_NAMES, PRESET_TITLES } from '@/store/presets'
 import { useAutoAnalyze } from '@/hooks/useAutoAnalyze'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
@@ -70,13 +71,27 @@ function edgeCopy(e: EditorEdge): EditorEdge {
   return copy
 }
 
-/** Saves pan and zoom shortly after they stop changing. Renders nothing, so ticks stay cheap. */
-const ViewportSaver: React.FC = () => {
+/**
+ * Saves pan, zoom and canvas size shortly after they stop changing; renders nothing, so ticks stay cheap.
+ * On load, a saved view is used only if the canvas has the same size; otherwise the graph is fitted, so a
+ * view saved on a phone does not leave the graph small in a corner on a desktop (BUG-016).
+ */
+const ViewportSaver: React.FC<{ restored: Viewport | null }> = ({ restored }) => {
   const [x, y, zoom] = useStore((s) => s.transform)
+  const width = useStore((s) => s.width)
+  const height = useStore((s) => s.height)
+  const { fitView } = useReactFlow()
+  const checked = useRef(false)
   useEffect(() => {
-    const timer = setTimeout(() => useGraphStore.getState().setViewport({ x, y, zoom }), 200)
+    if (checked.current || width === 0 || height === 0) return
+    checked.current = true
+    if (restored && (restored.width !== width || restored.height !== height)) void fitView(FIT_OPTIONS)
+  }, [restored, width, height, fitView])
+  useEffect(() => {
+    if (width === 0 || height === 0) return
+    const timer = setTimeout(() => useGraphStore.getState().setViewport({ x, y, zoom, width, height }), 200)
     return () => clearTimeout(timer)
-  }, [x, y, zoom])
+  }, [x, y, zoom, width, height])
   return null
 }
 
@@ -148,6 +163,7 @@ const Panels: React.FC = () => {
       </div>
       <div className="flex-1 min-h-0 overflow-y-auto">
         <ErrorBoundary resetKey={activeTab} fallback={(error, reset) => <PanelErrorFallback error={error} reset={reset} name={TABS.find(([t]) => t === activeTab)?.[1] ?? 'details'} />}>
+        <CrashProbe name="panel" />
         {activeTab === 'properties' && (
           <>
             <FailureControls />
@@ -315,7 +331,7 @@ const Studio: React.FC = () => {
     <div className="studio-root h-[calc(100dvh-var(--ns-banner-h,0px))] flex flex-col bg-bg-primary text-text-primary overflow-hidden">
       <Navbar />
       <AnalysisAnnouncer />
-      <div className="flex-1 min-h-0 flex flex-col pt-16">
+      <main className="flex-1 min-h-0 flex flex-col pt-16">
         <PersistenceNotice />
         <div className="flex-1 min-h-0 flex">
           <div className="flex-1 min-w-0 flex flex-col">
@@ -350,13 +366,13 @@ const Studio: React.FC = () => {
                 zoomOnDoubleClick={false}
                 fitView={initialViewport === null}
                 fitViewOptions={FIT_OPTIONS}
-                defaultViewport={initialViewport ?? undefined}
+                defaultViewport={initialViewport ? { x: initialViewport.x, y: initialViewport.y, zoom: initialViewport.zoom } : undefined}
                 minZoom={0.005}
                 maxZoom={2.5}
                 proOptions={{ hideAttribution: true }}
               >
                 <Background variant={BackgroundVariant.Dots} gap={24} size={1.5} color="#222638" />
-                <ViewportSaver />
+                <ViewportSaver restored={initialViewport} />
               </ReactFlow>
               {isEmpty && <EmptyCanvas />}
               {example && !isEmpty && (
@@ -381,7 +397,7 @@ const Studio: React.FC = () => {
             </aside>
           )}
         </div>
-      </div>
+      </main>
       {!isDesktop && (
         <Sheet isOpen={detailsOpen} onClose={() => setDetailsOpen(false)} title="Details and analysis" testId="details-sheet">
           <div className="h-[70dvh]">

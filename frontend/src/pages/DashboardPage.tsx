@@ -10,7 +10,6 @@ import { useAutoAnalyze } from '@/hooks/useAutoAnalyze'
 import { ApiErrorBox, SourceBadge, StaleNotice } from '@/features/studio/ResultStatus'
 import { AnalysisAnnouncer } from '@/features/studio/AnalysisAnnouncer'
 import { GraphMiniMap } from '@/features/dashboard/GraphMiniMap'
-import { AnalysisSkeleton } from '@/features/studio/analysis/sections'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Activity, ArrowRight, FolderOpen, Network } from 'lucide-react'
@@ -20,7 +19,7 @@ const Metric: React.FC<{ label: string; value: React.ReactNode; detail?: string;
   <Link
     to={to}
     data-testid={`metric-${testId}`}
-    className="block p-5 bg-bg-surface border border-border-subtle hover:border-border-strong rounded-[3px] space-y-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-teal"
+    className="block min-h-[124px] p-5 bg-bg-surface border border-border-subtle hover:border-border-strong rounded-[3px] space-y-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-teal"
   >
     <div className="flex items-center justify-between text-[11px] font-mono uppercase text-text-muted">
       <span>{label}</span>
@@ -110,8 +109,11 @@ export const DashboardPage: React.FC = () => {
               {analysis.error && <ApiErrorBox title="Analysis Request Failed" error={analysis.error} testId="dashboard-analysis-error" onRetry={() => void run('analyze')} />}
               {current && analysis.stale && <StaleNotice testId="dashboard-stale" onRefresh={() => void run('analyze')} isLoading={analysis.status === 'loading'} />}
               {!current && !analysis.error && (
-                <div data-testid="dashboard-loading">
-                  <AnalysisSkeleton />
+                // Same grid and card height as the results, so nothing moves when they arrive (BUG-017).
+                <div data-testid="dashboard-loading" aria-hidden="true" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-pulse motion-reduce:animate-none">
+                  {Array.from({ length: 8 }, (_, i) => (
+                    <div key={i} className="min-h-[124px] bg-bg-surface border border-border-subtle rounded-[3px]" />
+                  ))}
                 </div>
               )}
               {current && (

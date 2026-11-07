@@ -126,11 +126,11 @@ test.describe('reduced motion', () => {
 test.describe('touch targets', () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true })
 
-  test('dashboard and studio controls are at least 40px', async ({ page }) => {
-    for (const url of ['/dashboard', '/studio']) {
+  test('controls are at least 40px on every app page, including the shared navigation and footer', async ({ page }) => {
+    for (const url of ['/dashboard', '/studio', '/privacy', '/terms', '/no-such-page']) {
       await page.goto(url)
       await page.waitForTimeout(800)
-      const small = await page.locator('main button:visible, .studio-root button:visible, main a[href]:visible').evaluateAll((els) =>
+      const small = await page.locator(':is(main, header, nav, footer, .studio-root) :is(button, a[href]):visible').evaluateAll((els) =>
         els
           .filter((el) => {
             const r = el.getBoundingClientRect()
@@ -140,5 +140,38 @@ test.describe('touch targets', () => {
       )
       expect(small, url).toEqual([])
     }
+  })
+})
+
+test.describe('error boundaries in the production build', () => {
+  test.use({ viewport: { width: 1440, height: 900 } })
+
+  test('a panel crash shows the panel fallback, the rest of the studio keeps working, and Try again recovers', async ({ page }) => {
+    await page.addInitScript(() => (window.__nsCrash = 'panel'))
+    await page.goto('/studio')
+    const fallback = page.getByTestId('panel-error')
+    await expect(fallback).toContainText('failed to display')
+    await expect(fallback).toContainText('Test crash in the panel')
+    // The canvas and toolbar still work.
+    await expect(page.locator('.react-flow__node')).toHaveCount(7)
+    await page.getByTestId('studio-toolbar').getByRole('button', { name: 'Router', exact: true }).click()
+    await expect(page.locator('.react-flow__node')).toHaveCount(8)
+    // Still failing: Try again shows the fallback again. Fixed: Try again recovers.
+    await fallback.getByRole('button', { name: 'Try again' }).click()
+    await expect(page.getByTestId('panel-error')).toBeVisible()
+    await page.evaluate(() => (window.__nsCrash = undefined))
+    await page.getByTestId('panel-error').getByRole('button', { name: 'Try again' }).click()
+    await expect(page.getByTestId('panel-error')).toHaveCount(0)
+    await expect(page.getByTestId('failure-controls')).toBeVisible()
+  })
+
+  test('an app crash shows the styled app fallback with Reload and Home', async ({ page }) => {
+    await page.addInitScript(() => (window.__nsCrash = 'app'))
+    await page.goto('/dashboard')
+    const fallback = page.getByTestId('app-error')
+    await expect(fallback).toContainText('Something went wrong')
+    await expect(fallback.getByRole('button', { name: 'Reload page' })).toBeVisible()
+    await expect(fallback.getByRole('link', { name: 'Go to home page' })).toHaveAttribute('href', '/')
+    expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe('rgb(19, 21, 31)')
   })
 })

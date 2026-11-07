@@ -8,6 +8,7 @@
  * are statistics of the summed counts, not graph analysis), and the UI labels them as combined.
  * The most critical link cannot be combined from per batch maxima, so it is kept per batch.
  */
+import { ApiError } from '@/services/api/client'
 import type { SimulateRequestBody, SimulateResponseBody } from '@/services/api/schemas'
 
 export const BATCH_TRIALS = 5000
@@ -106,7 +107,23 @@ export async function runBatches(
   for (let i = 0; i < sizes.length; i++) {
     const body: SimulateRequestBody = { ...rest, trials: sizes[i] }
     if (runSeed !== null) body.seed = batchSeed(runSeed, i)
-    const response = await runner.simulate(body, signal)
+    let response: SimulateResponseBody
+    try {
+      response = await runner.simulate(body, signal)
+    } catch (error) {
+      // A failed batch fails the run: a partial run is not the run that was asked for, so the batches
+      // already done are not shown as a result. The error says exactly what happened.
+      if (sizes.length > 1 && error instanceof ApiError && !error.isCancelled) {
+        throw new ApiError(
+          error.kind,
+          error.code,
+          `Batch ${i + 1} of ${sizes.length} failed after ${done} of ${total} trials; no partial result is shown. ${error.message}`,
+          error.status,
+          error.details
+        )
+      }
+      throw error
+    }
     // Without a user seed the backend picks one for batch 0; later batches derive from it.
     if (runSeed === null) runSeed = response.seed
     batches.push(response)

@@ -128,3 +128,37 @@ Every item below was found by the screenshot review or the automated checks and 
 | 18 | All (Lighthouse) | Inactive drum words at 22% opacity (1.2:1) and visible text missing from step and scroll cue names | Inactive words at 50% (3.30:1, large text); accessible names include the visible text | Fixed |
 | 19 | All (console check) | Landing CSS preload not used (credentials mode mismatch warning) | Style preload carries crossorigin like Vite's own request | Fixed |
 | 20 | All (console check) | THREE.Clock deprecation warning from React Three Fiber | Hero rendered with plain three.js from the shared ticker | Fixed |
+
+## Phase 8: app pages at ten widths
+
+Scope: `/dashboard`, `/studio`, `/privacy`, `/terms` and the 404 page at 360, 390, 414, 768, 820, 1024,
+1280, 1440, 1680 and 1920 px, in Chrome and WebKit (`frontend/e2e/layout.spec.ts`, 100 page checks per
+browser). Screenshots: `frontend/audit-screenshots/layout/<browser>/<page>-<width>.png` (not in git).
+
+Automated assertions at every width:
+
+* no horizontal page scroll;
+* no text that is clipped without an intended ellipsis, and no text past the right edge of the viewport;
+* studio: toolbar and canvas start at the left edge and have the same width; from 1280 px the side panel
+  reaches the right edge, the toolbar meets it, and its tab row has the same top and height as the
+  toolbar; below 1280 px the toolbar spans the screen; every node is inside the canvas and the graph
+  fills at least 40 percent of it in one direction;
+* dashboard, privacy, terms, 404: the page heading is inset at least 16 px; on the dashboard the first
+  metric card starts exactly at the heading's left edge, and the cards of each row have equal widths
+  and heights.
+
+The checks were proven to fail: a long unbreakable string on the 404 page was reported as
+"page scrolls sideways by 181px" and "runs past the right edge (541 > 360)", and disabling the fix below
+failed "1024px graph fills the canvas".
+
+Fixes from the review (each has a regression check in `layout.spec.ts` or `accessibility.spec.ts`):
+
+| Found | Fix |
+| :-- | :-- |
+| Studio: a view saved at one width was restored at another, leaving the graph small in a corner (820 and 1920 px screenshots) | The canvas size is saved with the view; a different size on load fits the graph instead (BUG-016) |
+| Privacy at 360 px: "netshield_workspace(a versioned format": a missing space after inline code | Explicit space after the `code` element |
+| Navbar and footer controls 16 to 34 px tall at 390 px; small buttons 36 px on touch screens | 40 px minimum (`min-h-10`, `pointer-coarse:h-10`), now asserted on every app page including header and footer (BUG-021) |
+| Dashboard: the loading placeholder was shorter than the cards that replace it (layout shift 0.327 on mobile, measured by Lighthouse) | Placeholder uses the same grid and card height (BUG-017) |
+
+Reviewed screenshots (Chrome): dashboard 360 and 1024, studio 360, 820 and 1920 (after the fix),
+privacy 360, terms 1680; (WebKit): studio 1920, 404 at 414. No remaining defects were seen in these.

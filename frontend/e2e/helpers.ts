@@ -10,12 +10,18 @@ export const test = base.extend<{ issues: string[] }>({
       if (m.type() === 'error' || m.type() === 'warning') issues.push(`console.${m.type()}: ${m.text()}`)
     })
     page.on('pageerror', (e) => issues.push(`pageerror: ${e.message}`))
-    page.on('requestfailed', (r) => issues.push(`requestfailed: ${r.url()} ${r.failure()?.errorText ?? ''}`))
+    page.on('requestfailed', (r) => {
+      const reason = r.failure()?.errorText ?? ''
+      // Requests the client itself cancelled (a navigation, or the app superseding a stale request) are
+      // not failures: WebKit reports them as "cancelled", Chrome as "net::ERR_ABORTED".
+      if (reason === 'cancelled' || reason === 'net::ERR_ABORTED') return
+      issues.push(`requestfailed: ${r.url()} ${reason}`)
+    })
     page.on('response', (r) => {
       if (r.status() >= 400) issues.push(`http ${r.status()}: ${r.url()}`)
     })
     await page.addInitScript(() => {
-      const w = window as unknown as { __cls: number; __shifts: unknown[]; __longtasks: number[] }
+      const w = window
       w.__cls = 0
       w.__shifts = []
       w.__longtasks = []

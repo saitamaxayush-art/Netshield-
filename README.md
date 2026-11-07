@@ -1,139 +1,205 @@
 # NetShield
 
-A Graph-Theoretic Network Reliability and Failure Simulation System built with React, TypeScript, Tailwind CSS, Python FastAPI, and NetworkX.
+NetShield is a graph theoretic network reliability and failure simulation system, built as a Discrete
+Mathematics project. You draw a network, fail nodes and links, and the backend computes connectivity,
+components, bridges, articulation points, traversals, shortest paths and Monte Carlo reliability with
+NetworkX. The browser only displays those results.
+
+* `/` landing page with its own small demos
+* `/studio` network editor with analysis and simulation panels
+* `/dashboard` overview of the current graph
+* `/privacy`, `/terms`
+
+Project documents: `FINAL_REPORT.md` (results of the final verification), `API_CONTRACT.md` (the API,
+authoritative), `PROJECT_AUDIT.md`, `BUGLOG.md`, `ALIGNMENT_AUDIT.md`, `DESIGN.md`, `backend/README.md`.
 
 ---
 
-## Architecture Overview
+## Prerequisites
 
-```
-Netshield-/
-├── frontend/             # React 19 + TypeScript + Vite + Tailwind CSS + GSAP + Three.js
-│   ├── src/              # Application source code
-│   │   ├── components/   # Shared UI primitives and app layout
-│   │   ├── landing/      # Landing page: sections, components, motion engine, hero, worker
-│   │   ├── features/     # Landing sections, studio editor, analysis panels
-│   │   ├── lib/          # Graph algorithms (Tarjan DFS, bridge detection, BFS)
-│   │   ├── pages/        # Route pages (Landing, Studio, Dashboard, Legal)
-│   │   └── store/        # Zustand state store
-│   ├── package.json      # Frontend dependencies & scripts
-│   └── vite.config.ts    # Vite bundler configuration
-│
-├── backend/              # Python FastAPI & NetworkX backend
-│   ├── main.py           # FastAPI server with Monte Carlo simulation & Tarjan endpoints
-│   ├── test_main.py      # Automated backend unit tests (pytest)
-│   ├── requirements.txt  # Python backend dependencies
-│   └── __init__.py       # Backend module package
-│
-├── API_CONTRACT.md       # Target API contract
-├── PROJECT_AUDIT.md      # Phase 0 audit
-├── ALIGNMENT_AUDIT.md    # Multi-viewport alignment & defect audit
-├── DESIGN.md             # Design tokens, color system, and typography spec
-└── README.md             # Project documentation
-```
+* Node.js and npm (developed and tested with Node.js 26.7; other versions are untested)
+* Python (developed and tested with Python 3.14.3; other versions are untested)
+* For end to end tests: Google Chrome installed locally; optionally WebKit (`npx playwright install webkit`)
 
----
-
-## Getting Started
-
-Prerequisites: Node.js 20 or newer, Python 3.12 or newer. All commands run from the repository root
-unless stated otherwise.
-
-### 1. Install
+## Install
 
 ```bash
-# Backend: private Python environment in .venv (details for beginners: backend/README.md)
-python3 -m venv .venv                                         # Windows: py -m venv .venv
-.venv/bin/python -m pip install -r backend/requirements-dev.txt   # Windows: .venv\Scripts\python -m pip ...
+# Backend: a private Python environment in .venv
+python3 -m venv .venv
+.venv/bin/python -m pip install -r backend/requirements-dev.txt     # Windows: .venv\Scripts\python -m pip ...
 
-# Frontend (also installs the isolated lint and codegen tools in frontend/tools)
+# Frontend (its postinstall also installs the lint and code generation tools in frontend/tools)
 npm --prefix frontend install
 
-# Root tools (runs backend and frontend together)
+# Root tools (run backend and frontend together)
 npm install
 ```
 
-Optional: copy `frontend/.env.example` to `frontend/.env.local` to change `VITE_API_BASE_URL` or
-`VITE_USE_DEMO_ADAPTER`.
+`backend/requirements.txt` is what the server needs to run (pinned); `requirements-dev.txt` adds the
+test and audit tools.
 
-### 2. Run in development
+## Environment
+
+Nothing is required for local development. Every variable is documented with its default in
+`.env.example` (backend and scripts) and `frontend/.env.example` (Vite, copy to `frontend/.env.local`).
+The ones you are most likely to set:
+
+| Variable | Where | Purpose |
+| :-- | :-- | :-- |
+| `NETSHIELD_API_PORT` | scripts, Vite proxy | Backend port (default 8000) |
+| `NETSHIELD_CORS_ORIGINS` | backend | Allowed browser origins, only for a frontend on another origin |
+| `NETSHIELD_MAX_REQUEST_BYTES` | backend | Request size limit (default 1 MiB, 413 above it) |
+| `NETSHIELD_SIMULATION_BUDGET_MS` | backend | Time budget per simulation (default 10000, 504 above it) |
+| `NETSHIELD_STATIC_DIR` | backend | Serve the built frontend from the API process (production) |
+| `VITE_API_BASE_URL` | frontend build | API origin when it differs from the app's (default: same origin) |
+| `VITE_USE_DEMO_ADAPTER` | frontend build | `true` starts in demo mode (results computed in the browser, labelled) |
+
+## Run in development
 
 ```bash
 npm run dev:all
 ```
 
-Starts FastAPI with auto reload on `http://127.0.0.1:8000` and Vite on `http://localhost:5173` (or
-the next free port; it is printed). Open the Vite address. Vite proxies `/api` to FastAPI, so there are
-no CORS issues in development. If port 8000 is taken: `NETSHIELD_API_PORT=8765 npm run dev:all`.
+This starts FastAPI with auto reload on `http://127.0.0.1:8000` and Vite on `http://localhost:5173`
+(or the next free port; it is printed). Open the Vite address. Vite proxies `/api` to FastAPI, so
+there is no CORS in development. Health check through the proxy: `http://localhost:5173/api/health`.
 
-Health check through the proxy: `http://localhost:5173/api/health`.
-
-**Demo mode** (no backend needed): `VITE_USE_DEMO_ADAPTER=true npm --prefix frontend run dev`. Demo mode
-can also be entered from the app with the "Switch to demo mode" button, which appears only on a
-"Backend unreachable" or "Request timed out" error. While it is on, a banner shows on every page and
-every result is labelled **Demo result**. "Exit demo mode" in the banner goes back to the backend.
-The app never switches to demo mode by itself.
-
-**Saved data**: the studio graph and settings are saved in this browser's `localStorage` under
-`netshield_workspace` (version 5, including the canvas viewport; older versions and the version 1 key `netshield_graph_state_v1` are migrated once).
-Results are never saved. "Clear saved data" is in the studio (Import or export) and on the Privacy page.
-
-**Graph files**: Import or export in the studio toolbar exports the graph as versioned JSON (and imports it again after validation and a preview), or the canvas as SVG or PNG.
-
-**Server limits**: request bodies over 1 MiB get 413 `PAYLOAD_TOO_LARGE` (`NETSHIELD_MAX_REQUEST_BYTES`). The server logs one JSON line per request without graph contents.
-
-**Studio**: press `?` for keyboard shortcuts. Below 1280px wide, the tools and panels open as sheets from the toolbar. On touch, tap a handle on one node and then on another to connect them.
-
-### 3. Checks
+## Tests and checks
 
 | Command | What it runs |
 | :-- | :-- |
-| `scripts/verify.sh` (macOS, Linux) or `npm run verify` (any OS) | **Master check used by every phase gate**: backend ruff, mypy, pytest; frontend typecheck, lint, unit tests, API types in sync, build. Prints a PASS or FAIL summary. |
-| `npm --prefix frontend run typecheck` | `tsc -b` (TypeScript 7, strict) |
-| `npm --prefix frontend run lint` | ESLint with typescript-eslint and React hooks rules |
-| `npm --prefix frontend test` | Vitest unit tests (React Testing Library available) |
-| `npm --prefix frontend run test:e2e` | Production build, then Playwright (local Google Chrome). Starts the real FastAPI backend on port 8799 for the studio tests in `e2e/studio-backend.spec.ts`; needs `.venv` |
-| `npx --prefix frontend playwright test e2e/studio-failure.spec.ts` (from `frontend/`, after a build) | Failure simulation against the real backend, no mocks: Star, Ring, paths, traversal, dashboard values |
-| `npx playwright test e2e/simulation.spec.ts` (from `frontend/`, after a build) | Real simulations on a 6 node cycle: estimate within 4 standard errors of the closed form, batching, same seed reproduces |
-| `npx playwright test e2e/robustness.spec.ts e2e/accessibility.spec.ts` (from `frontend/`, after a build) | Offline banner and recovery, explicit demo mode, import errors, out of order responses, limits, edge cases; axe WCAG 2.1 AA, keyboard only, reduced motion, touch targets |
-| `npm --prefix frontend run build` | Type check and Vite production build |
-| `npm --prefix frontend run gen:api` | Regenerates `frontend/src/types/api.generated.ts` from the FastAPI OpenAPI schema |
-| `npm --prefix frontend run check:api-types` | Fails if the generated API types are out of date |
-| `NETSHIELD_API_URL=http://127.0.0.1:8765 npm --prefix frontend run test:integration` | One real call per client method (health, analyze, simulate, reliabilitySweep, plus a 422 and a cancel) against a running backend; skipped in `npm test` |
-| `NETSHIELD_API_URL=http://127.0.0.1:8765 npm --prefix frontend run capture:api-fixtures` | Re-captures the real backend responses in `frontend/src/test/fixtures/backend/` that the schema and demo adapter tests use. Run after any backend response change |
-| `npm run test:backend` | pytest |
+| `scripts/verify.sh` or `npm run verify` | **Master check**: backend ruff, mypy, pytest; frontend typecheck (app, Vite config and end to end specs), lint, unit tests, API types in sync, build |
+| `npm run test:backend` | pytest (175 tests, including Hypothesis property tests) |
+| `npm --prefix frontend test` | Vitest unit and component tests |
+| `npm --prefix frontend run test:e2e` | Production build, then Playwright against `vite preview` and a real backend on port 8799, in Chrome (every spec) and WebKit (journey, failure, simulation, layout) |
+| `npm --prefix frontend run test:e2e:prod` | Build, then a smoke run (journey, code splitting) against the production server (`start:prod` on port 8811) |
+| `NETSHIELD_API_URL=http://127.0.0.1:8765 npm --prefix frontend run test:integration` | One real call per API client method against a running backend |
+| `.venv/bin/python scripts/crosscheck_networkx.py http://127.0.0.1:8765` | 20 seeded random graphs: `/api/analyze` against NetworkX called directly |
+| `npm --prefix frontend run gen:api` / `check:api-types` | Regenerate / verify `frontend/src/types/api.generated.ts` from the backend OpenAPI schema |
+| `npm --prefix frontend run capture:api-fixtures` | Re-capture the real backend responses the schema and demo adapter tests use |
+| `npm --prefix frontend audit`, `.venv/bin/python -m pip_audit -r backend/requirements.txt` | Dependency vulnerability checks |
 
-Why `frontend/tools/` exists: the app compiles with TypeScript 7 (the native compiler, which has no
-JavaScript API). ESLint's TypeScript parser and openapi-typescript need that API, so they live in a
-small separate package with its own TypeScript 5.9, installed automatically by `npm install` in
-`frontend/`.
-
-### 4. Landing page QA
+## Build
 
 ```bash
-cd frontend
-npm run test:e2e                    # 107 tests: landing audits, interactions, scroll, routes, contrast, and the studio against the real backend
-node scripts/alignment-report.mjs   # regenerates ../ALIGNMENT_AUDIT.md from the audit measurements
-node scripts/perf.mjs               # full page scroll profile at 1440x900 (needs the preview server on :4317)
-node scripts/contrast.mjs           # WCAG ratios for every landing colour pair
-node scripts/font-metrics.mjs       # measures fallback font overrides
+npm --prefix frontend run build      # type checks, then writes frontend/dist
+npm --prefix frontend run preview    # serves dist on http://localhost:4173, proxying /api to the backend
 ```
 
-Screenshots from the audit are written to `audit-screenshots/landing/<viewport>/`.
+## Production
 
-### 5. Project documents
+The simplest deployment is one process: uvicorn without reload serves both the API and the built
+frontend from the same origin, so no CORS settings are needed.
 
-* `API_CONTRACT.md`: the API the backend must provide (target for later phases).
-* `PROJECT_AUDIT.md`: state of the project at Phase 0, with real command output.
-* `BUGLOG.md`: bugs found after release of a phase, with root cause, fix and the test that now catches each.
-* `DESIGN.md`, `ALIGNMENT_AUDIT.md`: landing page design system and audit.
-* `backend/README.md`: backend setup for first time Python users.
+```bash
+npm --prefix frontend run build
+NETSHIELD_API_HOST=0.0.0.0 NETSHIELD_API_PORT=8000 npm run start:prod
+# = python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 --workers 1 --proxy-headers
+#   with NETSHIELD_STATIC_DIR=frontend/dist
+```
 
----
+* Client side routes (`/studio`, `/dashboard`, ...) fall back to `index.html`; unknown `/api/...` paths
+  keep the JSON error shape. Hashed assets are served with a one year immutable cache.
+* To host the frontend elsewhere (any static host with a fallback to `index.html`), build it with
+  `VITE_API_BASE_URL=https://your-api.example` and start the backend with
+  `NETSHIELD_CORS_ORIGINS=https://your-frontend.example` (without `NETSHIELD_STATIC_DIR`).
+* Put a TLS terminating reverse proxy in front for public use. Logs are one JSON line per request on
+  standard error, without graph contents (see `/privacy`).
+* `Dockerfile` and `docker-compose.yml` package the same single process setup
+  (`docker compose up --build`, then `http://localhost:8000`). They were written but not built in the
+  development environment, where Docker was not installed; `test:e2e:prod` tests the same setup
+  without Docker.
 
-## Features
+## Architecture
 
-- **Interactive Topology Studio**: Custom canvas for constructing router, server, and gateway topologies.
-- **Topological Degradation Simulation**: Stochastic failure simulation of nodes and links with real-time bridge and articulation point detection using Tarjan's algorithm.
-- **Monte Carlo Reliability Estimation**: Repeated stochastic simulation to compute k-connectivity confidence intervals and all-terminal network reliability.
-- **Interactive Landing Page**: visitors operate small, real pieces of NetShield (a break-a-network sandbox, a pinned how it works story, topology comparison, a Monte Carlo reliability estimator running in a Web Worker, and a BFS and DFS path explorer). Every widget runs on the same unit tested module (`frontend/src/lib/graphAlgorithms.ts`) as the dashboard and demo adapter. Landing code lives in `frontend/src/landing/`; tokens, grid, motion and measured results are in `DESIGN.md`.
+```text
+frontend/src
+├── pages/            Landing (lazy), Studio, Dashboard, Privacy, Terms, NotFound
+├── features/studio/  Canvas node and edge, toolbar, properties, failure controls, analysis sections,
+│                     simulation panel, import and export, explanations of the maths
+├── features/analytics/  Recharts charts with data tables
+├── services/api/     client.ts (typed fetch client), schemas.ts (Zod, bound to the generated types),
+│                     demoAdapter.ts + demo/ (independent browser implementation for demo mode), registry.ts
+├── store/            Zustand stores and their rules (see below)
+├── hooks/            useAutoAnalyze (debounced re-analysis), useMediaQuery
+├── components/       Navbar, Footer, banners, error boundaries, Button, Dialog, Sheet
+├── landing/          The landing page and its own demos (never imported by app code; ESLint enforces it)
+└── types/            api.generated.ts (from OpenAPI, never edited), graph.ts (editor graph types)
+
+backend/app
+├── main.py           App factory: middleware, error handlers, routers, optional static frontend
+├── routers/          /api/health, /api/analyze, /api/simulate, /api/reliability-sweep
+├── models.py         Pydantic request and response models (the OpenAPI schema)
+├── graph_ops.py      NetworkX analysis on the operational graph
+├── simulation.py     Seeded Monte Carlo reliability and sweeps
+├── middleware.py     Request size limit and structured request logging
+└── error_handlers.py Every failure as {"error": {"code", "message", "details"?}}
+```
+
+**Stores** (`frontend/src/store`):
+
+* `graphStore`: nodes, links, selection, failure flags, undo and redo (100 steps), examples, import.
+  Every edit is validated (no self loops, no duplicate links, unique ids, limits).
+* `settingsStore`: failure probabilities, trials, seed, mode, traversal start, path and terminal nodes,
+  sweep range, adapter mode (backend or demo, never saved).
+* `analysisStore`: the latest analyze, simulate and sweep results with status, error, request ids
+  (a stale response never overwrites a newer one) and a `stale` flag ("Results out of date").
+* `persistence`: saves graph, view and settings to `localStorage` (`netshield_workspace`, versioned,
+  validated, migrated); results are never saved.
+* `healthStore`, `studioViewStore`, `toastStore`: server status, what the studio shows, messages.
+
+**API client** (`services/api/client.ts`): timeouts, cancellation (a new request of the same kind
+supersedes the old one), retries only for the health check, Zod validation of every response, and one
+`ApiError` type with a `kind` (network, timeout, cancelled, validation, server, invalid response). The
+app never falls back to demo results on its own; demo mode is an explicit choice and every demo result
+is labelled "Demo result".
+
+## The rules in plain language
+
+These come from `API_CONTRACT.md` section 3, which is the authority.
+
+1. **A failed node takes its links down with it.** Its links count as unavailable, but their own saved
+   state does not change, so restoring the node brings back every link that was not failed on its own.
+2. **The operational graph** is what is left: nodes that are not failed, and links that are not failed
+   and whose two ends are both up. All analysis is about this graph.
+3. **Connected** means at least one node and exactly one component. An empty network is not connected;
+   a single node is.
+4. **A bridge** is a link whose removal splits a component. **An articulation point** is a node whose
+   removal (with its links) splits a component.
+5. **Reliability** is the chance that the network stays connected when every link (and optionally every
+   node) fails independently with the chosen probability. Two terminal reliability is the chance that
+   two chosen nodes stay connected. Elements you already failed stay failed in every trial.
+6. **The estimate** is successes divided by trials, with a standard error and a 95 percent Wilson
+   interval. The same seed gives exactly the same result. Above 5000 trials the app sends batches of
+   5000 with seeds derived from the run seed and adds up the counts.
+7. **Limits**: 200 nodes, 1000 links, 20000 trials per request, 25 sweep points, 1 MiB per request.
+
+## Troubleshooting
+
+**"Cannot reach the analysis server" or "Backend unreachable"**
+The backend is not running or not on the port the frontend expects. Start it with `npm run dev:all`
+(or `npm run backend`), check `http://127.0.0.1:8000/api/health`, then press Retry. If you only want to
+look around, choose "Use demo mode"; every result is then labelled "Demo result".
+
+**Port 8000 or 5173 is already in use**
+Run on another port: `NETSHIELD_API_PORT=8765 npm run dev:all` moves the backend and the Vite proxy
+together. Vite picks the next free port itself and prints it. To see what holds a port on macOS or
+Linux: `lsof -nP -iTCP:8000 -sTCP:LISTEN`.
+
+**CORS errors in the browser console**
+They only happen when the frontend and the API are on different origins. Either serve both from one
+origin (development proxy, or `start:prod`), or set `NETSHIELD_CORS_ORIGINS` on the backend to the
+exact frontend origin (scheme, host and port, no trailing slash) and build the frontend with
+`VITE_API_BASE_URL`.
+
+**`check:api-types` fails, or the app shows "did not match the expected format"**
+The backend models changed and the generated types are out of date. With the backend code current,
+run `npm --prefix frontend run gen:api`, then `npm --prefix frontend run typecheck` and fix what it
+reports. If backend responses changed, also run `capture:api-fixtures` against a running backend.
+
+**Playwright cannot start: browser not found**
+The suite uses the installed Google Chrome. Install Chrome, or WebKit with `npx playwright install webkit`.
+
+**A saved graph does not load**
+The studio shows why ("Saved data was not loaded ..."). Invalid saved data is discarded, never applied
+half way. "Clear saved data" (studio Import or export, or the Privacy page) resets everything.

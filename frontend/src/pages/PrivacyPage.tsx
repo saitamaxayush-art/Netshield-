@@ -70,7 +70,7 @@ export const PrivacyPage: React.FC = () => {
           <section className="space-y-2">
             <h2 className={h2}>2. Stored in your browser</h2>
             <p>
-              The graph, the canvas pan and zoom, and the settings are saved in <code>localStorage</code> under <code>netshield_workspace</code>
+              The graph, the canvas pan and zoom, and the settings are saved in <code>localStorage</code> under <code>netshield_workspace</code>{' '}
               (a versioned format; an older <code>netshield_graph_state_v1</code> entry is converted once and removed). Analysis and simulation
               results are never saved. Nothing is shared between browsers or devices. Use the button above, or Import or export, then Clear
               saved data in the studio tools, to remove it.

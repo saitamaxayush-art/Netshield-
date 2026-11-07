@@ -180,12 +180,48 @@ test('sweep on the cycle follows the closed form at every point; comparison char
 })
 
 test('cancel stops a running batched simulation and says so', async ({ page }) => {
+  // Deterministic: the first batch's real response is held until Cancel has been clicked.
+  let release: () => void = () => undefined
+  const held = new Promise<void>((resolve) => (release = resolve))
+  let requests = 0
+  await page.route('**/api/simulate', async (route) => {
+    requests++
+    const response = await route.fetch()
+    await held
+    // The client aborted this request, so fulfilling it may fail; that is expected.
+    await route.fulfill({ response }).catch(() => undefined)
+  })
   await page.locator('#trials').selectOption('20000')
   await page.getByRole('button', { name: 'Run Monte Carlo Simulation' }).click()
+  await expect(page.getByTestId('simulation-progress')).toBeVisible()
+  await expect.poll(() => requests).toBe(1)
   await page.getByRole('button', { name: 'Cancel' }).click()
+  release()
   await expect(page.getByTestId('simulation-cancelled')).toHaveText('Run cancelled. No result.')
   await expect(page.getByTestId('simulation-results')).toHaveCount(0)
   await expect(page.getByTestId('simulation-error')).toHaveCount(0)
+  // No later batch was sent after the cancel.
+  await page.waitForTimeout(500)
+  expect(requests).toBe(1)
+})
+
+test('a failed batch fails the run with a clear message and keeps no partial result', async ({ page }) => {
+  let requests = 0
+  await page.route('**/api/simulate', (route) => {
+    requests++
+    // Batches 1 and 2 are real backend answers; batch 3 gets the backend's own time budget error.
+    if (requests === 3)
+      return route.fulfill({ status: 504, contentType: 'application/json', body: JSON.stringify({ error: { code: 'TIMEOUT', message: 'Simulation exceeded the time budget.' } }) })
+    return route.continue()
+  })
+  await page.locator('#trials').selectOption('20000')
+  await page.getByRole('button', { name: 'Run Monte Carlo Simulation' }).click()
+  const error = page.getByTestId('simulation-error')
+  await expect(error).toContainText('Batch 3 of 4 failed after 10000 of 20000 trials; no partial result is shown.')
+  await expect(error).toContainText('The server ran out of time')
+  await expect(page.getByTestId('simulation-error-hint')).toContainText('Try fewer trials')
+  await expect(page.getByTestId('simulation-results')).toHaveCount(0)
+  expect(requests).toBe(3)
 })
 
 test('the dashboard shows the latest simulation and a Run simulation shortcut', async ({ page, issues }) => {

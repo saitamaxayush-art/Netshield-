@@ -18,9 +18,14 @@ export default defineConfig({
   reporter: [['list']],
   use: {
     baseURL: 'http://localhost:4317',
-    channel: 'chrome',
     trace: 'off',
   },
+  projects: [
+    // Every spec in the locally installed Google Chrome.
+    { name: 'chrome', use: { channel: 'chrome' } },
+    // The user facing journeys and layout in WebKit (Safari's engine), installed with `npx playwright install webkit`.
+    { name: 'webkit', use: { browserName: 'webkit' }, testMatch: ['journey.spec.ts', 'studio-failure.spec.ts', 'simulation.spec.ts', 'layout.spec.ts'] },
+  ],
   webServer: [
     {
       command: 'node ../scripts/dev-backend.mjs',

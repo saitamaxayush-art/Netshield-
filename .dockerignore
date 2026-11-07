@@ -1,0 +1,14 @@
+**/node_modules
+**/dist
+.venv
+**/__pycache__
+**/.pytest_cache
+.mypy_cache
+.ruff_cache
+.hypothesis
+frontend/test-results
+frontend/playwright-report
+frontend/audit-screenshots
+audit-screenshots
+audit-results.json
+.git

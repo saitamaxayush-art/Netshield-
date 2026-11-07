@@ -6,3 +6,4 @@ ruff==0.17.3
 mypy==2.4.1
 types-networkx==3.6.1.20261031
 hypothesis==6.170.14
+pip-audit==2.10.0

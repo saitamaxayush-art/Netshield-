@@ -301,6 +301,18 @@ Tracked here so they are not left only in phase reports. Each line says where it
 | 9.4 | Error boundaries (app and panel) are covered by unit tests only (`src/test/robustness.test.tsx`); no Playwright test forces a real render crash in the built app. | `frontend/src/components/layout/ErrorBoundary.tsx`, `StudioPage.tsx` | A boundary that fails to catch in the production build would go unnoticed | Add a test only crash trigger (for example a query flag read only in test builds, or injecting a malformed store state with `page.evaluate`) and assert the panel fallback, Try again, and that the rest of the page keeps working; same for the app fallback. |
 | 9.5 | The 40px touch target test (`e2e/accessibility.spec.ts`) checks `main` and `.studio-root` controls only; the shared Navbar and Footer links and buttons are not measured. | `frontend/e2e/accessibility.spec.ts`, `src/components/layout/Navbar.tsx`, `Footer.tsx` | Small touch targets in the navigation on phones | Extend the test to `header` and `footer` at 390 px and fix any control under 40px. |
 
+
+### Status after Phase 8
+
+| # | Status |
+| :-- | :-- |
+| 9.1 | Fixed. The cancel test holds the first `/api/simulate` response with `page.route` until Cancel is clicked, then checks "Run cancelled. No result." and that no later batch was requested. Passed 5 of 5 repeats. |
+| 9.2 | Decided and tested: a failed batch still fails the whole run (a partial run is not the run that was asked for, and showing it as a result would mislead), and the error now says exactly what happened, for example "Batch 3 of 4 failed after 10000 of 20000 trials; no partial result is shown." Unit test in `simulation.test.tsx`, end to end test in `simulation.spec.ts` (real backend for batches 1 and 2, the backend's own 504 body for batch 3). |
+| 9.3 | Fixed (BUG-015). |
+| 9.4 | Fixed. `CrashProbe` throws during render when a test sets `window.__nsCrash`; `accessibility.spec.ts` proves in the production build that the panel boundary shows its fallback while the canvas keeps working, Try again recovers, and the app boundary shows the styled fallback. |
+| 9.5 | Fixed (BUG-021). |
+| 9.6 | Open, WebKit only: WebKit does not match the landing page's four font preloads to the font requests, downloads each font twice, and logs a "preloaded but not used" warning for each (measured: 9 font requests in WebKit, 5 in Chrome). Writing the preload links through the HTML parser instead of the DOM did not change it, so the original markup was kept. The WebKit journey allows exactly these four warnings and no others. Possible next step: test whether removing the `type` attribute or preloading only the hero font changes WebKit's behaviour. |
+
 ## 10. Phase 7 changes and decisions
 
 * Removed unused dependencies `@react-three/drei`, `@react-three/fiber`, `clsx`, `tailwind-merge` and the

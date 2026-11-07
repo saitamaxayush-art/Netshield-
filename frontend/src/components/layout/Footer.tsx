@@ -17,7 +17,7 @@ export const Footer: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-start">
           {/* Brand Column: 6 cols */}
           <div className="md:col-span-6 space-y-3">
-            <Link to="/" className="flex items-center gap-2.5 text-[#E4E8EC] hover:text-white transition-colors group select-none">
+            <Link to="/" className="inline-flex min-h-10 items-center gap-2.5 text-[#E4E8EC] hover:text-white transition-colors group select-none">
               <div className="w-7 h-7 rounded-[2px] bg-[#1E2024] border border-[#2A2C31] flex items-center justify-center text-[#E4E8EC] group-hover:border-[#E5484D] group-hover:text-[#E5484D] transition-colors">
                 <Network className="w-3.5 h-3.5 stroke-[1.75]" />
               </div>
@@ -37,17 +37,17 @@ export const Footer: React.FC = () => {
             </div>
             <ul className="space-y-2 text-xs font-mono">
               <li>
-                <Link to="/studio" className="text-[#C3CAD2] hover:text-[#E4E8EC] transition-colors">
+                <Link to="/studio" className="inline-flex items-center min-h-10 text-[#C3CAD2] hover:text-[#E4E8EC] transition-colors">
                   Network Studio
                 </Link>
               </li>
               <li>
-                <Link to="/dashboard" className="text-[#C3CAD2] hover:text-[#E4E8EC] transition-colors">
+                <Link to="/dashboard" className="inline-flex items-center min-h-10 text-[#C3CAD2] hover:text-[#E4E8EC] transition-colors">
                   Metrics Dashboard
                 </Link>
               </li>
               <li>
-                <a href="/#methodology" className="text-[#C3CAD2] hover:text-[#E4E8EC] transition-colors">
+                <a href="/#methodology" className="inline-flex items-center min-h-10 text-[#C3CAD2] hover:text-[#E4E8EC] transition-colors">
                   Formal Methodology
                 </a>
               </li>
@@ -61,17 +61,17 @@ export const Footer: React.FC = () => {
             </div>
             <ul className="space-y-2 text-xs font-mono">
               <li>
-                <Link to="/privacy" className="text-[#C3CAD2] hover:text-[#E4E8EC] transition-colors">
+                <Link to="/privacy" className="inline-flex items-center min-h-10 text-[#C3CAD2] hover:text-[#E4E8EC] transition-colors">
                   Privacy Policy
                 </Link>
               </li>
               <li>
-                <Link to="/terms" className="text-[#C3CAD2] hover:text-[#E4E8EC] transition-colors">
+                <Link to="/terms" className="inline-flex items-center min-h-10 text-[#C3CAD2] hover:text-[#E4E8EC] transition-colors">
                   Terms of Use
                 </Link>
               </li>
               <li>
-                <Link to="/studio" className="text-[#E5484D] hover:underline transition-colors flex items-center gap-1">
+                <Link to="/studio" className="text-[#E5484D] hover:underline transition-colors inline-flex min-h-10 items-center gap-1">
                   <span>Open Simulator</span>
                   <span>&rarr;</span>
                 </Link>
@@ -91,7 +91,7 @@ export const Footer: React.FC = () => {
             <button
               type="button"
               onClick={scrollToTop}
-              className="text-[#C3CAD2] hover:text-[#E4E8EC] flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="text-[#C3CAD2] hover:text-[#E4E8EC] flex min-h-10 items-center gap-1.5 transition-colors cursor-pointer"
               aria-label="Back to top of page"
             >
               <span>Back to top</span>

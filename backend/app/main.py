@@ -1,9 +1,13 @@
 """NetShield FastAPI application: CORS, error handling and routers."""
 
 import os
+from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, Response
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.routing import Match
 
 from backend.app.error_handlers import install_error_handlers
 from backend.app.middleware import BodyLimitAndLogging, configure_logging
@@ -42,7 +46,42 @@ def create_app() -> FastAPI:
     app.include_router(health.router)
     app.include_router(analyze.router)
     app.include_router(simulate.router)
+    static_dir = os.environ.get("NETSHIELD_STATIC_DIR")
+    if static_dir:
+        serve_frontend(app, Path(static_dir))
     return app
+
+
+def serve_frontend(app: FastAPI, root: Path) -> None:
+    """Production: serve the built frontend (frontend/dist) from the same origin as the API.
+
+    Existing files are served as they are; any other non API path gets index.html, so client side routes
+    such as /studio work on reload. /api paths that do not exist keep the JSON 404 error shape.
+    """
+    root = root.resolve()
+    index = root / "index.html"
+    if not index.is_file():
+        raise RuntimeError(f"NETSHIELD_STATIC_DIR has no index.html: {root}")
+
+    @app.get("/{path:path}", include_in_schema=False)
+    def frontend(path: str, request: Request) -> Response:
+        if path == "api" or path.startswith("api/"):
+            # A known API path with the wrong method stays 405, as without static serving.
+            known = any(
+                route.matches({**request.scope, "method": method})[0] == Match.FULL
+                for route in app.routes
+                if getattr(route, "path", None) != "/{path:path}"
+                for method in ("GET", "POST")
+            )
+            if known:
+                raise StarletteHTTPException(status_code=405, detail="Method Not Allowed")
+            raise StarletteHTTPException(status_code=404, detail="Not Found")
+        candidate = (root / path).resolve()
+        # Never serve anything outside the build folder (no path traversal).
+        if path and candidate.is_relative_to(root) and candidate.is_file():
+            cache = "public, max-age=31536000, immutable" if path.startswith("assets/") else "no-cache"
+            return FileResponse(candidate, headers={"Cache-Control": cache})
+        return FileResponse(index, headers={"Cache-Control": "no-cache"})
 
 
 app = create_app()

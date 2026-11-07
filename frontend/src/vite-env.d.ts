@@ -5,6 +5,11 @@ interface ImportMetaEnv {
   readonly VITE_USE_DEMO_ADAPTER?: string
 }
 
+interface Window {
+  /** Test only crash trigger, see src/components/layout/CrashProbe.tsx. */
+  __nsCrash?: 'app' | 'panel'
+}
+
 interface ImportMeta {
   readonly env: ImportMetaEnv
 }

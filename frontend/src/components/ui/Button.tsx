@@ -28,7 +28,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       'inline-flex items-center justify-center font-medium transition-all duration-150 rounded-[3px] select-none cursor-pointer shrink-0 disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-teal focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary'
 
     const sizeStyles = {
-      sm: 'h-9 text-xs px-3 gap-1.5 leading-none',
+      sm: 'h-9 pointer-coarse:h-10 text-xs px-3 gap-1.5 leading-none',
       md: 'h-10 text-xs sm:text-sm px-4 gap-2 leading-none',
       lg: 'h-11 sm:h-12 text-sm sm:text-base px-6 gap-2.5 leading-none',
     }

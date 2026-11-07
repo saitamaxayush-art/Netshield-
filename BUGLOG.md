@@ -262,3 +262,61 @@ Each bug below was found in this phase, in code that existed before it, and has 
   (and what it never logs), demo mode, Google Fonts; hosting retention and contact marked "Developer
   review required".
 * Tests: `e2e/robustness.spec.ts` "the privacy page states the real data flow and keeps Clear saved data".
+
+## Phase 8 final verification
+
+### BUG-015: End to end specs were never type checked
+
+* Symptom: `frontend/e2e/` was in no tsconfig, so `tsc -b` and verify skipped it. A strict check found
+  11 type errors in three landing specs and 7 `window as unknown as` casts in four test files; one more
+  such cast was in `src/landing/workers/reliability.worker.ts`.
+* Fix: `frontend/tsconfig.e2e.json` (strict) is part of `tsc -b`; test globals are declared once in
+  `e2e/globals.d.ts`; `scripts/contrast.d.mts` types the contrast helper; all 8 casts removed (the worker
+  declares `self` as its worker scope).
+* Test: a deliberate type error in a spec now fails `tsc -b` (checked), and verify runs it.
+
+### BUG-016: A saved canvas view was restored at a different screen size
+
+* Symptom: after using the studio at 360 px, opening it at 1920 px showed the graph small in the top
+  left corner (also after a window resize and reload).
+* Fix: the view is saved with the canvas size; on load a different size fits the graph instead. The same
+  size still restores the exact view.
+* Tests: `layout.spec.ts` (graph fills the canvas at every width, proven to fail without the fix),
+  `studio-editing.spec.ts` (same size reload restores the view exactly).
+
+### BUG-017: The dashboard shifted when results arrived
+
+* Symptom: Lighthouse mobile measured cumulative layout shift 0.327 on `/dashboard` (above the 0.1 good threshold).
+* Fix: the loading placeholder is the same grid of eight cards with the same minimum height as the results.
+* Test: Lighthouse after the fix: 0.003 (FINAL_REPORT.md); `layout.spec.ts` checks equal card heights.
+
+### BUG-018: The studio had no main landmark
+
+* Symptom: Lighthouse accessibility 98 on `/studio` (`landmark-one-main`).
+* Fix: the studio workspace is a `<main>` element.
+* Test: Lighthouse accessibility 100 on `/studio`; axe in `accessibility.spec.ts`.
+
+### BUG-019: /robots.txt returned the app page
+
+* Symptom: Lighthouse SEO 91: `robots.txt` had 44 syntax errors, because the server answered with the HTML page.
+* Fix: `frontend/public/robots.txt`.
+* Test: Lighthouse SEO 100; `backend/tests/test_static.py` serves it in production mode.
+
+### BUG-020: The Google Fonts stylesheet blocked rendering on every page
+
+* Symptom: Lighthouse "render blocking requests", about 950 ms on mobile.
+* Fix: the stylesheet is loaded without blocking (`media="print"` swapped to `all` on load, with a
+  `<noscript>` fallback); fonts already use `display=swap`.
+* Test: Lighthouse mobile first contentful paint 2.5 s to 2.0 s on `/dashboard`, layout shift unchanged
+  (0.003); the landing CLS and font tests in `audit.spec.ts` still pass.
+
+### BUG-021: Navigation and small buttons were below the 40 px touch target
+
+* Symptom: at 390 px the brand links (28 to 32 px), menu button (34 px), every footer link (16 px), "Back to
+  top" (32 px) and every small button (36 px) were too small to tap reliably.
+* Fix: `min-h-10` on those links and the menu button, and small buttons are 40 px on touch screens
+  (`pointer-coarse:h-10`).
+* Test: `accessibility.spec.ts` now measures every button and link in main, header, nav, footer and the
+  studio on every app page.
+
+Phase 8 also closed the open test items from PROJECT_AUDIT.md section 9 (9.1 to 9.5); see there.

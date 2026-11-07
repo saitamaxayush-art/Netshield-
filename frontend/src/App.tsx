@@ -1,6 +1,7 @@
 import React, { Suspense, lazy } from 'react'
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
 import { AppErrorFallback, ErrorBoundary } from './components/layout/ErrorBoundary'
+import { CrashProbe } from './components/layout/CrashProbe'
 
 // Lazy-load routes for optimized bundle splitting
 const LandingPage = lazy(() => import('./pages/LandingPage'))
@@ -43,6 +44,7 @@ export function App() {
   return (
     <BrowserRouter>
       <ErrorBoundary fallback={(error) => <AppErrorFallback error={error} />}>
+      <CrashProbe name="app" />
       <Suspense fallback={<PageLoader />}>
         <Routes>
           <Route path="/" element={<LandingPage />} />

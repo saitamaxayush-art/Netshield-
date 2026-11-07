@@ -150,7 +150,7 @@ export const Navbar: React.FC = () => {
               {/* App Shell Navigation (Dashboard, Studio, Privacy, Terms) */}
               <Link
                 to="/"
-                className="flex items-center gap-2.5 text-text-primary hover:text-accent-teal transition-colors group select-none"
+                className="flex min-h-10 items-center gap-2.5 text-text-primary hover:text-accent-teal transition-colors group select-none"
               >
                 <div className="w-8 h-8 rounded-[3px] bg-bg-surface border border-border-strong flex items-center justify-center text-accent-teal group-hover:border-accent-teal transition-colors">
                   <Network className="w-4 h-4 stroke-[1.75]" />
@@ -218,7 +218,7 @@ export const Navbar: React.FC = () => {
               <div className="flex md:hidden items-center">
                 <button
                   onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                  className="p-2 text-text-secondary hover:text-text-primary rounded-[3px] border border-border-subtle bg-bg-surface cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-teal"
+                  className="w-10 h-10 flex items-center justify-center text-text-secondary hover:text-text-primary rounded-[3px] border border-border-subtle bg-bg-surface cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-teal"
                   aria-label={mobileMenuOpen ? 'Close navigation' : 'Open navigation'}
                   aria-expanded={mobileMenuOpen}
                 >

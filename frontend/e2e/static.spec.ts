@@ -33,7 +33,7 @@ test('no teal, cyan, amber, green or purple in landing styles', () => {
 
 test('token contrast pairs meet WCAG AA', () => {
   const need: Record<string, number> = { text: 4.5, large: 3, ui: 3, deco: 0 }
-  for (const [bg, fg, use, kind] of PAIRS as Array<[string, string, string, string]>) {
+  for (const [bg, fg, use, kind] of PAIRS) {
     if (use.includes('rejected')) continue
     expect(ratio(bg, fg), use).toBeGreaterThanOrEqual(need[kind])
   }

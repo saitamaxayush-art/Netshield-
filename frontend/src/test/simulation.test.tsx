@@ -119,6 +119,25 @@ describe('batching', () => {
     expect(auto.seed).toBe(777)
   })
 
+  it('a failed batch fails the run, says which batch and how many trials were done, and shows no partial result', async () => {
+    let calls = 0
+    const runner = {
+      simulate: async (body: SimulateRequestBody) => {
+        calls++
+        if (calls === 3) throw new ApiError('server', 'TIMEOUT', 'Simulation exceeded the time budget.', 504)
+        return batch(body.trials ?? 0, 1, 1, [], 1)
+      },
+    }
+    const run = runBatches({ ...SIMULATE_CASES['simulate-all-terminal'], trials: 20000 }, runner, new AbortController().signal, () => undefined)
+    await expect(run).rejects.toMatchObject({
+      kind: 'server',
+      code: 'TIMEOUT',
+      status: 504,
+      message: 'Batch 3 of 4 failed after 10000 of 20000 trials; no partial result is shown. Simulation exceeded the time budget.',
+    })
+    expect(calls).toBe(3)
+  })
+
   it('an abort stops the remaining batches', async () => {
     const controller = new AbortController()
     let calls = 0

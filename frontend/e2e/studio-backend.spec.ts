@@ -239,8 +239,9 @@ for (const failure of failures) {
 test('failing a node re-analyzes automatically on the backend, and the canvas follows', async ({ page }) => {
   const star = sixLeafStar()
   await seedGraph(page, star.nodes, star.edges)
-  await page.goto('/studio')
-  const first = (await (await page.waitForResponse(isPost('/api/analyze'))).json()) as AnalyzeBody
+  // Wait from before the navigation: the automatic analysis can finish before goto returns.
+  const [firstResponse] = await Promise.all([page.waitForResponse(isPost('/api/analyze')), page.goto('/studio')])
+  const first = (await firstResponse.json()) as AnalyzeBody
   expect(first.current.connectivity.componentCount).toBe(1)
   await expect(page.locator('.react-flow__node', { hasText: 'Hub' })).toContainText('Cut Vertex')
 
@@ -283,8 +284,8 @@ test('a backend outage stays an error until the user switches to demo mode, whic
 test('the graph and settings survive a reload; results do not', async ({ page }) => {
   const star = sixLeafStar()
   await seedGraph(page, star.nodes, star.edges)
-  await page.goto('/studio')
-  await page.waitForResponse(isPost('/api/analyze'))
+  // Wait from before the navigation: the automatic analysis can finish before goto returns.
+  await Promise.all([page.waitForResponse(isPost('/api/analyze')), page.goto('/studio')])
   await page.locator('.react-flow__node', { hasText: 'Leaf 3' }).click()
   await page.getByRole('button', { name: 'Fail Selected Node' }).click()
   // The save is debounced (400 ms).

@@ -5,12 +5,6 @@
 import { devices, type Locator, type Page } from '@playwright/test'
 import { expect, test } from './helpers'
 
-// Frame gaps recorded in the page by the 200 node performance test.
-declare global {
-  interface Window {
-    __frameGaps?: number[]
-  }
-}
 
 const nodes = (page: Page) => page.locator('.react-flow__node')
 const edges = (page: Page) => page.locator('.react-flow__edge')

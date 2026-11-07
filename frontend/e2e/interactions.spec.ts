@@ -157,7 +157,7 @@ test.describe('widgets', () => {
     await expect(page.locator('output[for="pfail"]')).toHaveText('p = 0.20')
     await page.getByRole('radio', { name: '5000' }).click()
 
-    await page.evaluate(() => ((window as unknown as { __longtasks: number[] }).__longtasks.length = 0))
+    await page.evaluate(() => (window.__longtasks.length = 0))
     await page.getByRole('button', { name: 'Run trials' }).click()
     await expect(page.getByRole('button', { name: 'Running' })).toBeDisabled()
     // Main thread stays free while the worker runs: measure input to frame latency mid run.
@@ -173,7 +173,7 @@ test.describe('widgets', () => {
     const expected = createReliabilityRun(g.nodes, g.edges, 0.2, createMulberry32(2026)).step(5000)
     await expect(est.getByTestId('estimate')).toHaveText(expected.estimate.toFixed(3))
     await expect(est.getByTestId('trial-count').locator('[data-value]')).toHaveAttribute('data-value', '5000')
-    const longtasks = await page.evaluate(() => (window as unknown as { __longtasks: number[] }).__longtasks)
+    const longtasks = await page.evaluate(() => window.__longtasks)
     expect(longtasks.filter((d) => d > 50), `long tasks ${longtasks.join(', ')}`).toEqual([])
 
     // Sweep finished with all 11 real runs.

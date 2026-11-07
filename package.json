@@ -11,7 +11,8 @@
     "test": "npm --prefix frontend test && npm run test:backend",
     "test:backend": "node scripts/run-python.mjs -m pytest -q",
     "lint": "npm --prefix frontend run lint",
-    "verify": "node scripts/verify.mjs"
+    "verify": "node scripts/verify.mjs",
+    "start:prod": "node scripts/start-prod.mjs"
   },
   "devDependencies": {
     "concurrently": "^10.0.6"

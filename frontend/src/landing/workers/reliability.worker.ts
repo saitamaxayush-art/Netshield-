@@ -14,7 +14,9 @@ export type WorkerResponse =
   | { type: 'sweep-done'; id: number }
   | { type: 'cancelled'; id: number }
 
-const ctx = self as unknown as DedicatedWorkerGlobalScope
+// In a worker, `self` is the worker scope; declared here so no cast is needed.
+declare const self: DedicatedWorkerGlobalScope
+const ctx = self
 let current = 0
 
 /**

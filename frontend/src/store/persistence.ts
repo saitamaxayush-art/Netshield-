@@ -65,7 +65,7 @@ export const WorkspaceSchema = z.strictObject({
     nodes: z.array(SavedNode),
     edges: z.array(SavedEdge),
     example: z.enum(PRESET_NAMES).nullable(),
-    viewport: z.strictObject({ x: finite, y: finite, zoom: finite }).nullable(),
+    viewport: z.strictObject({ x: finite, y: finite, zoom: finite, width: finite.optional(), height: finite.optional() }).nullable(),
   }),
   settings: SavedSettings,
 })

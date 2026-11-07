@@ -21,7 +21,7 @@ for (const route of ['/dashboard', '/studio', '/privacy', '/terms']) {
 test('landing to studio: no flash of a third theme, landing engine torn down', async ({ page, issues }) => {
   await open(page)
   await page.evaluate(() => {
-    const w = window as unknown as { __bgs: string[] }
+    const w = window
     w.__bgs = []
     const sample = () => {
       const el = document.elementFromPoint(innerWidth / 2, innerHeight - 4) as HTMLElement | null
@@ -36,7 +36,7 @@ test('landing to studio: no flash of a third theme, landing engine torn down', a
   await page.locator('.ns-header').getByRole('link', { name: 'Open Simulator' }).click()
   await page.waitForURL('**/studio')
   await page.waitForTimeout(1600)
-  const bgs = [...new Set(await page.evaluate(() => (window as unknown as { __bgs: string[] }).__bgs))]
+  const bgs = [...new Set(await page.evaluate(() => window.__bgs))]
   // Only the landing charcoal, its silver sections and the app navy may appear.
   for (const bg of bgs) expect(['rgb(23, 24, 27)', 'rgb(243, 245, 247)', 'rgb(19, 21, 31)', 'rgb(18, 19, 21)', 'rgb(24, 27, 40)']).toContain(bg)
   expect(await page.evaluate(() => [document.documentElement.dataset.route ?? null, document.documentElement.classList.contains('lenis')])).toEqual([null, false])

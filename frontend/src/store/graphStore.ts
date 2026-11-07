@@ -58,6 +58,9 @@ export interface Viewport {
   x: number
   y: number
   zoom: number
+  /** Canvas size when saved. A different size on restore means fit the graph instead (BUG-016). */
+  width?: number
+  height?: number
 }
 
 export interface GraphState extends EditorGraph {
@@ -282,7 +285,7 @@ export const useGraphStore = create<GraphState>((set, get) => {
 
     setViewport: (viewport) => {
       const v = get().viewport
-      if (v && v.x === viewport.x && v.y === viewport.y && v.zoom === viewport.zoom) return
+      if (v && v.x === viewport.x && v.y === viewport.y && v.zoom === viewport.zoom && v.width === viewport.width && v.height === viewport.height) return
       set({ viewport })
     },
 

@@ -11,6 +11,7 @@
     "test": "vitest run",
     "test:integration": "vitest run src/test/integration.backend.test.ts --silent=false --reporter=verbose",
     "test:e2e": "npm run build && playwright test",
+    "test:e2e:prod": "npm run build && playwright test -c playwright.prod.config.ts",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "gen:api": "node tools/gen-api.mjs",
