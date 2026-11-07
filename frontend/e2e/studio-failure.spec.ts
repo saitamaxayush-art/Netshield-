@@ -41,11 +41,16 @@ async function expectOverview(page: Page, body: Body, connected: string, compone
   await expect(page.getByTestId('analysis-announcer')).toContainText(connected.toLowerCase())
 }
 
+/** Open the studio and let its own first analysis finish, so later waits catch only the response they cause. */
+async function openStudio(page: Page) {
+  await Promise.all([page.waitForResponse(isAnalyze), page.goto('/studio')])
+}
+
 const node = (page: Page, id: string) => page.locator(`.react-flow__node[data-id="${id}"]`)
 const edge = (page: Page, id: string) => page.getByTestId(`edge-${id}`)
 
 test('Star: failing the hub gives 6 components and not connected; restoring reconnects', async ({ page, issues }) => {
-  await page.goto('/studio')
+  await openStudio(page)
   await expect(node(page, 'hub')).toBeVisible()
   // Star is the default graph, so load it from another preset to exercise the load.
   await loadPreset(page, 'Ring')
@@ -80,7 +85,7 @@ test('Star: failing the hub gives 6 components and not connected; restoring reco
 })
 
 test('Ring: failing one link keeps it connected, failing two disconnects it', async ({ page, issues }) => {
-  await page.goto('/studio')
+  await openStudio(page)
   await expect(node(page, 'hub')).toBeVisible()
   await loadPreset(page, 'Ring')
 
@@ -112,7 +117,7 @@ test('Ring: failing one link keeps it connected, failing two disconnects it', as
 })
 
 test('path and traversal visuals appear on the canvas, from backend values', async ({ page, issues }) => {
-  await page.goto('/studio')
+  await openStudio(page)
   await expect(node(page, 'hub')).toBeVisible()
   await loadPreset(page, 'Ring')
   await tab(page, 'Analysis')
@@ -153,7 +158,7 @@ test('path and traversal visuals appear on the canvas, from backend values', asy
 })
 
 test('fail random is seeded and shown, and goes through the backend', async ({ page, issues }) => {
-  await page.goto('/studio')
+  await openStudio(page)
   await expect(node(page, 'hub')).toBeVisible()
   await page.locator('#random-seed').fill('7')
   const body = await analysisAfter(page, () => page.getByRole('button', { name: 'Fail random' }).click())
@@ -168,7 +173,7 @@ test('fail random is seeded and shown, and goes through the backend', async ({ p
 })
 
 test('dashboard values match the studio and the backend, and metrics link to their panels', async ({ page, issues }) => {
-  await page.goto('/studio')
+  await openStudio(page)
   await expect(node(page, 'hub')).toBeVisible()
   await node(page, 'hub').click()
   const body = await analysisAfter(page, () => page.getByRole('button', { name: 'Fail selected node' }).click())
@@ -235,7 +240,7 @@ test('weighted shortest path: offered when every link has a weight, sent to and 
       sessionStorage.setItem('seeded', '1')
     }
   }, JSON.stringify(workspace))
-  await page.goto('/studio')
+  await openStudio(page)
   await expect(node(page, 'r1')).toBeVisible()
   await tab(page, 'Analysis')
   await tab(page, 'Paths')
@@ -265,7 +270,7 @@ test('weighted shortest path: offered when every link has a weight, sent to and 
 })
 
 test('Critical section: clicking a bridge or a cut vertex selects and highlights it on the canvas', async ({ page, issues }) => {
-  await page.goto('/studio')
+  await openStudio(page)
   await expect(node(page, 'hub')).toBeVisible()
   await tab(page, 'Analysis')
   await tab(page, 'Critical')

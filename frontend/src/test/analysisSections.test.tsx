@@ -202,7 +202,7 @@ describe('panel states', () => {
 })
 
 describe('canvas highlight is derived from view and result', () => {
-  const view = (over: Partial<View>): View => ({ panelTab: 'analysis', section: 'overview', focusComponent: null, focusCritical: null, traversalOrder: 'bfs', traversalStep: null, playing: false, ...over })
+  const view = (over: Partial<View>): View => ({ panelTab: 'analysis', section: 'overview', focusComponent: null, focusCritical: null, traversalOrder: 'bfs', traversalStep: null, playing: false, detailsOpen: false, ...over })
   const { current } = response('analyze-star')
 
   it('nothing without a fresh result or outside the analysis panel', () => {

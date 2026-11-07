@@ -19,12 +19,15 @@ export default defineConfig({
   use: {
     baseURL: 'http://localhost:4317',
     trace: 'off',
+    // Every spec starts as a returning visitor, so the first visit guided tour does not cover the page.
+    // The tour specs reset this to an empty storage.
+    storageState: { cookies: [], origins: [{ origin: 'http://localhost:4317', localStorage: [{ name: 'netshield_tour_seen', value: '1' }] }] },
   },
   projects: [
     // Every spec in the locally installed Google Chrome.
     { name: 'chrome', use: { channel: 'chrome' } },
     // The user facing journeys and layout in WebKit (Safari's engine), installed with `npx playwright install webkit`.
-    { name: 'webkit', use: { browserName: 'webkit' }, testMatch: ['journey.spec.ts', 'studio-failure.spec.ts', 'simulation.spec.ts', 'layout.spec.ts'] },
+    { name: 'webkit', use: { browserName: 'webkit' }, testMatch: ['journey.spec.ts', 'studio-failure.spec.ts', 'simulation.spec.ts', 'layout.spec.ts', 'tour.spec.ts'] },
   ],
   webServer: [
     {

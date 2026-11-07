@@ -208,7 +208,9 @@ test('import: errors are listed, big files refused, a valid file is previewed, r
   await expect(previewBox).toContainText('replaces the current graph (7 nodes, 6 links)')
   // Nothing replaced yet.
   await expect(page.locator('.react-flow__node')).toHaveCount(7)
-  const [response] = await Promise.all([page.waitForResponse(isAnalyze), previewBox.getByRole('button', { name: 'Replace graph' }).click()])
+  // Match the analysis of the imported graph itself: the star's own first analysis can still be in flight.
+  const isImported = (r: Response) => isAnalyze(r) && (r.request().postDataJSON() as { nodes: unknown[] }).nodes.length === 3
+  const [response] = await Promise.all([page.waitForResponse(isImported), previewBox.getByRole('button', { name: 'Replace graph' }).click()])
   const analysed = (await response.json()) as { current: { connectivity: { componentCount: number } } }
   expect(analysed.current.connectivity.componentCount).toBe(2)
   await expect(page.locator('.react-flow__node')).toHaveCount(3)

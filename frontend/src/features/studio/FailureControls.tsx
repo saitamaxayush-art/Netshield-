@@ -53,7 +53,7 @@ export const FailureControls: React.FC = () => {
           Fail random
         </Button>
         <div className="w-20">
-          <label htmlFor="random-seed" className="block text-[10px] text-text-muted mb-1 font-mono">
+          <label htmlFor="random-seed" className="block text-[11px] text-text-muted mb-1 font-mono">
             Seed
           </label>
           <input
@@ -80,7 +80,7 @@ export const FailureControls: React.FC = () => {
       <Button variant="ghost" size="sm" className="w-full" disabled={!anyFailed} leftIcon={<RefreshCw className="w-3.5 h-3.5" />} onClick={clearFailures}>
         Clear all failures
       </Button>
-      <p className="text-[10px] text-text-muted leading-snug">{FAILURE_RULE}</p>
+      <p className="text-[11px] text-text-muted leading-snug">{FAILURE_RULE}</p>
     </div>
   )
 }

@@ -126,7 +126,7 @@ export const GraphDataDialog: React.FC<{ isOpen: boolean; onClose: () => void; o
               {imageError}
             </p>
           )}
-          <p className="text-[10px] text-text-muted">JSON can be imported again. SVG and PNG are pictures of the canvas with component colours from the latest analysis.</p>
+          <p className="text-[11px] text-text-muted">JSON can be imported again. SVG and PNG are pictures of the canvas with component colours from the latest analysis.</p>
         </section>
         <section className="space-y-2">
           <h3 className={heading}>Saved data</h3>

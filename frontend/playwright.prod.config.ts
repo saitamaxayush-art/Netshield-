@@ -14,7 +14,12 @@ export default defineConfig({
   expect: { timeout: 10_000 },
   workers: 2,
   reporter: [['list']],
-  use: { baseURL: `http://127.0.0.1:${PROD_PORT}`, channel: 'chrome', trace: 'off' },
+  use: {
+    baseURL: `http://127.0.0.1:${PROD_PORT}`,
+    channel: 'chrome',
+    trace: 'off',
+    storageState: { cookies: [], origins: [{ origin: `http://127.0.0.1:${PROD_PORT}`, localStorage: [{ name: 'netshield_tour_seen', value: '1' }] }] },
+  },
   webServer: {
     command: 'node ../scripts/start-prod.mjs',
     env: { NETSHIELD_API_PORT: PROD_PORT },

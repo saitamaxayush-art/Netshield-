@@ -175,3 +175,65 @@ test.describe('error boundaries in the production build', () => {
     expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe('rgb(19, 21, 31)')
   })
 })
+
+test.describe('readability', () => {
+  test.use({ viewport: { width: 1440, height: 1000 } })
+
+  /** Text sizes in a scope (canvas and chart internals excluded). */
+  const smallText = (page: Page, scope: string) =>
+    page.evaluate((scope) => {
+      const out: string[] = []
+      for (const el of document.querySelectorAll<HTMLElement>(`${scope} *`)) {
+        if (el.closest('svg, .recharts-wrapper, .sr-only')) continue
+        const own = [...el.childNodes].some((n) => n.nodeType === Node.TEXT_NODE && (n.textContent ?? '').trim() !== '')
+        if (!own || el.getBoundingClientRect().width === 0) continue
+        const px = Number.parseFloat(getComputedStyle(el).fontSize)
+        if (px < 11) out.push(`${px}px "${(el.textContent ?? '').trim().slice(0, 30)}"`)
+      }
+      return out
+    }, scope)
+
+  /** A number is told apart from its label by weight, tabular figures and size, not by colour alone. */
+  async function expectValueStyle(page: Page, testId: string, labelPx: number) {
+    const style = await page.getByTestId(testId).evaluate((el) => {
+      const cs = getComputedStyle(el)
+      return { weight: Number(cs.fontWeight), numeric: cs.fontVariantNumeric, px: Number.parseFloat(cs.fontSize) }
+    })
+    expect(style.weight, `${testId} weight`).toBeGreaterThanOrEqual(600)
+    expect(style.numeric, `${testId} tabular`).toContain('tabular-nums')
+    expect(style.px, `${testId} size`).toBeGreaterThanOrEqual(labelPx)
+  }
+
+  test('panels and dashboard: no text below 11px, and numbers stand apart from labels', async ({ page }) => {
+    await page.goto('/studio?panel=analysis')
+    await expect(page.getByTestId('analysis-results')).toBeVisible()
+    for (const section of ['Overview', 'Components', 'Critical', 'Degrees', 'Traversal', 'Paths', 'Compare']) {
+      await page.getByRole('button', { name: section, exact: true }).click()
+      expect(await smallText(page, '[data-testid="side-panel"]'), section).toEqual([])
+    }
+    await page.getByRole('button', { name: 'Overview', exact: true }).click()
+    await expectValueStyle(page, 'analysis-node-count', 12)
+    await page.getByRole('button', { name: 'Paths', exact: true }).click()
+    await page.locator('#path-source').selectOption('c1')
+    await page.locator('#path-target').selectOption('c3')
+    await expect(page.getByTestId('path-values')).toContainText('Hops')
+    const hops = await page.locator('[data-testid="path-values"] dd').first().evaluate((el) => getComputedStyle(el).fontWeight)
+    expect(Number(hops)).toBeGreaterThanOrEqual(600)
+
+    await page.getByRole('button', { name: 'Simulator', exact: true }).click()
+    await page.getByRole('button', { name: 'Run Monte Carlo Simulation' }).click()
+    await expect(page.getByTestId('simulation-results')).toBeVisible()
+    expect(await smallText(page, '[data-testid="side-panel"]'), 'simulator').toEqual([])
+    await expectValueStyle(page, 'simulation-reliability', 24)
+
+    await page.getByRole('button', { name: 'Properties', exact: true }).click()
+    await page.locator('.react-flow__node[data-id="hub"] [data-testid="node-body"]').click()
+    expect(await smallText(page, '[data-testid="side-panel"]'), 'properties').toEqual([])
+    await expectValueStyle(page, 'node-degree', 12)
+
+    await page.goto('/dashboard')
+    await expect(page.getByTestId('metric-nodes-value')).toBeVisible()
+    expect(await smallText(page, 'main'), 'dashboard').toEqual([])
+    await expectValueStyle(page, 'metric-nodes-value', 20)
+  })
+})

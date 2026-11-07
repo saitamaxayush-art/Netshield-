@@ -320,3 +320,40 @@ Each bug below was found in this phase, in code that existed before it, and has 
   studio on every app page.
 
 Phase 8 also closed the open test items from PROJECT_AUDIT.md section 9 (9.1 to 9.5); see there.
+
+## Post release sweep
+
+### BUG-022: Two specs could read the page's own first analysis instead of the one they caused
+
+* Symptom: under load (3 repeats with 8 workers) the import test failed once: "Expected: 2, Received: 1"
+  components. The app was correct; the test was not.
+* Root cause: the test waited for "the next `/api/analyze` response" after clicking Replace graph. The
+  star example's automatic first analysis (1 component) could still be in flight and was taken instead.
+  `studio-failure.spec.ts` had the same pattern after `page.goto('/studio')` in 7 tests.
+* Fix: the import test matches the response whose request contains the 3 imported nodes;
+  `studio-failure.spec.ts` opens the studio with `openStudio`, which waits for the first analysis as
+  part of navigating.
+* Tests: import test 15 of 15 and `studio-failure.spec.ts` 35 of 35 under 8 workers.
+
+### BUG-023: The tour mascot's arms and eye swung around the wrong point
+
+* Symptom: in the guided tour (new in this release) the pointing or waving arm floated away from the
+  robot's body, and the eye could drift off the face during a blink. Found while reviewing tour screenshots.
+* Root cause: Motion sets `transform-box: fill-box` on SVG elements, so a transform origin is measured
+  from each shape's own box. The origins were written as drawing coordinates (`'18px'`, `'62px'`), which
+  put the pivot far outside the arm.
+* Fix: origins are fractions of each shape's own box (arms: top centre; eye and mouth: centre).
+* Test: the full tour spec checks on every step that every part of the mascot stays within its bounds. On
+  the old build it failed with "part at 982,603 outside mascot 792,447 88x97"; it passes now in Chrome
+  and WebKit.
+
+### BUG-024: The layout spec assumed simple pages render within 400 ms
+
+* Symptom: the full suite failed `privacy`, `terms` and `404` layout at 414px: "heading inset, Received: -1".
+  The page snapshot showed the route loader ("Loading NetShield Environment...") still on screen.
+* Root cause: for those routes the test only slept 400 ms after `goto`. On a reload in the same tab the
+  lazy route takes about 800 ms to replace the loader, even though every asset comes from cache within
+  15 ms; the committed build measured the same (about 820 ms). The test had been passing on timing.
+  The delay is most likely React's Suspense reveal throttling; this was not changed.
+* Fix: the test waits for the page heading before measuring.
+* Test: `layout.spec.ts` 30 of 30 with `--repeat-each=3` in Chrome and WebKit.

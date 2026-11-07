@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { Navbar } from '@/components/layout/Navbar'
 import { Footer } from '@/components/layout/Footer'
@@ -12,7 +12,8 @@ import { AnalysisAnnouncer } from '@/features/studio/AnalysisAnnouncer'
 import { GraphMiniMap } from '@/features/dashboard/GraphMiniMap'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
-import { Activity, ArrowRight, FolderOpen, Network } from 'lucide-react'
+import { Activity, ArrowRight, FolderOpen, HelpCircle, Network } from 'lucide-react'
+import { useTourStore } from '@/store/tourStore'
 import '@/store/bootstrap'
 
 const Metric: React.FC<{ label: string; value: React.ReactNode; detail?: string; to: string; testId: string }> = ({ label, value, detail, to, testId }) => (
@@ -25,7 +26,7 @@ const Metric: React.FC<{ label: string; value: React.ReactNode; detail?: string;
       <span>{label}</span>
       <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
     </div>
-    <div className="text-2xl font-mono font-semibold text-text-primary" data-testid={`metric-${testId}-value`}>
+    <div className="text-2xl font-mono font-semibold tabular-nums text-text-primary" data-testid={`metric-${testId}-value`}>
       {value}
     </div>
     {detail && <div className="text-[11px] font-mono text-text-muted">{detail}</div>}
@@ -47,6 +48,10 @@ export const DashboardPage: React.FC = () => {
   const simulate = useAnalysisStore((s) => s.simulate)
   const run = useAnalysisStore((s) => s.run)
   useAutoAnalyze()
+  // First visit: Netbot offers the tour (remembered in this browser).
+  useEffect(() => {
+    useTourStore.getState().startIfFirstVisit()
+  }, [])
 
   const result = analysis.result
   const current = result?.current ?? null
@@ -73,6 +78,9 @@ export const DashboardPage: React.FC = () => {
               <p className="text-xs sm:text-sm text-text-secondary mt-1">Results for your current workspace graph.</p>
             </div>
             <div className="flex flex-wrap gap-2">
+              <Button variant="ghost" size="md" leftIcon={<HelpCircle className="w-4 h-4" />} onClick={() => useTourStore.getState().start()}>
+                Guided tour
+              </Button>
               {nodes.length > 0 && (
                 <Link to="/studio?panel=simulation" data-testid="dashboard-run-simulation">
                   <Button variant="secondary" size="md" leftIcon={<Activity className="w-4 h-4" />}>
@@ -117,7 +125,7 @@ export const DashboardPage: React.FC = () => {
                 </div>
               )}
               {current && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" data-tour="metrics">
                   <Metric label="Nodes" value={current.summary.nodeCount} detail={`${current.summary.failedNodeCount} failed`} to={panel('overview')} testId="nodes" />
                   <Metric label="Links" value={current.summary.edgeCount} detail={`${current.summary.unavailableEdgeCount} unavailable`} to={panel('overview')} testId="edges" />
                   <Metric label="Components" value={current.connectivity.componentCount} to={panel('components')} testId="components" />

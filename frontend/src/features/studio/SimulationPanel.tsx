@@ -4,11 +4,10 @@ import { useAnalysisStore } from '@/store/analysisStore'
 import { DEFAULT_SETTINGS, MAX_SEED, MAX_SWEEP_POINTS, useSettingsStore, type Settings } from '@/store/settingsStore'
 import { BATCH_TRIALS } from '@/store/simulationRuns'
 import { Button } from '@/components/ui/Button'
-import { Badge } from '@/components/ui/Badge'
 import { Activity, Play, TrendingDown, Info, Square, Shuffle, RotateCcw, Download } from 'lucide-react'
 import { CompareChart, HistogramChart, SweepChart, TrialsChart } from '@/features/analytics/charts'
 import { ApiErrorBox, SourceBadge, StaleNotice } from './ResultStatus'
-import { Explain } from './analysis/sections'
+import { Explain, KeyValues, VALUE } from './analysis/sections'
 import { download, toCsv, toJson } from './simulationExport'
 import { nodeNames } from './nodeNames'
 import { clampInput } from './clamp'
@@ -16,7 +15,7 @@ import { clampInput } from './clamp'
 const TRIAL_OPTIONS = [100, 500, 1000, 5000, 20000] as const
 const pct = (v: number, digits = 1) => `${(v * 100).toFixed(digits)}%`
 const field = 'w-full px-2 py-1.5 bg-bg-surface border border-border-strong rounded-[2px] text-text-primary text-xs focus:border-accent-teal focus:outline-none'
-const heading = 'text-[11px] font-mono text-text-muted uppercase'
+const heading = 'text-[11px] font-mono text-text-secondary uppercase tracking-wider'
 
 /** Text input for a number; commits on blur or Enter, shows the store's reason when refused. Keyed by value so it follows the store. */
 const NumberField: React.FC<{
@@ -42,7 +41,7 @@ const NumberField: React.FC<{
   }
   return (
     <div>
-      <label htmlFor={id} className={ariaLabel ? 'sr-only' : 'block text-[10px] text-text-muted mb-1 font-mono'}>
+      <label htmlFor={id} className={ariaLabel ? 'sr-only' : 'block text-[11px] text-text-muted mb-1 font-mono'}>
         {ariaLabel ?? label}
       </label>
       <input
@@ -131,7 +130,7 @@ const RunProgress: React.FC<{ startedAt: number | null; progress: { done: number
           <div className="h-full w-1/3 bg-accent-teal ns-indeterminate" />
         )}
       </div>
-      <p className="text-[10px] font-mono text-text-muted" data-testid="simulation-progress-text">
+      <p className="text-[11px] font-mono text-text-muted" data-testid="simulation-progress-text">
         {batched ? `${progress.done} of ${progress.total} trials` : 'Running on the backend'}, {(elapsed / 1000).toFixed(1)} s
       </p>
     </div>
@@ -197,14 +196,14 @@ export const SimulationPanel: React.FC = () => {
         {result && <SourceBadge isDemo={result.isDemo} testId="simulation-source" backendLabel="FastAPI Backend" />}
       </div>
 
-      <div className="space-y-4 bg-bg-primary p-4 rounded-[2px] border border-border-subtle">
+      <div className="space-y-4 bg-bg-primary p-4 rounded-[2px] border border-border-subtle" data-tour="simulation">
         <div className={heading}>Monte Carlo configuration</div>
         <ProbabilityField id="edge-p" label="Link failure probability (p):" value={settings.edgeFailureProbability} patch={(v) => ({ edgeFailureProbability: v })} onError={setSettingError} />
         <ProbabilityField id="node-p" label="Node failure probability:" value={settings.nodeFailureProbability} patch={(v) => ({ nodeFailureProbability: v })} onError={setSettingError} />
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label htmlFor="trials" className="block text-[10px] text-text-muted mb-1 font-mono">
+            <label htmlFor="trials" className="block text-[11px] text-text-muted mb-1 font-mono">
               Trials:
             </label>
             <select id="trials" value={settings.trials} onChange={(e) => settings.update({ trials: Number(e.target.value) })} className={`${field} cursor-pointer`}>
@@ -231,7 +230,7 @@ export const SimulationPanel: React.FC = () => {
         )}
 
         <div>
-          <label htmlFor="mode" className="block text-[10px] text-text-muted mb-1 font-mono">
+          <label htmlFor="mode" className="block text-[11px] text-text-muted mb-1 font-mono">
             Success means:
           </label>
           <select id="mode" value={settings.mode} onChange={(e) => settings.update({ mode: e.target.value === 'two-terminal' ? 'two-terminal' : 'all-terminal' })} className={`${field} cursor-pointer`}>
@@ -242,7 +241,7 @@ export const SimulationPanel: React.FC = () => {
             <div className="grid grid-cols-2 gap-2 mt-2" data-testid="simulation-terminals">
               {(['terminalSource', 'terminalTarget'] as const).map((key) => (
                 <div key={key}>
-                  <label htmlFor={key} className="block text-[10px] text-text-muted mb-1 font-mono">
+                  <label htmlFor={key} className="block text-[11px] text-text-muted mb-1 font-mono">
                     {key === 'terminalSource' ? 'Source s:' : 'Target t:'}
                   </label>
                   <select id={key} value={settings[key] ?? ''} onChange={(e) => settings.update({ [key]: e.target.value || null })} className={`${field} cursor-pointer`}>
@@ -309,72 +308,68 @@ export const SimulationPanel: React.FC = () => {
 
       {result && c && first && (
         <div className="p-4 bg-bg-surface-elevated rounded-[2px] border border-border-subtle space-y-3" data-testid="simulation-results">
-          <div className="flex items-center justify-between pb-2 border-b border-border-subtle">
-            <span className="text-[11px] font-mono uppercase text-text-muted">Estimate: reliability R&#770;</span>
-            <Badge variant="accent" size="md" data-testid="simulation-reliability">
+          {/* The estimate first and largest; related numbers grouped below it, values aligned right. */}
+          <div className="pb-3 border-b border-border-subtle">
+            <div className="text-[11px] font-mono uppercase tracking-wider text-text-secondary">Estimate: reliability R&#770;</div>
+            <div className={`text-3xl leading-tight mt-1 ${VALUE}`} data-testid="simulation-reliability">
               {pct(c.estimate)}
-            </Badge>
-          </div>
-          {result.isBatched && (
-            <p className="text-[10px] font-mono text-state-warning" data-testid="simulation-combined">
-              Combined from {result.batches.length} backend requests: counts are summed; the interval and standard error are computed in the browser from those counts.
-            </p>
-          )}
-          <div className="grid grid-cols-2 gap-2 font-mono text-[11px]">
-            <div className="p-2 bg-bg-primary rounded-[2px] border border-border-subtle">
-              <div className="text-[10px] text-text-muted">Successful / total trials:</div>
-              <div className="text-sm font-semibold text-text-primary mt-0.5" data-testid="simulation-connected">
-                {c.connectedTrials} / {c.trials}
-              </div>
             </div>
-            <div className="p-2 bg-bg-primary rounded-[2px] border border-border-subtle">
-              <div className="text-[10px] text-text-muted">Standard error (SE):</div>
-              <div className="text-sm font-semibold text-text-primary mt-0.5" data-testid="simulation-se">
-                &plusmn;{pct(c.standardError, 2)}
-              </div>
-            </div>
-          </div>
-          <div className="p-2 bg-bg-primary rounded-[2px] border border-border-subtle font-mono text-[10px] text-text-secondary space-y-1">
-            <div className="flex justify-between gap-2">
-              <span>95% Wilson interval:</span>
-              <span className="text-text-primary font-semibold" data-testid="simulation-ci">
+            <div className="text-xs text-text-secondary mt-1">
+              95% Wilson interval{' '}
+              <span className={VALUE} data-testid="simulation-ci">
                 [{pct(c.wilson95.low)}, {pct(c.wilson95.high)}]
               </span>
             </div>
-            <div className="flex justify-between gap-2">
-              <span>Average components:</span>
-              <span className="text-text-primary" data-testid="simulation-avg-components">
-                {c.averageComponents.toFixed(3)}
-              </span>
-            </div>
-            <div className="flex justify-between gap-3">
-              <span className="shrink-0">Seed used:</span>
-              <span className="text-text-primary text-right break-words min-w-0" data-testid="simulation-seed">
-                {result.seed}
-                {result.isBatched ? ` (batches: ${result.batches.map((b) => b.seed).join(', ')})` : ''}
-              </span>
-            </div>
-            <div className="flex justify-between gap-3">
-              <span className="shrink-0">Most critical link:</span>
-              <span className="text-text-primary text-right break-words min-w-0" data-testid="simulation-critical-edge">
-                {result.isBatched
-                  ? `per batch: ${result.batches.map((b) => b.criticalEdge?.edgeId ?? 'none').join(', ')}`
-                  : first.criticalEdge
-                    ? `${first.criticalEdge.edgeId} (pivotal in ${pct(first.criticalEdge.share)} of trials)`
-                    : 'None (no single link failure decided a trial)'}
-              </span>
-            </div>
+          </div>
+          {result.isBatched && (
+            <p className="text-xs text-state-warning leading-relaxed" data-testid="simulation-combined">
+              Combined from {result.batches.length} backend requests: counts are summed; the interval and standard error are computed in the browser from those counts.
+            </p>
+          )}
+          <div className="space-y-1.5">
+            <div className={heading}>Trials</div>
+            <KeyValues
+              rows={[
+                ['Successful / total', <span data-testid="simulation-connected">{c.connectedTrials} / {c.trials}</span>],
+                ['Standard error (SE)', <span data-testid="simulation-se">&plusmn;{pct(c.standardError, 2)}</span>],
+                ['Average components', <span data-testid="simulation-avg-components">{c.averageComponents.toFixed(3)}</span>],
+              ]}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <div className={heading}>Run</div>
+            <KeyValues
+              rows={[
+                [
+                  'Seed used',
+                  <span className="break-words" data-testid="simulation-seed">
+                    {result.seed}
+                    {result.isBatched ? ` (batches: ${result.batches.map((b) => b.seed).join(', ')})` : ''}
+                  </span>,
+                ],
+                [
+                  'Most critical link',
+                  <span className="break-words" data-testid="simulation-critical-edge">
+                    {result.isBatched
+                      ? `per batch: ${result.batches.map((b) => b.criticalEdge?.edgeId ?? 'none').join(', ')}`
+                      : first.criticalEdge
+                        ? `${first.criticalEdge.edgeId} (pivotal in ${pct(first.criticalEdge.share)} of trials)`
+                        : 'None (no single link failure decided a trial)'}
+                  </span>,
+                ],
+              ]}
+            />
           </div>
           <Explain k={first.explanationKey} />
           {first.criticalEdge && <Explain k={first.criticalEdge.explanationKey} />}
           <div>
             <div className={`${heading} mb-1`}>Assumptions (from the {result.isDemo ? 'demo adapter' : 'backend'})</div>
             {result.isBatched && (
-              <p className="text-[10px] text-text-muted mb-1" data-testid="simulation-assumptions-batched">
+              <p className="text-xs text-text-secondary mb-1" data-testid="simulation-assumptions-batched">
                 As reported for batch 1. Every batch used the same model; batch sizes and seeds are listed above and in the export.
               </p>
             )}
-            <ul className="text-[10px] text-text-muted leading-tight list-disc pl-4 space-y-0.5" data-testid="simulation-assumptions">
+            <ul className="text-xs text-text-secondary leading-relaxed list-disc pl-4 space-y-1" data-testid="simulation-assumptions">
               {first.assumptions.map((a) => (
                 <li key={a}>{a}</li>
               ))}

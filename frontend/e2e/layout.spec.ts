@@ -53,6 +53,8 @@ for (const [name, path] of ROUTES) {
       await page.goto(path)
       if (name === 'studio') await expect(page.locator('.react-flow__node')).toHaveCount(7)
       if (name === 'dashboard') await expect(page.getByTestId('metric-nodes-value')).toBeVisible()
+      // Wait for the page itself, not a fixed delay: on a reload the lazy route can take about 800 ms to replace the loader.
+      if (name !== 'studio') await expect(page.locator('h1').first()).toBeVisible()
       await page.waitForTimeout(400)
       expect(await layoutProblems(page), `${name} at ${width}px`).toEqual([])
 

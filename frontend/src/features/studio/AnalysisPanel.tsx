@@ -56,7 +56,7 @@ export const AnalysisPanel: React.FC = () => {
 
       {current && result ? (
         <div className="space-y-4" data-testid="analysis-results">
-          <div className="text-[10px] font-mono text-text-muted" data-testid="analysis-engine">
+          <div className="text-[11px] font-mono text-text-muted" data-testid="analysis-engine">
             {result.isDemo ? 'Demo adapter' : 'NetworkX'} {result.meta.engineVersion}, API {result.meta.apiVersion}
           </div>
           <div role="group" aria-label="Analysis sections" className="grid grid-cols-4 gap-1">
@@ -66,7 +66,7 @@ export const AnalysisPanel: React.FC = () => {
                 type="button"
                 aria-pressed={section === s}
                 onClick={() => setSection(s)}
-                className={`h-8 px-0.5 rounded-[2px] border font-mono text-[10px] truncate cursor-pointer ${
+                className={`h-8 px-0.5 rounded-[2px] border font-mono text-[11px] truncate cursor-pointer ${
                   section === s ? 'border-accent-teal text-accent-teal bg-accent-dim' : 'border-border-subtle text-text-muted hover:text-text-primary'
                 }`}
               >

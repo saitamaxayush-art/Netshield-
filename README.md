@@ -6,7 +6,8 @@ components, bridges, articulation points, traversals, shortest paths and Monte C
 NetworkX. The browser only displays those results.
 
 * `/` landing page with its own small demos
-* `/studio` network editor with analysis and simulation panels
+* `/studio` network editor with analysis and simulation panels, and a guided tour (it starts on a first
+  visit; replay it from the Keyboard shortcuts dialog or the dashboard's Guided tour button)
 * `/dashboard` overview of the current graph
 * `/privacy`, `/terms`
 
@@ -71,7 +72,7 @@ there is no CORS in development. Health check through the proxy: `http://localho
 | `scripts/verify.sh` or `npm run verify` | **Master check**: backend ruff, mypy, pytest; frontend typecheck (app, Vite config and end to end specs), lint, unit tests, API types in sync, build |
 | `npm run test:backend` | pytest (175 tests, including Hypothesis property tests) |
 | `npm --prefix frontend test` | Vitest unit and component tests |
-| `npm --prefix frontend run test:e2e` | Production build, then Playwright against `vite preview` and a real backend on port 8799, in Chrome (every spec) and WebKit (journey, failure, simulation, layout) |
+| `npm --prefix frontend run test:e2e` | Production build, then Playwright against `vite preview` and a real backend on port 8799, in Chrome (every spec) and WebKit (journey, failure, simulation, layout, tour) |
 | `npm --prefix frontend run test:e2e:prod` | Build, then a smoke run (journey, code splitting) against the production server (`start:prod` on port 8811) |
 | `NETSHIELD_API_URL=http://127.0.0.1:8765 npm --prefix frontend run test:integration` | One real call per API client method against a running backend |
 | `.venv/bin/python scripts/crosscheck_networkx.py http://127.0.0.1:8765` | 20 seeded random graphs: `/api/analyze` against NetworkX called directly |
@@ -118,6 +119,7 @@ frontend/src
 ├── features/studio/  Canvas node and edge, toolbar, properties, failure controls, analysis sections,
 │                     simulation panel, import and export, explanations of the maths
 ├── features/analytics/  Recharts charts with data tables
+├── features/tour/    Guided tour: steps, the Netbot mascot (SVG, Motion), spotlight and bubble placement
 ├── services/api/     client.ts (typed fetch client), schemas.ts (Zod, bound to the generated types),
 │                     demoAdapter.ts + demo/ (independent browser implementation for demo mode), registry.ts
 ├── store/            Zustand stores and their rules (see below)
@@ -147,6 +149,8 @@ backend/app
 * `persistence`: saves graph, view and settings to `localStorage` (`netshield_workspace`, versioned,
   validated, migrated); results are never saved.
 * `healthStore`, `studioViewStore`, `toastStore`: server status, what the studio shows, messages.
+* `tourStore`: the guided tour's current step; `netshield_tour_seen` in `localStorage` records that it was
+  finished or skipped.
 
 **API client** (`services/api/client.ts`): timeouts, cancellation (a new request of the same kind
 supersedes the old one), retries only for the health check, Zod validation of every response, and one

@@ -23,6 +23,7 @@ import { PRESET_NAMES, PRESET_TITLES, type PresetName } from '@/store/presets'
 import { clearSavedData } from '@/store/persistence'
 import { FIT_OPTIONS, useAddNodeAtCentre } from './studioActions'
 import { GraphDataDialog } from './GraphDataDialog'
+import { useTourStore } from '@/store/tourStore'
 import { Button } from '@/components/ui/Button'
 import { Dialog } from '@/components/ui/Dialog'
 import { Sheet } from '@/components/ui/Sheet'
@@ -38,15 +39,19 @@ const PALETTE: Record<NodeType, { name: string; icon: React.ReactNode }> = {
 }
 const PRESET_LABEL: Record<PresetName, string> = { star: 'Star', ring: 'Ring', mesh: 'Mesh' }
 
-const IconButton: React.FC<{ label: string; icon: React.ReactNode; onClick: () => void; disabled?: boolean; variant?: 'ghost' | 'danger' }> = ({
+const IconButton: React.FC<{ label: string; icon: React.ReactNode; onClick: () => void; disabled?: boolean; variant?: 'ghost' | 'danger'; tour?: string }> = ({
   label,
   icon,
   onClick,
   disabled,
   variant = 'ghost',
+  tour,
 }) => (
-  <Button variant={variant} size="sm" className="w-9 !px-0" aria-label={label} title={label} disabled={disabled} leftIcon={icon} onClick={onClick} />
+  <Button variant={variant} size="sm" className="w-9 !px-0" aria-label={label} title={label} disabled={disabled} leftIcon={icon} onClick={onClick} data-tour={tour} />
 )
+
+/** Guided tour anchors for the toolbar actions. */
+const TOUR_ANCHOR: Record<string, string> = { 'Import or export': 'import-export', 'Keyboard shortcuts': 'help' }
 
 const SHORTCUTS: ReadonlyArray<[string, string]> = [
   ['Tab', 'Move between nodes and links'],
@@ -142,8 +147,10 @@ export const StudioToolbar: React.FC<{
       <div role="toolbar" aria-label="Network editing tools" data-testid="studio-toolbar" className="h-12 shrink-0 bg-bg-surface border-b border-border-subtle px-3 flex items-center justify-between gap-1 text-xs">
         {isDesktop ? (
           <>
-            <div className="flex items-center gap-1">{palette}</div>
-            <div className="flex items-center gap-0.5">
+            <div className="flex items-center gap-1" data-tour="add-nodes">
+              {palette}
+            </div>
+            <div className="flex items-center gap-0.5" data-tour="presets">
               <span className={`${heading} ml-1`}>Example:</span>
               {presets}
             </div>
@@ -151,13 +158,13 @@ export const StudioToolbar: React.FC<{
               {history}
               {fitButton}
               {secondaryActions.map(([label, icon, run]) => (
-                <IconButton key={label} label={label} icon={icon} onClick={run} />
+                <IconButton key={label} label={label} icon={icon} onClick={run} tour={TOUR_ANCHOR[label]} />
               ))}
             </div>
           </>
         ) : (
           <>
-            <Button variant="secondary" size="sm" leftIcon={<Wrench className="w-3.5 h-3.5" />} onClick={() => setToolsOpen(true)}>
+            <Button variant="secondary" size="sm" data-tour="tools" leftIcon={<Wrench className="w-3.5 h-3.5" />} onClick={() => setToolsOpen(true)}>
               Tools
             </Button>
             <div className="flex items-center">
@@ -245,6 +252,17 @@ export const StudioToolbar: React.FC<{
           ))}
         </dl>
         <p className="mt-3 text-xs text-text-muted">Touch: tap a handle on one node, then a handle on another, to connect them.</p>
+        <Button
+          variant="primary"
+          size="sm"
+          className="mt-4"
+          onClick={() => {
+            onHelpChange(false)
+            useTourStore.getState().start()
+          }}
+        >
+          Start guided tour
+        </Button>
       </Dialog>
     </>
   )

@@ -60,12 +60,12 @@ export const ChartCard: React.FC<ChartCardProps> = ({ title, description, testId
           {showTable ? 'View chart' : 'View data table'}
         </Button>
       </div>
-      <p id={descriptionId} className="text-[10px] text-text-muted leading-snug" data-testid={`${testId}-description`}>
+      <p id={descriptionId} className="text-[11px] text-text-muted leading-snug" data-testid={`${testId}-description`}>
         {description}
       </p>
       {showTable ? (
         <div className="h-56 overflow-auto border border-border-subtle rounded-[2px]">
-          <table className="w-full text-left font-mono text-[10px]" data-testid={`${testId}-table`}>
+          <table className="w-full text-left font-mono text-[11px]" data-testid={`${testId}-table`}>
             <thead className="bg-bg-surface text-text-muted border-b border-border-subtle sticky top-0">
               <tr>
                 {table.columns.map((c) => (
@@ -108,7 +108,7 @@ export const SweepChart: React.FC<{ result: SweepResponseBody & { isDemo: boolea
   const last = result.points[result.points.length - 1]
   return (
     <div className="space-y-2">
-      <p className="text-[10px] font-mono text-text-muted" data-testid="sweep-summary" data-source={result.isDemo ? 'demo' : 'backend'}>
+      <p className="text-[11px] font-mono text-text-muted" data-testid="sweep-summary" data-source={result.isDemo ? 'demo' : 'backend'}>
         {result.points.length} points from {result.isDemo ? 'the demo adapter' : 'the FastAPI backend'}: R = {pct(first.estimate)} at p = {pct(first.p)} to R ={' '}
         {pct(last.estimate)} at p = {pct(last.p)}
       </p>

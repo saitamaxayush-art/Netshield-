@@ -12,6 +12,7 @@ const TermsPage = lazy(() => import('./pages/TermsPage'))
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'))
 // Its own chunk, loaded after first paint, so the landing page bundle stays free of the API layer.
 const StatusBanners = lazy(() => import('./components/layout/StatusBanners'))
+const TourHost = lazy(() => import('./features/tour/TourHost'))
 
 /** Server status and demo mode banners on app pages; the landing page does not use the backend. */
 const AppBanners: React.FC = () => {
@@ -20,6 +21,7 @@ const AppBanners: React.FC = () => {
   return (
     <Suspense fallback={null}>
       <StatusBanners />
+      <TourHost />
     </Suspense>
   )
 }

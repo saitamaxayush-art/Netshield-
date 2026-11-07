@@ -33,6 +33,7 @@ import { Button } from '@/components/ui/Button'
 import { useGraphStore, type Viewport } from '@/store/graphStore'
 import { PRESET_NAMES, PRESET_TITLES } from '@/store/presets'
 import { useAutoAnalyze } from '@/hooks/useAutoAnalyze'
+import { useTourStore } from '@/store/tourStore'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { NODE_TYPES, type EditorEdge, type EditorNode, type NodeType, type Position } from '@/types/graph'
 import { Sliders, Network, Activity, Plus } from 'lucide-react'
@@ -192,7 +193,11 @@ const Studio: React.FC = () => {
 
   const [helpOpen, setHelpOpen] = useState(false)
   // A dashboard link opens the details sheet straight away on small screens.
-  const [detailsOpen, setDetailsOpen] = useState(() => new URLSearchParams(window.location.search).has('panel') && !isDesktopNow())
+  const detailsOpen = useStudioView((s) => s.detailsOpen)
+  const setDetailsOpen = useStudioView((s) => s.setDetailsOpen)
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).has('panel') && !isDesktopNow()) useStudioView.getState().setDetailsOpen(true)
+  }, [])
   // The only state outside the store: positions during a drag, committed once when it ends. The store,
   // the stale check and the save do not run on every drag tick.
   const [dragging, setDragging] = useState<Record<string, Position> | null>(null)
@@ -200,6 +205,10 @@ const Studio: React.FC = () => {
   const [initialViewport] = useState(() => useGraphStore.getState().viewport)
 
   useAutoAnalyze()
+  // First visit: Netbot offers the tour (remembered in this browser).
+  useEffect(() => {
+    useTourStore.getState().startIfFirstVisit()
+  }, [])
 
   // Dashboard metrics link to the panel that explains them.
   const [params] = useSearchParams()

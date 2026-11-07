@@ -24,6 +24,8 @@ export interface View {
   /** Index of the last visited node, or null to show the whole order. */
   traversalStep: number | null
   playing: boolean
+  /** Small screens: whether the details and analysis sheet is open. */
+  detailsOpen: boolean
 }
 
 export interface Highlight {
@@ -74,6 +76,7 @@ const INITIAL: View = {
   traversalOrder: 'bfs',
   traversalStep: null,
   playing: false,
+  detailsOpen: false,
 }
 
 const freshResult = (): Analysis | null => {
@@ -89,6 +92,7 @@ const stopTimer = () => {
 
 export interface StudioViewState extends View {
   setPanelTab: (tab: PanelTab) => void
+  setDetailsOpen: (open: boolean) => void
   setSection: (section: AnalysisSection) => void
   focusOnComponent: (index: number | null) => void
   focusOnCritical: (focus: CriticalFocus | null) => void
@@ -104,6 +108,7 @@ export interface StudioViewState extends View {
 export const useStudioView = create<StudioViewState>((set, get) => ({
   ...INITIAL,
   setPanelTab: (panelTab) => set({ panelTab }),
+  setDetailsOpen: (detailsOpen) => set({ detailsOpen }),
   setSection: (section) => {
     get().stopTraversal()
     set({ section })

@@ -95,7 +95,7 @@ const NodeProperties: React.FC<{ node: EditorNode }> = ({ node }) => {
         <Badge variant={isFailed ? 'failure' : 'success'}>{isFailed ? 'FAILED' : 'ACTIVE'}</Badge>
       </div>
 
-      <div className="font-mono text-[10px] text-text-muted">id: {node.id}</div>
+      <div className="font-mono text-[11px] text-text-muted">id: {node.id}</div>
 
       <div>
         <label htmlFor="node-label" className="block text-[11px] font-mono text-text-muted uppercase mb-1.5">
@@ -140,7 +140,7 @@ const NodeProperties: React.FC<{ node: EditorNode }> = ({ node }) => {
       </div>
 
       {/* Every value here is from the backend's latest analysis of this exact graph. */}
-      <div className="p-3 bg-bg-primary rounded-[2px] border border-border-subtle space-y-2 font-mono text-[11px]" data-testid="node-analysis">
+      <div className="p-3 bg-bg-primary rounded-[2px] border border-border-subtle space-y-2 font-mono text-xs [&>div>span:first-child]:text-text-secondary [&>div>span:last-child]:font-semibold [&>div>span:last-child]:tabular-nums [&>div>span:last-child]:text-text-primary" data-testid="node-analysis">
         <div className="flex justify-between">
           <span className="text-text-muted">Stored status:</span>
           <span data-testid="stored-status">{isFailed ? 'Marked failed' : 'Healthy'}</span>
@@ -246,7 +246,7 @@ const EdgeProperties: React.FC<{ edge: EditorEdge }> = ({ edge }) => {
         <Badge variant={isFailed ? 'failure' : 'success'}>{isFailed ? 'SEVERED' : 'ACTIVE'}</Badge>
       </div>
 
-      <div className="p-3 bg-bg-primary rounded-[2px] border border-border-subtle space-y-2 font-mono text-[11px]">
+      <div className="p-3 bg-bg-primary rounded-[2px] border border-border-subtle space-y-2 font-mono text-xs [&>div>span:first-child]:text-text-secondary [&>div>span:last-child]:font-semibold [&>div>span:last-child]:tabular-nums [&>div>span:last-child]:text-text-primary">
         <div className="flex justify-between">
           <span className="text-text-muted">Source Vertex:</span>
           <span className="text-text-primary truncate max-w-[130px]">{labelOf(edge.source)}</span>

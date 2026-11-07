@@ -23,18 +23,33 @@ const listButton = (active: boolean) =>
   }`
 
 export const Explain: React.FC<{ k: ExplanationKey }> = ({ k }) => (
-  <p data-testid={`explain-${k}`} className="text-[10px] text-text-muted leading-snug">
+  <p data-testid={`explain-${k}`} className="text-xs text-text-secondary leading-relaxed">
     {EXPLANATIONS[k]}
   </p>
 )
 
+/** Numbers are bigger, bolder and tabular, so they stand apart from their labels without relying on colour. */
+export const VALUE = 'font-mono font-semibold tabular-nums text-text-primary'
+
 const Stat: React.FC<{ label: string; value: React.ReactNode; testId?: string }> = ({ label, value, testId }) => (
-  <div className="p-2.5 bg-bg-primary rounded-[2px] border border-border-subtle font-mono">
-    <div className="text-[10px] text-text-muted">{label}</div>
-    <div className="text-base font-semibold text-text-primary mt-0.5" data-testid={testId}>
+  <div className="p-3 bg-bg-primary rounded-[2px] border border-border-subtle">
+    <div className="text-[11px] font-mono uppercase tracking-wider text-text-secondary">{label}</div>
+    <div className={`text-lg leading-tight mt-1 ${VALUE}`} data-testid={testId}>
       {value}
     </div>
   </div>
+)
+
+/** Aligned label and value rows for a group of related numbers. */
+export const KeyValues: React.FC<{ rows: Array<[string, React.ReactNode]>; testId?: string }> = ({ rows, testId }) => (
+  <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 text-xs" data-testid={testId}>
+    {rows.map(([label, value]) => (
+      <React.Fragment key={label}>
+        <dt className="text-text-secondary whitespace-nowrap">{label}</dt>
+        <dd className={`text-right break-words ${VALUE}`}>{value}</dd>
+      </React.Fragment>
+    ))}
+  </dl>
 )
 
 export const OverviewSection: React.FC<{ current: Analysis }> = ({ current }) => (
@@ -62,10 +77,19 @@ export const OverviewSection: React.FC<{ current: Analysis }> = ({ current }) =>
         Every node is marked failed, so no node is operational and there is nothing to connect.
       </p>
     )}
-    <p className="text-[11px] font-mono text-text-muted">
-      Operational: {current.summary.operationalNodeCount} nodes, {current.summary.operationalEdgeCount} links. Failed: {current.summary.failedNodeCount} nodes,{' '}
-      {current.summary.failedEdgeCount} links. Unavailable links in total: {current.summary.unavailableEdgeCount}.
-    </p>
+    <div className={card}>
+      <div className={heading}>Operational and failed</div>
+      <KeyValues
+        testId="analysis-operational"
+        rows={[
+          ['Operational nodes', current.summary.operationalNodeCount],
+          ['Operational links', current.summary.operationalEdgeCount],
+          ['Failed nodes', current.summary.failedNodeCount],
+          ['Failed links', current.summary.failedEdgeCount],
+          ['Unavailable links (all causes)', current.summary.unavailableEdgeCount],
+        ]}
+      />
+    </div>
     <Explain k={current.summary.explanationKey} />
     <Explain k={current.components.explanationKey} />
   </div>
@@ -97,7 +121,7 @@ export const ComponentsSection: React.FC<{ current: Analysis; labelOf: LabelOf }
           ))}
         </ul>
       )}
-      {items.length > 0 && <p className="text-[10px] text-text-muted">Select a component to highlight it on the canvas.</p>}
+      {items.length > 0 && <p className="text-[11px] text-text-muted">Select a component to highlight it on the canvas.</p>}
     </div>
   )
 }
@@ -186,11 +210,12 @@ export const DegreesSection: React.FC<{ current: Analysis; labelOf: LabelOf }> =
     <th scope="col" className="p-0" aria-sort={sort.by === by ? (sort.descending ? 'descending' : 'ascending') : 'none'}>
       <button
         type="button"
-        className="w-full p-2 text-left font-mono cursor-pointer hover:text-text-primary"
+        className={`w-full p-2 font-mono cursor-pointer hover:text-text-primary ${by === 'node' ? 'text-left' : 'text-right'}`}
         onClick={() => setSort({ by, descending: sort.by === by ? !sort.descending : by !== 'node' })}
       >
         {name}
-        {sort.by === by ? (sort.descending ? ' (high first)' : ' (low first)') : ''}
+        {/* Direction as an arrow; aria-sort on the header states it for screen readers. */}
+        {sort.by === by ? <span aria-hidden="true">{sort.descending ? ' \u2193' : ' \u2191'}</span> : ''}
       </button>
     </th>
   )
@@ -213,8 +238,8 @@ export const DegreesSection: React.FC<{ current: Analysis; labelOf: LabelOf }> =
               {rows.map((r) => (
                 <tr key={r.id} data-node-id={r.id}>
                   <td className="p-2 text-text-primary">{r.label}</td>
-                  <td className="p-2 text-accent-teal">{r.operational}</td>
-                  <td className="p-2 text-text-secondary">{r.stored}</td>
+                  <td className={`p-2 text-right ${VALUE}`}>{r.operational}</td>
+                  <td className="p-2 text-right font-mono tabular-nums text-text-secondary">{r.stored}</td>
                 </tr>
               ))}
             </tbody>
@@ -234,7 +259,7 @@ const NodeSelect: React.FC<{ id: string; label: string; placeholder: string; val
   onChange,
 }) => (
   <div>
-    <label htmlFor={id} className="block text-[10px] text-text-muted mb-1 font-mono">
+    <label htmlFor={id} className="block text-[11px] text-text-muted mb-1 font-mono">
       {label}
     </label>
     <select id={id} value={value} onChange={(e) => onChange(e.target.value)} className={select}>
@@ -275,14 +300,14 @@ export const TraversalSection: React.FC<{ current: Analysis; labelOf: LabelOf }>
         <>
           <div className={card}>
             <div className={heading}>BFS, with layer numbers</div>
-            <p className="font-mono text-[10px] text-text-primary break-words" data-testid="analysis-bfs">
+            <p className="font-mono text-[11px] text-text-primary break-words" data-testid="analysis-bfs">
               {traversal.bfs.map((s) => `${labelOf(s.nodeId)} (${s.layer})`).join(' → ')}
             </p>
             <Explain k={traversal.bfsExplanationKey} />
           </div>
           <div className={card}>
             <div className={heading}>DFS</div>
-            <p className="font-mono text-[10px] text-text-primary break-words" data-testid="analysis-dfs">
+            <p className="font-mono text-[11px] text-text-primary break-words" data-testid="analysis-dfs">
               {traversal.dfs.map(labelOf).join(' → ')}
             </p>
             <Explain k={traversal.dfsExplanationKey} />
@@ -353,9 +378,19 @@ export const PathsSection: React.FC<{ current: Analysis; labelOf: LabelOf }> = (
         <div className={card} data-testid="analysis-path">
           <div className={heading}>Shortest path</div>
           {path.found && path.nodeIds ? (
-            <p className="font-mono text-[11px] text-accent-teal font-semibold break-words">
-              {path.nodeIds.map(labelOf).join(' → ')} ({path.hops} hops{path.metric === 'weight' ? `, total weight ${path.length}` : ''})
-            </p>
+            <>
+              <p className="font-mono text-xs text-accent-teal font-semibold break-words">
+                {path.nodeIds.map(labelOf).join(' → ')} ({path.hops} hops{path.metric === 'weight' ? `, total weight ${path.length}` : ''})
+              </p>
+              <KeyValues
+                testId="path-values"
+                rows={[
+                  ['Hops', path.hops],
+                  ...(path.metric === 'weight' ? ([['Total weight', path.length]] as Array<[string, React.ReactNode]>) : []),
+                  ['Measured by', path.metric === 'weight' ? 'link weight' : 'number of links'],
+                ]}
+              />
+            </>
           ) : (
             <p className="font-mono text-[11px] text-state-failure">{PATH_REASON[path.reason ?? 'DISCONNECTED']}</p>
           )}
@@ -388,10 +423,10 @@ export const CompareSection: React.FC<{ result: AnalyzeResponseBody }> = ({ resu
               <th scope="col" className="p-2 text-left">
                 Measure
               </th>
-              <th scope="col" className="p-2 text-left">
+              <th scope="col" className="p-2 text-right">
                 Healthy
               </th>
-              <th scope="col" className="p-2 text-left">
+              <th scope="col" className="p-2 text-right">
                 Current
               </th>
             </tr>
@@ -400,8 +435,8 @@ export const CompareSection: React.FC<{ result: AnalyzeResponseBody }> = ({ resu
             {rows.map(([name, before, after]) => (
               <tr key={name} data-measure={name} data-changed={before !== after}>
                 <td className="p-2 text-text-secondary">{name}</td>
-                <td className="p-2 text-text-primary">{before}</td>
-                <td className={`p-2 ${before !== after ? 'text-state-warning font-semibold' : 'text-text-primary'}`}>
+                <td className="p-2 text-right font-mono tabular-nums text-text-primary">{before}</td>
+                <td className={`p-2 text-right font-mono tabular-nums ${before !== after ? 'text-state-warning font-semibold' : 'text-text-primary'}`}>
                   {after}
                   {before !== after ? ' (changed)' : ''}
                 </td>
