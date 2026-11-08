@@ -32,7 +32,7 @@ export const SourceBadge: React.FC<{ isDemo: boolean; testId: string; backendLab
   </Badge>
 )
 
-export const StaleNotice: React.FC<{ testId: string; onRefresh: () => void; isLoading: boolean }> = ({ testId, onRefresh, isLoading }) => (
+export const StaleNotice: React.FC<{ testId: string; onRefresh: () => void; isLoading: boolean; disabledReason?: string }> = ({ testId, onRefresh, isLoading, disabledReason }) => (
   <div
     role="status"
     data-testid={testId}
@@ -40,9 +40,9 @@ export const StaleNotice: React.FC<{ testId: string; onRefresh: () => void; isLo
   >
     <span className="flex items-center gap-1.5">
       <Clock className="w-3.5 h-3.5" />
-      Results out of date: the network or settings changed after they were computed.
+      Results out of date: the network or settings changed after they were computed.{disabledReason ? ` ${disabledReason}` : ''}
     </span>
-    <Button variant="outline" size="sm" isLoading={isLoading} onClick={onRefresh}>
+    <Button variant="outline" size="sm" isLoading={isLoading} onClick={onRefresh} disabled={disabledReason !== undefined}>
       Update
     </Button>
   </div>

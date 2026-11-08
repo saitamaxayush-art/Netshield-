@@ -17,6 +17,7 @@ import {
   FileJson,
   Wrench,
   PanelRight,
+  Compass,
 } from 'lucide-react'
 import { useGraphStore } from '@/store/graphStore'
 import { PRESET_NAMES, PRESET_TITLES, type PresetName } from '@/store/presets'
@@ -37,7 +38,7 @@ const PALETTE: Record<NodeType, { name: string; icon: React.ReactNode }> = {
   client: { name: 'Client', icon: <Monitor className="w-3.5 h-3.5 text-text-secondary" /> },
   firewall: { name: 'Firewall', icon: <ShieldCheck className="w-3.5 h-3.5 text-state-warning" /> },
 }
-const PRESET_LABEL: Record<PresetName, string> = { star: 'Star', ring: 'Ring', mesh: 'Mesh' }
+const PRESET_LABEL: Record<PresetName, string> = { star: 'Star', ring: 'Ring', mesh: 'Mesh', campus: 'Campus' }
 
 const IconButton: React.FC<{ label: string; icon: React.ReactNode; onClick: () => void; disabled?: boolean; variant?: 'ghost' | 'danger'; tour?: string }> = ({
   label,
@@ -51,7 +52,7 @@ const IconButton: React.FC<{ label: string; icon: React.ReactNode; onClick: () =
 )
 
 /** Guided tour anchors for the toolbar actions. */
-const TOUR_ANCHOR: Record<string, string> = { 'Import or export': 'import-export', 'Keyboard shortcuts': 'help' }
+const TOUR_ANCHOR: Record<string, string> = { 'Import or export': 'import-export', 'Guided tour': 'help' }
 
 const SHORTCUTS: ReadonlyArray<[string, string]> = [
   ['Tab', 'Move between nodes and links'],
@@ -139,6 +140,12 @@ export const StudioToolbar: React.FC<{
       setDataOpen(true)
     }],
     ['Keyboard shortcuts', <HelpCircle className="w-4 h-4" />, () => onHelpChange(true)],
+    // Visible in the toolbar, not only inside the shortcuts dialog: once the tour has been seen in this
+    // browser it no longer starts by itself, and this is the way back to it.
+    ['Guided tour', <Compass className="w-4 h-4" />, () => {
+      setToolsOpen(false)
+      useTourStore.getState().start()
+    }],
   ]
   const heading = 'text-[11px] font-mono text-text-muted uppercase tracking-wider'
 

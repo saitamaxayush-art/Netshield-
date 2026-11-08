@@ -32,6 +32,8 @@ export interface Slot<T> {
   stale: boolean
   /** When the current run started (ms since the epoch), for elapsed time. */
   startedAt: number | null
+  /** When the latest successful run finished (ms since the epoch): shown so a re-run is visible even when its numbers are unchanged. */
+  finishedAt: number | null
   /** Trials done and total while a batched simulation runs; null otherwise. */
   progress: { done: number; total: number } | null
   /** True when the last run was cancelled by the user (any earlier result is kept). */
@@ -63,6 +65,7 @@ const emptySlot = <T,>(requestId = 0): Slot<T> => ({
   inputKey: null,
   stale: false,
   startedAt: null,
+  finishedAt: null,
   progress: null,
   cancelled: false,
 })
@@ -125,6 +128,9 @@ const update = <T,>(acc: Accessor<T>, change: Partial<Slot<T>>) =>
   useAnalysisStore.setState((s) => acc.write({ ...acc.read(s), ...change }))
 
 async function runSlot<T>(kind: RequestKind, acc: Accessor<T>): Promise<void> {
+  // An empty network has nothing to compute: every run button is disabled then, and so is any other
+  // way in (an out of date notice's Update, a Retry), so no request is sent and older results stay as they are.
+  if (useGraphStore.getState().nodes.length === 0) return
   controllers.get(kind)?.abort()
   const controller = new AbortController()
   controllers.set(kind, controller)
@@ -146,7 +152,7 @@ async function runSlot<T>(kind: RequestKind, acc: Accessor<T>): Promise<void> {
     })
     if (!isLatest()) return
     const now = currentInputs()
-    update(acc, { status: 'success', result, error: null, inputKey: key, stale: inputKey(kind, now.graph, now.settings) !== key, progress: null })
+    update(acc, { status: 'success', result, error: null, inputKey: key, stale: inputKey(kind, now.graph, now.settings) !== key, progress: null, finishedAt: Date.now() })
   } catch (error) {
     if (!isLatest()) return
     const apiError = toApiError(error)

@@ -139,6 +139,7 @@ const RunProgress: React.FC<{ startedAt: number | null; progress: { done: number
 
 export const SimulationPanel: React.FC = () => {
   const nodes = useGraphStore((s) => s.nodes)
+  const emptyReason = nodes.length === 0 ? 'Add nodes to run it again.' : undefined
   const settings = useSettingsStore()
   const simulate = useAnalysisStore((s) => s.simulate)
   const sweep = useAnalysisStore((s) => s.sweep)
@@ -153,6 +154,12 @@ export const SimulationPanel: React.FC = () => {
   const isSweeping = sweep.status === 'loading'
   const names = nodeNames(nodes)
   const labelOf = (id: string) => names.get(id) ?? id
+  const edges = useGraphStore((s) => s.edges)
+  /** "Core B ↔ Library Switch (e-b-lib)", or the bare id for a link no longer on the canvas. */
+  const linkName = (edgeId: string) => {
+    const edge = edges.find((e) => e.id === edgeId)
+    return edge ? `${labelOf(edge.source)} ↔ ${labelOf(edge.target)} (${edgeId})` : edgeId
+  }
   const twoTerminal = settings.mode === 'two-terminal'
   const trialOptions = TRIAL_OPTIONS.some((t) => t === settings.trials) ? TRIAL_OPTIONS : [...TRIAL_OPTIONS, settings.trials].sort((a, b) => a - b)
   const freshAnalysis = analyze.result && !analyze.stale ? analyze.result : null
@@ -304,7 +311,7 @@ export const SimulationPanel: React.FC = () => {
           Run cancelled. {result ? 'The previous result is still shown.' : 'No result.'}
         </p>
       )}
-      {result && simulate.stale && <StaleNotice testId="simulation-stale" onRefresh={() => void run('simulate')} isLoading={isSimulating} />}
+      {result && simulate.stale && <StaleNotice testId="simulation-stale" onRefresh={() => void run('simulate')} isLoading={isSimulating} disabledReason={emptyReason} />}
 
       {result && c && first && (
         <div className="p-4 bg-bg-surface-elevated rounded-[2px] border border-border-subtle space-y-3" data-testid="simulation-results">
@@ -351,9 +358,9 @@ export const SimulationPanel: React.FC = () => {
                   'Most critical link',
                   <span className="break-words" data-testid="simulation-critical-edge">
                     {result.isBatched
-                      ? `per batch: ${result.batches.map((b) => b.criticalEdge?.edgeId ?? 'none').join(', ')}`
+                      ? `per batch: ${result.batches.map((b) => (b.criticalEdge ? linkName(b.criticalEdge.edgeId) : 'none')).join(', ')}`
                       : first.criticalEdge
-                        ? `${first.criticalEdge.edgeId} (pivotal in ${pct(first.criticalEdge.share)} of trials)`
+                        ? `${linkName(first.criticalEdge.edgeId)}, pivotal in ${pct(first.criticalEdge.share)} of trials`
                         : 'None (no single link failure decided a trial)'}
                   </span>,
                 ],
@@ -404,7 +411,7 @@ export const SimulationPanel: React.FC = () => {
       {sweep.error && (
         <ApiErrorBox title="Reliability Sweep Error" error={sweep.error} testId="sweep-error" onRetry={() => void run('sweep')} hint={sweep.error.isTimeout || sweep.error.code === 'TIMEOUT' ? timeoutHint : undefined} />
       )}
-      {sweep.result && sweep.stale && <StaleNotice testId="sweep-stale" onRefresh={() => void run('sweep')} isLoading={isSweeping} />}
+      {sweep.result && sweep.stale && <StaleNotice testId="sweep-stale" onRefresh={() => void run('sweep')} isLoading={isSweeping} disabledReason={emptyReason} />}
       {sweep.result && (
         <div className="space-y-2">
           <SweepChart result={sweep.result} />

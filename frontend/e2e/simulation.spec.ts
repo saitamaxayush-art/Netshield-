@@ -235,3 +235,23 @@ test('the dashboard shows the latest simulation and a Run simulation shortcut', 
   await expect(page.getByRole('button', { name: 'Run Monte Carlo Simulation' })).toBeVisible()
   expect(issues).toEqual([])
 })
+
+test('after Reset canvas, old results stay marked out of date and cannot be re-run on the empty network (BUG-025)', async ({ page, issues }) => {
+  await page.goto('/studio')
+  await page.getByRole('button', { name: 'Simulator', exact: true }).click()
+  await Promise.all([page.waitForResponse(isSimulate), page.getByRole('button', { name: 'Run Monte Carlo Simulation' }).click()])
+  await expect(page.getByTestId('simulation-results')).toBeVisible()
+  await page.getByTestId('studio-toolbar').getByRole('button', { name: 'Reset canvas' }).click()
+  await page.getByRole('dialog').last().getByRole('button', { name: 'Reset canvas' }).click()
+  await expect(page.locator('.react-flow__node')).toHaveCount(0)
+  const stale = page.getByTestId('simulation-stale')
+  await expect(stale).toContainText('Add nodes to run it again.')
+  await expect(stale.getByRole('button', { name: 'Update' })).toBeDisabled()
+  await expect(page.getByRole('button', { name: 'Run Monte Carlo Simulation' })).toBeDisabled()
+  let sent = 0
+  page.on('request', (r) => { if (r.url().includes('/api/simulate')) sent++ })
+  await stale.getByRole('button', { name: 'Update' }).click({ force: true })
+  await page.waitForTimeout(500)
+  expect(sent).toBe(0)
+  expect(issues).toEqual([])
+})

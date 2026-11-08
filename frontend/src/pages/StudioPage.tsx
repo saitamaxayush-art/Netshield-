@@ -111,7 +111,7 @@ const EmptyCanvas: React.FC = () => {
         <Button variant="primary" size="md" className="w-full" leftIcon={<Plus className="w-4 h-4" />} onClick={() => addAtCentre('router')}>
           Add node
         </Button>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 gap-2">
           {PRESET_NAMES.map((name) => (
             <Button
               key={name}

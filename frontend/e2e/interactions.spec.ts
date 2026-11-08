@@ -150,6 +150,9 @@ test.describe('widgets', () => {
     await expect(page.getByRole('button', { name: 'Run trials' })).toBeEnabled({ timeout: 15000 })
     const auto = createReliabilityRun(g.nodes, g.edges, 0.1, createMulberry32(2025)).step(1000)
     await expect(est.getByTestId('estimate')).toHaveText(auto.estimate.toFixed(3))
+    // The live estimate reaches its final value with the last progress batch, a moment before the run
+    // reports done and unlocks the slider; arrow keys sent before that land on a disabled input.
+    await expect(page.locator('#pfail')).toBeEnabled()
 
     // Keyboard: slider to 0.20 with arrow keys.
     await page.locator('#pfail').focus()

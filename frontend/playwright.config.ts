@@ -27,7 +27,7 @@ export default defineConfig({
     // Every spec in the locally installed Google Chrome.
     { name: 'chrome', use: { channel: 'chrome' } },
     // The user facing journeys and layout in WebKit (Safari's engine), installed with `npx playwright install webkit`.
-    { name: 'webkit', use: { browserName: 'webkit' }, testMatch: ['journey.spec.ts', 'studio-failure.spec.ts', 'simulation.spec.ts', 'layout.spec.ts', 'tour.spec.ts'] },
+    { name: 'webkit', use: { browserName: 'webkit' }, testMatch: ['journey.spec.ts', 'studio-failure.spec.ts', 'simulation.spec.ts', 'layout.spec.ts', 'tour.spec.ts', 'demo.spec.ts'] },
   ],
   webServer: [
     {

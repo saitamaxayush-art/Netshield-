@@ -87,6 +87,66 @@ for (const [mode, viewport] of [['desktop', { width: 1440, height: 900 }], ['pho
   })
 }
 
+/** Netbot is on screen for real: rendered, opaque, inside the viewport, and nothing else on top of it. */
+async function expectMascotOnScreen(page: Page) {
+  await expect(page.getByTestId('tour-mascot')).toBeVisible()
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const svg = document.querySelector('[data-testid="tour-mascot"]')
+        if (!svg) return 'missing'
+        const b = svg.getBoundingClientRect()
+        if (b.width < 40 || b.height < 40) return `too small ${b.width}x${b.height}`
+        if (b.left < 0 || b.top < 0 || b.right > innerWidth || b.bottom > innerHeight) return 'off screen'
+        for (let el: Element | null = svg; el; el = el.parentElement) {
+          const s = getComputedStyle(el)
+          if (s.display === 'none' || s.visibility === 'hidden' || Number(s.opacity) < 0.99) return `hidden by ${el.tagName} ${s.display} ${s.visibility} ${s.opacity}`
+        }
+        const top = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2)
+        return top && svg.contains(top) ? 'ok' : `covered by ${top?.tagName ?? 'nothing'}`
+      })
+    )
+    .toBe('ok')
+}
+
+// Fresh storage, whichever app page the visitor opens first (the welcome step lives in the studio).
+for (const route of ['/studio', '/dashboard'] as const) {
+  test(`first visit with empty storage, straight to ${route}: Netbot appears without any click`, async ({ page, issues }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.goto(route)
+    expect(await page.evaluate(() => localStorage.getItem('netshield_tour_seen'))).toBeNull()
+    await expect(page.getByTestId('tour')).toHaveAttribute('data-step', 'welcome')
+    await expect(page).toHaveURL(/\/studio/)
+    await expectMascotOnScreen(page)
+    await expect(bubble(page)).toContainText(TOUR_STEPS[0].title)
+    await testInfo.attach(`first visit ${route}`, { body: await page.screenshot(), contentType: 'image/png' })
+    expect(issues).toEqual([])
+  })
+}
+
+test.describe('returning visitor', () => {
+  // The tour was dismissed earlier in this browser: it must not start by itself, but stay one click away.
+  test.use({ storageState: { cookies: [], origins: [{ origin: 'http://localhost:4317', localStorage: [{ name: 'netshield_tour_seen', value: '1' }] }] } })
+
+  for (const [mode, viewport] of [['desktop', { width: 1440, height: 900 }], ['phone', { width: 390, height: 844 }]] as const) {
+    test(`${mode}: no automatic tour, and the studio's visible Guided tour button brings Netbot back`, async ({ page, issues }) => {
+      await page.setViewportSize(viewport)
+      await page.goto('/studio')
+      await page.waitForTimeout(1200)
+      await expect(page.getByTestId('tour')).toHaveCount(0)
+      if (mode === 'phone') {
+        await page.getByTestId('studio-toolbar').getByRole('button', { name: 'Tools' }).click()
+        await page.getByTestId('tools-sheet').getByRole('button', { name: 'Guided tour' }).click()
+      } else {
+        await page.getByTestId('studio-toolbar').getByRole('button', { name: 'Guided tour' }).click()
+      }
+      await expect(page.getByTestId('tour')).toHaveAttribute('data-step', 'welcome')
+      await expectMascotOnScreen(page)
+      expect(issues).toEqual([])
+    })
+  }
+})
+
 test('skip ends the tour for good; it can be replayed from the help dialog and the dashboard', async ({ page, issues }) => {
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto('/studio')

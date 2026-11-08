@@ -1,15 +1,16 @@
 /**
- * Example networks (star, ring, mesh) with fixed, deterministic layouts. The UI labels a loaded
+ * Example networks (star, ring, mesh, campus) with fixed, deterministic layouts. The UI labels a loaded
  * preset "Example" so it is never mistaken for the user's own data.
  */
 import type { EditorEdge, EditorGraph, EditorNode, NodeType } from '@/types/graph'
 
-export type PresetName = 'star' | 'ring' | 'mesh'
-export const PRESET_NAMES: readonly PresetName[] = ['star', 'ring', 'mesh']
+export type PresetName = 'star' | 'ring' | 'mesh' | 'campus'
+export const PRESET_NAMES: readonly PresetName[] = ['star', 'ring', 'mesh', 'campus']
 export const PRESET_TITLES: Record<PresetName, string> = {
   star: 'Example: star network',
   ring: 'Example: ring network',
   mesh: 'Example: partial mesh',
+  campus: 'Example: campus network',
 }
 
 const node = (id: string, label: string, nodeType: NodeType, x: number, y: number): EditorNode => ({
@@ -18,12 +19,12 @@ const node = (id: string, label: string, nodeType: NodeType, x: number, y: numbe
   position: { x, y },
   data: { label, nodeType, failed: false },
 })
-const edge = (id: string, source: string, target: string): EditorEdge => ({
+const edge = (id: string, source: string, target: string, weight?: number): EditorEdge => ({
   id,
   source,
   target,
   type: 'netshieldEdge',
-  data: { failed: false },
+  data: weight === undefined ? { failed: false } : { failed: false, weight },
 })
 
 function star(): EditorGraph {
@@ -99,6 +100,43 @@ function mesh(): EditorGraph {
   }
 }
 
+/**
+ * The demonstration network: 10 nodes and 12 links that show every panel at once. Redundant loops in
+ * the core (no bridges there), single points of failure at the edges (5 bridges, 4 cut vertices), varied
+ * degrees, and one slow link (weight 5, Edge Router to Core B) so the weighted shortest path from the
+ * gateway to the Library PC differs from the fewest hops path.
+ */
+function campus(): EditorGraph {
+  return {
+    nodes: [
+      node('gw', 'Internet Gateway', 'firewall', 40, 250),
+      node('edge', 'Edge Router', 'router', 260, 250),
+      node('core-a', 'Core A', 'router', 480, 110),
+      node('core-b', 'Core B', 'router', 480, 390),
+      node('web', 'Web Server', 'server', 720, 0),
+      node('lab', 'Lab Switch', 'router', 720, 250),
+      node('lib', 'Library Switch', 'router', 720, 500),
+      node('db', 'Database', 'server', 960, 0),
+      node('lab-pc', 'Lab PC', 'client', 960, 250),
+      node('lib-pc', 'Library PC', 'client', 960, 500),
+    ],
+    edges: [
+      edge('e-gw-edge', 'gw', 'edge', 1),
+      edge('e-edge-a', 'edge', 'core-a', 1),
+      edge('e-edge-b', 'edge', 'core-b', 5),
+      edge('e-a-b', 'core-a', 'core-b', 1),
+      edge('e-a-web', 'core-a', 'web', 1),
+      edge('e-a-lab', 'core-a', 'lab', 1),
+      edge('e-b-lab', 'core-b', 'lab', 1),
+      edge('e-b-lib', 'core-b', 'lib', 1),
+      edge('e-web-lab', 'web', 'lab', 1),
+      edge('e-web-db', 'web', 'db', 1),
+      edge('e-lab-pc', 'lab', 'lab-pc', 1),
+      edge('e-lib-pc', 'lib', 'lib-pc', 1),
+    ],
+  }
+}
+
 export function preset(name: PresetName): EditorGraph {
-  return name === 'ring' ? ring() : name === 'mesh' ? mesh() : star()
+  return name === 'ring' ? ring() : name === 'mesh' ? mesh() : name === 'campus' ? campus() : star()
 }

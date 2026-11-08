@@ -51,6 +51,12 @@ export const AnalysisPanel: React.FC = () => {
         Compute Graph Metrics
       </Button>
 
+      {current && result && slot.finishedAt !== null && slot.startedAt !== null && (
+        <p className="text-[11px] font-mono text-text-secondary" data-testid="analysis-computed-at" data-finished-at={slot.finishedAt}>
+          Computed {result.isDemo ? 'in the browser (demo)' : 'by the backend'} at {new Date(slot.finishedAt).toLocaleTimeString()} ({Math.max(0, slot.finishedAt - slot.startedAt)} ms)
+        </p>
+      )}
+
       {slot.error && <ApiErrorBox title="Analysis Request Failed" error={slot.error} testId="analysis-error" onRetry={retry} />}
       {current && slot.stale && <StaleNotice testId="analysis-stale" onRefresh={retry} isLoading={isLoading} />}
 

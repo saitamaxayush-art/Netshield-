@@ -91,10 +91,24 @@ describe('HttpApiClient: every failure is one ApiError kind', () => {
     expect([err.kind, err.status, err.code, err.isServerError, err.isTimeout]).toEqual(['server', 504, 'TIMEOUT', true, false])
   })
 
-  it('server: HTTP 5xx without an error body', async () => {
-    const { api } = client(() => new Response('upstream down', { status: 502 }))
+  it('server: HTTP 500 without an error body', async () => {
+    const { api } = client(() => new Response('boom', { status: 500 }))
     const err = await failure(api.analyze(request))
-    expect([err.kind, err.status, err.code]).toEqual(['server', 502, 'HTTP_502'])
+    expect([err.kind, err.status, err.code]).toEqual(['server', 500, 'HTTP_500'])
+  })
+
+  // BUG-027: with the backend stopped, the Vite proxy (or a reverse proxy) answers 502 with no body, so the
+  // browser never sees a connection error. It must still count as unreachable: offline banner, demo mode offer.
+  it.each([
+    ['502, empty body (Vite proxy)', () => new Response('', { status: 502 })],
+    ['502, HTML page (reverse proxy)', () => new Response('<html>Bad Gateway</html>', { status: 502, headers: { 'Content-Type': 'text/html' } })],
+    ['503, JSON that is not ours', () => json({ message: 'Service Unavailable' }, 503)],
+    ['504, empty body', () => new Response(null, { status: 504 })],
+  ])('network: %s means the backend cannot be reached', async (_name, respond) => {
+    const { api } = client(respond)
+    const err = await failure(api.analyze(request))
+    expect([err.kind, err.code, err.isNetworkError, err.isServerError]).toEqual(['network', 'BACKEND_UNREACHABLE', true, false])
+    expect(err.message).toMatch(/^Could not reach the NetShield backend \(\/api\/analyze\)/)
   })
 
   it('invalid_response: HTTP 200 that is not JSON', async () => {
@@ -175,7 +189,7 @@ describe('HttpApiClient: retries only for health', () => {
   it('health gives up after the configured attempts with the last error', async () => {
     const { api, calls } = client(() => new Response('x', { status: 503 }), { healthRetry: { attempts: 2, delayMs: 1 } })
     const err = await failure(api.health())
-    expect([err.kind, err.status]).toEqual(['server', 503])
+    expect([err.kind, err.status]).toEqual(['network', 503])
     expect(calls).toHaveLength(2)
   })
 

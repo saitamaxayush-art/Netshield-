@@ -202,6 +202,7 @@ export class HttpApiClient implements NetShieldApi {
       } catch {
         const aborted = abortError(reason, path, options.timeoutMs ?? this.timeouts[method])
         if (aborted) throw aborted
+        if (isGatewayFailure(response.status)) throw unreachable(path, response.status)
         if (!response.ok) throw httpError(response.status, `The backend returned HTTP ${response.status} without an error body.`)
         throw new ApiError('invalid_response', 'INVALID_RESPONSE', `The backend response from ${path} was not valid JSON. No result is shown.`, response.status)
       }
@@ -212,6 +213,7 @@ export class HttpApiClient implements NetShieldApi {
           const { code, message, details } = error.data.error
           throw httpError(response.status, `${message} (${code})`, code, details)
         }
+        if (isGatewayFailure(response.status)) throw unreachable(path, response.status)
         throw httpError(response.status, `The backend returned HTTP ${response.status}.`)
       }
 
@@ -245,6 +247,23 @@ function abortError(reason: AbortReason | null, path: string, timeoutMs: number)
   if (reason === 'superseded') return new ApiError('cancelled', 'SUPERSEDED', `Request to ${path} was replaced by a newer one.`)
   if (reason === 'cancelled') return new ApiError('cancelled', 'CANCELLED', `Request to ${path} was cancelled.`)
   return null
+}
+
+/**
+ * 502, 503 and 504 without the backend's own error body come from what sits in front of it (the Vite
+ * development proxy, or a reverse proxy in production) when the backend is down: the browser never sees a
+ * connection error then. They mean the same as one, so they are network errors: the offline banner and
+ * "Use demo mode" appear. The backend's own errors (for example its 504 TIMEOUT) always have a JSON body.
+ */
+const isGatewayFailure = (status: number) => status === 502 || status === 503 || status === 504
+
+function unreachable(path: string, status: number): ApiError {
+  return new ApiError(
+    'network',
+    'BACKEND_UNREACHABLE',
+    `Could not reach the NetShield backend (${path}): the server in front of it answered HTTP ${status}. Check that the backend is running, for example with npm run dev:all.`,
+    status
+  )
 }
 
 function httpError(status: number, message: string, code?: string, details?: unknown): ApiError {

@@ -357,3 +357,79 @@ Phase 8 also closed the open test items from PROJECT_AUDIT.md section 9 (9.1 to 
   The delay is most likely React's Suspense reveal throttling; this was not changed.
 * Fix: the test waits for the page heading before measuring.
 * Test: `layout.spec.ts` 30 of 30 with `--repeat-each=3` in Chrome and WebKit.
+
+## Pre-demo sweep
+
+A presenter's click-through of every studio and dashboard control against the real backend, both the
+production build and `npm run dev:all` (34 steps, scripted in a real browser, with console and network
+captured at each step).
+
+### BUG-025: Update on an out of date result could run on an empty network
+
+* Symptom: after Reset canvas, the Simulator still showed the earlier result as out of date (correct), but
+  its Update button was enabled although Run Monte Carlo Simulation was disabled. Clicking it sent
+  `POST /api/simulate` for a network with no nodes (HTTP 200) and showed a fresh "0.0%" estimate.
+* Root cause: the run buttons were disabled for an empty network, but nothing else was: the out of date
+  notice's Update (and an error box's Retry) called the store's `run` directly.
+* Fix: the store's `run` sends nothing for an empty network; the Update button is disabled then, with
+  "Add nodes to run it again."
+* Tests: unit test in `analysisStore.test.ts` (5 requests sent instead of 2 without the fix); e2e test in
+  `simulation.spec.ts` (Chrome and WebKit).
+
+### BUG-026: Compute Graph Metrics looked like it did nothing
+
+* Symptom: reported before the demo as "Compute Metrics isn't working properly". Measured: clicking it
+  sends `POST /api/analyze` (HTTP 200 in 49 ms), but the button is busy for one animation frame and,
+  because automatic analysis had already produced the same numbers, the panel text is identical before and
+  after. Nothing on screen changes, so it reads as a dead button.
+* Root cause: no visible sign that a run completed when its results are unchanged.
+* Fix: the panel shows "Computed by the backend at HH:MM:SS (N ms)" (or "in the browser (demo)"), updated
+  on every completed run (`finishedAt` on each result slot).
+* Test: e2e test in `robustness.spec.ts`: two clicks, each one moves the shown time forward while the
+  results stay the same.
+
+### BUG-027: With the backend stopped behind a proxy, no offline banner and no way into demo mode
+
+* Symptom: the backend process was stopped while the studio was open (`npm run dev:all` setup). Every
+  request then got HTTP 502 with an empty body from the Vite proxy. The app showed "Backend error: The
+  backend returned HTTP 502 without an error body." in the panels, but no "Cannot reach the analysis
+  server" banner and no "Use demo mode" or "Switch to demo mode" button anywhere: a presenter had no way
+  out.
+* Root cause: the API client treated every 5xx response as a server error. Only a failed `fetch` counted
+  as unreachable, and behind a proxy (Vite in development, any reverse proxy in production) the browser
+  never sees one. The Phase 7 offline test aborted the connection, so it never covered this.
+* Fix: 502, 503 and 504 without the backend's own JSON error body are network errors
+  (`BACKEND_UNREACHABLE`). The backend's own 504 TIMEOUT keeps its JSON body and stays a server error.
+* Tests: `client.test.ts` (four proxy answers; they fail on the old client); e2e test in
+  `robustness.spec.ts` (fails on the old client with "offline banner not found"). Repeated by hand by
+  stopping a real backend while the app was open.
+
+### BUG-028: the tour "never appears" once it has been seen, with no visible way back in the studio
+
+* Symptom: opening the studio or dashboard showed no Netbot and no tour.
+* Investigation (real browsers, not code reading): the tour is built, merged (fe2d0b2), rendered by
+  `TourHost` in `App.tsx` on every app page, and in the production build. In a clean profile it starts by
+  itself on `/studio` and on `/dashboard` (Chromium and WebKit, desktop and 390 px phone, with and without
+  reduced motion, and entering from the landing page). The mascot is opaque, at z-index 80, inside the
+  viewport, and nothing covers it. No page errors. Removing `netshield_tour_seen` and reloading brings it
+  back every time; with the key set to `1` it stays away, as designed.
+* Root cause: the first visit check is per browser and per origin (`localStorage.netshield_tour_seen`),
+  and any earlier Skip, Escape or Finish on that origin sets it. After that, the studio's only way back
+  was a "Start guided tour" button inside the Keyboard shortcuts dialog, which nobody looks for. The
+  dashboard's Guided tour button was the only visible replay.
+* Fix: a visible "Guided tour" button (compass icon) in the studio toolbar and in the phone Tools sheet.
+  The tour's "Help is here" step now points at it.
+* Tests: `tour.spec.ts` gains "first visit with empty storage, straight to /studio" and "... /dashboard"
+  (the mascot must be visible, opaque, on screen and on top), and "returning visitor" for desktop and
+  phone (the key is set: no automatic tour, and the toolbar button brings Netbot back). The returning
+  visitor tests fail without the button ("waiting for ... 'Guided tour'").
+
+### BUG-029: the landing estimator e2e test failed intermittently ("p = 0.10")
+
+* Symptom: `interactions.spec.ts` "estimator: 5000 trials match a seeded run" failed 2 of 3 times in
+  isolation: after ten ArrowRight presses the slider still read p = 0.10.
+* Root cause (test, not app): the test waited for the on-view run's final estimate, then pressed keys.
+  The live estimate reaches its final value with the last progress batch, a moment before the run reports
+  done and re-enables the slider (it is disabled while a run is going, by design). A focus listener showed
+  the slider disabled with "Running" still shown at the moment it lost focus, so every key press was lost.
+* Fix: the test waits for the slider to be enabled before pressing keys. 8 of 8 repeated runs pass.

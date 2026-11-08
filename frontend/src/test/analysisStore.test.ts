@@ -164,6 +164,20 @@ describe('analysisStore: stale flag', () => {
     expect(analysis().analyze).toMatchObject({ status: 'success', stale: true })
   })
 
+  it('an empty network sends nothing, even from Update or Retry, and keeps the older results (BUG-025)', async () => {
+    vi.unstubAllGlobals()
+    const calls = serve((call) => (call.url.endsWith('/api/reliability-sweep') ? json(backendFixture('sweep').response) : byPath(call)))
+    await analysis().run('simulate')
+    await analysis().run('sweep')
+    const sent = calls.length
+    graph().reset()
+    expect(graph().nodes).toHaveLength(0)
+    for (const kind of ['analyze', 'simulate', 'sweep'] as const) await analysis().run(kind)
+    expect(calls).toHaveLength(sent)
+    expect(analysis().simulate).toMatchObject({ status: 'success', stale: true })
+    expect(analysis().sweep).toMatchObject({ status: 'success', stale: true })
+  })
+
   it('a slot without a result is never stale', () => {
     graph().failNode('hub')
     expect(analysis().analyze.stale).toBe(false)

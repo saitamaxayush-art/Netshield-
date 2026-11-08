@@ -7,8 +7,12 @@ NetworkX. The browser only displays those results.
 
 * `/` landing page with its own small demos
 * `/studio` network editor with analysis and simulation panels, and a guided tour (it starts on a first
-  visit; replay it from the Keyboard shortcuts dialog or the dashboard's Guided tour button)
+  visit; replay it from the Guided tour button in the studio toolbar or on the dashboard)
 * `/dashboard` overview of the current graph
+
+**For a demonstration**, load the **Campus** example (studio toolbar, Example: Campus): 10 nodes, 12 weighted
+links, with redundant loops and single points of failure, so every analysis section, both kinds of shortest
+path and every simulation chart have something to show. `e2e/demo.spec.ts` checks it end to end.
 * `/privacy`, `/terms`
 
 Project documents: `FINAL_REPORT.md` (results of the final verification), `API_CONTRACT.md` (the API,
@@ -72,7 +76,7 @@ there is no CORS in development. Health check through the proxy: `http://localho
 | `scripts/verify.sh` or `npm run verify` | **Master check**: backend ruff, mypy, pytest; frontend typecheck (app, Vite config and end to end specs), lint, unit tests, API types in sync, build |
 | `npm run test:backend` | pytest (175 tests, including Hypothesis property tests) |
 | `npm --prefix frontend test` | Vitest unit and component tests |
-| `npm --prefix frontend run test:e2e` | Production build, then Playwright against `vite preview` and a real backend on port 8799, in Chrome (every spec) and WebKit (journey, failure, simulation, layout, tour) |
+| `npm --prefix frontend run test:e2e` | Production build, then Playwright against `vite preview` and a real backend on port 8799, in Chrome (every spec) and WebKit (journey, failure, simulation, layout, tour, demo) |
 | `npm --prefix frontend run test:e2e:prod` | Build, then a smoke run (journey, code splitting) against the production server (`start:prod` on port 8811) |
 | `NETSHIELD_API_URL=http://127.0.0.1:8765 npm --prefix frontend run test:integration` | One real call per API client method against a running backend |
 | `.venv/bin/python scripts/crosscheck_networkx.py http://127.0.0.1:8765` | 20 seeded random graphs: `/api/analyze` against NetworkX called directly |

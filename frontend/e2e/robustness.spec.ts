@@ -418,3 +418,50 @@ for (const [width, height] of [[1440, 900], [390, 844]] as const) {
     expect(issues).toEqual([])
   })
 }
+
+test('Compute Graph Metrics visibly re-runs even when the numbers do not change (BUG-026)', async ({ page, issues }) => {
+  await Promise.all([page.waitForResponse(isAnalyze), page.goto('/studio')])
+  await page.getByRole('button', { name: 'Analysis', exact: true }).click()
+  const stamp = page.getByTestId('analysis-computed-at')
+  await expect(stamp).toContainText(/^Computed by the backend at .+ \(\d+ ms\)$/)
+  const results = await page.getByTestId('analysis-results').innerText()
+  for (let i = 0; i < 2; i++) {
+    const before = Number(await stamp.getAttribute('data-finished-at'))
+    await page.waitForTimeout(1100) // so the shown time (seconds) changes too
+    const [response] = await Promise.all([page.waitForResponse(isAnalyze), page.getByRole('button', { name: 'Compute Graph Metrics' }).click()])
+    expect(response.status()).toBe(200)
+    await expect.poll(async () => Number(await stamp.getAttribute('data-finished-at'))).toBeGreaterThan(before)
+    expect(await page.getByTestId('analysis-results').innerText()).toBe(results)
+  }
+  expect(issues).toEqual([])
+})
+
+test('backend stops mid-demo behind a proxy (HTTP 502, no body): offline banner and demo mode still appear (BUG-027)', async ({ page, issues }) => {
+  await Promise.all([page.waitForResponse(isAnalyze), page.goto('/studio')])
+  await tab(page, 'Analysis')
+  await expect(page.getByTestId('analysis-source')).toHaveText('FastAPI NetworkX')
+  // What the Vite proxy answers once the backend process is gone.
+  await page.route('**/api/**', (route) => route.fulfill({ status: 502, body: '' }))
+  await page.locator('.react-flow__node[data-id="hub"] [data-testid="node-body"]').click()
+  await tab(page, 'Properties')
+  await page.getByRole('button', { name: 'Fail selected node' }).click()
+  const banner = page.getByTestId('offline-banner')
+  await expect(banner).toContainText('Cannot reach the analysis server.')
+  await tab(page, 'Analysis')
+  const error = page.getByTestId('analysis-error')
+  await expect(error).toHaveAttribute('data-error-kind', 'network')
+  await expect(error).toContainText('Backend unreachable')
+  await expect(error.getByRole('button', { name: 'Switch to demo mode' })).toBeVisible()
+  await banner.getByRole('button', { name: 'Use demo mode' }).click()
+  await expect(page.getByTestId('demo-mode-banner')).toBeVisible()
+  await expect(page.getByTestId('analysis-source')).toHaveText('Demo result')
+  await expect(page.getByTestId('analysis-component-count')).toHaveText('6')
+  // The backend returns; leaving demo mode goes back to real results.
+  await page.unroute('**/api/**')
+  await Promise.all([page.waitForResponse(isAnalyze), page.getByRole('button', { name: 'Exit demo mode' }).click()])
+  await expect(page.getByTestId('analysis-source')).toHaveText('FastAPI NetworkX')
+  await expect(page.getByTestId('analysis-component-count')).toHaveText('6')
+  await expect(banner).toHaveCount(0)
+  // The only console errors are the browser's own lines for the deliberate 502s.
+  expect(issues.filter((i) => !/status of 502|^http 502: /.test(i))).toEqual([])
+})
