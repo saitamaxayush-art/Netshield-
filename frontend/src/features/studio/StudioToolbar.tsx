@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useReactFlow } from '@xyflow/react'
 import {
   Network,
@@ -17,14 +17,13 @@ import {
   FileJson,
   Wrench,
   PanelRight,
-  Compass,
+  ChevronDown,
 } from 'lucide-react'
 import { useGraphStore } from '@/store/graphStore'
 import { PRESET_NAMES, PRESET_TITLES, type PresetName } from '@/store/presets'
 import { clearSavedData } from '@/store/persistence'
 import { FIT_OPTIONS, useAddNodeAtCentre } from './studioActions'
 import { GraphDataDialog } from './GraphDataDialog'
-import { useTourStore } from '@/store/tourStore'
 import { Button } from '@/components/ui/Button'
 import { Dialog } from '@/components/ui/Dialog'
 import { Sheet } from '@/components/ui/Sheet'
@@ -52,7 +51,7 @@ const IconButton: React.FC<{ label: string; icon: React.ReactNode; onClick: () =
 )
 
 /** Guided tour anchors for the toolbar actions. */
-const TOUR_ANCHOR: Record<string, string> = { 'Import or export': 'import-export', 'Guided tour': 'help' }
+const TOUR_ANCHOR: Record<string, string> = { 'Import or export': 'import-export' }
 
 const SHORTCUTS: ReadonlyArray<[string, string]> = [
   ['Tab', 'Move between nodes and links'],
@@ -64,6 +63,65 @@ const SHORTCUTS: ReadonlyArray<[string, string]> = [
   ['Escape', 'Clear the selection, or close a dialog'],
   ['?', 'Show this help'],
 ]
+
+/** A labelled disclosure for the less frequent actions; closes on Escape, outside click, or a choice. */
+const MoreMenu: React.FC<{ actions: ReadonlyArray<[string, React.ReactNode, () => void]> }> = ({ actions }) => {
+  const [open, setOpen] = useState(false)
+  const root = useRef<HTMLDivElement>(null)
+  const trigger = useRef<HTMLButtonElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e: PointerEvent) => {
+      if (e.target instanceof Node && !root.current?.contains(e.target)) setOpen(false)
+    }
+    document.addEventListener('pointerdown', onDown)
+    return () => document.removeEventListener('pointerdown', onDown)
+  }, [open])
+  return (
+    <div
+      ref={root}
+      className="relative ml-1"
+      onKeyDown={(e) => {
+        if (e.key === 'Escape' && open) {
+          e.stopPropagation()
+          setOpen(false)
+          trigger.current?.focus()
+        }
+      }}
+    >
+      <Button
+        ref={trigger}
+        variant="ghost"
+        size="sm"
+        aria-expanded={open}
+        aria-controls="toolbar-more"
+        data-tour="more"
+        rightIcon={<ChevronDown className={`w-3.5 h-3.5 transition-transform ${open ? 'rotate-180' : ''}`} />}
+        onClick={() => setOpen((o) => !o)}
+      >
+        More
+      </Button>
+      {open && (
+        <div id="toolbar-more" role="group" aria-label="More canvas actions" className="absolute right-0 top-full mt-1 z-30 w-52 py-1 bg-bg-surface border border-border-strong rounded-[3px] shadow-2xl">
+          {actions.map(([label, icon, run]) => (
+            <button
+              key={label}
+              type="button"
+              onClick={() => {
+                setOpen(false)
+                run()
+              }}
+              className="w-full min-h-9 px-3 flex items-center gap-2.5 text-left text-xs text-text-secondary hover:text-text-primary hover:bg-bg-surface-active cursor-pointer focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent-teal"
+            >
+              {icon}
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export const StudioToolbar: React.FC<{
   isDesktop: boolean
@@ -100,7 +158,7 @@ export const StudioToolbar: React.FC<{
   const palette = NODE_TYPES.map((t) => (
     <Button
       key={t}
-      variant="secondary"
+      variant={isDesktop ? 'ghost' : 'secondary'}
       size="sm"
       leftIcon={PALETTE[t].icon}
       draggable
@@ -130,23 +188,19 @@ export const StudioToolbar: React.FC<{
     </>
   )
   const fitButton = <IconButton label="Fit view" icon={<Maximize className="w-4 h-4" />} onClick={fit} />
-  const secondaryActions: ReadonlyArray<[string, React.ReactNode, () => void]> = [
+  const importExport: [string, React.ReactNode, () => void] = ['Import or export', <FileJson className="w-4 h-4" />, () => {
+    setToolsOpen(false)
+    setDataOpen(true)
+  }]
+  // Less frequent canvas actions: behind More on desktop (the wheel and pinch also zoom).
+  const moreActions: ReadonlyArray<[string, React.ReactNode, () => void]> = [
     ['Zoom in', <ZoomIn className="w-4 h-4" />, () => void zoomIn()],
     ['Zoom out', <ZoomOut className="w-4 h-4" />, () => void zoomOut()],
     ['Restore all failed', <RefreshCw className="w-4 h-4" />, clearFailures],
     ['Reset canvas', <RotateCcw className="w-4 h-4" />, () => setConfirmReset(true)],
-    ['Import or export', <FileJson className="w-4 h-4" />, () => {
-      setToolsOpen(false)
-      setDataOpen(true)
-    }],
     ['Keyboard shortcuts', <HelpCircle className="w-4 h-4" />, () => onHelpChange(true)],
-    // Visible in the toolbar, not only inside the shortcuts dialog: once the tour has been seen in this
-    // browser it no longer starts by itself, and this is the way back to it.
-    ['Guided tour', <Compass className="w-4 h-4" />, () => {
-      setToolsOpen(false)
-      useTourStore.getState().start()
-    }],
   ]
+  const secondaryActions = [...moreActions.slice(0, 4), importExport, moreActions[4]]
   const heading = 'text-[11px] font-mono text-text-muted uppercase tracking-wider'
 
   return (
@@ -164,9 +218,8 @@ export const StudioToolbar: React.FC<{
             <div className="flex items-center">
               {history}
               {fitButton}
-              {secondaryActions.map(([label, icon, run]) => (
-                <IconButton key={label} label={label} icon={icon} onClick={run} tour={TOUR_ANCHOR[label]} />
-              ))}
+              <IconButton label={importExport[0]} icon={importExport[1]} onClick={importExport[2]} tour={TOUR_ANCHOR[importExport[0]]} />
+              <MoreMenu actions={moreActions} />
             </div>
           </>
         ) : (
@@ -259,17 +312,7 @@ export const StudioToolbar: React.FC<{
           ))}
         </dl>
         <p className="mt-3 text-xs text-text-muted">Touch: tap a handle on one node, then a handle on another, to connect them.</p>
-        <Button
-          variant="primary"
-          size="sm"
-          className="mt-4"
-          onClick={() => {
-            onHelpChange(false)
-            useTourStore.getState().start()
-          }}
-        >
-          Start guided tour
-        </Button>
+        <p className="mt-2 text-xs text-text-muted">The guided tour is turned on and off with the Tutorial switch at the top of the page.</p>
       </Dialog>
     </>
   )

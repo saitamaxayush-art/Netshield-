@@ -161,7 +161,12 @@ describe('toolbar', () => {
 
   it('reset asks first, then empties', () => {
     toolbar()
+    // Less frequent actions sit behind More on desktop.
+    expect(screen.queryByRole('button', { name: 'Reset canvas' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'More' }))
+    expect(screen.getByRole('button', { name: 'More' })).toHaveAttribute('aria-expanded', 'true')
     fireEvent.click(screen.getByRole('button', { name: 'Reset canvas' }))
+    expect(screen.queryByRole('group', { name: 'More canvas actions' })).toBeNull()
     expect(graph().nodes.length).toBeGreaterThan(0)
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Reset canvas' }))
     expect(graph().nodes).toEqual([])

@@ -19,9 +19,6 @@ export default defineConfig({
   use: {
     baseURL: 'http://localhost:4317',
     trace: 'off',
-    // Every spec starts as a returning visitor, so the first visit guided tour does not cover the page.
-    // The tour specs reset this to an empty storage.
-    storageState: { cookies: [], origins: [{ origin: 'http://localhost:4317', localStorage: [{ name: 'netshield_tour_seen', value: '1' }] }] },
   },
   projects: [
     // Every spec in the locally installed Google Chrome.

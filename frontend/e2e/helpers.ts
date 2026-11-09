@@ -250,3 +250,15 @@ export async function alignmentReport(page: Page) {
     return { rows, problems, edges: [...edges] }
   })
 }
+
+/** The simulator's less used options (node failure, seed, success mode) are folded under More options. */
+export async function openSimulatorOptions(page: Page) {
+  const more = page.getByTestId('simulation-more')
+  if ((await more.getAttribute('open')) === null) await more.locator('summary').click()
+}
+
+/** Less frequent canvas actions (zoom, restore, reset, shortcuts) sit behind More on the desktop toolbar. */
+export async function moreAction(page: Page, name: string) {
+  await page.getByTestId('studio-toolbar').getByRole('button', { name: 'More', exact: true }).click()
+  await page.getByRole('group', { name: 'More canvas actions' }).getByRole('button', { name, exact: true }).click()
+}

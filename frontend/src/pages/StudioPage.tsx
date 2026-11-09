@@ -33,7 +33,6 @@ import { Button } from '@/components/ui/Button'
 import { useGraphStore, type Viewport } from '@/store/graphStore'
 import { PRESET_NAMES, PRESET_TITLES } from '@/store/presets'
 import { useAutoAnalyze } from '@/hooks/useAutoAnalyze'
-import { useTourStore } from '@/store/tourStore'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { NODE_TYPES, type EditorEdge, type EditorNode, type NodeType, type Position } from '@/types/graph'
 import { Sliders, Network, Activity, Plus } from 'lucide-react'
@@ -205,10 +204,6 @@ const Studio: React.FC = () => {
   const [initialViewport] = useState(() => useGraphStore.getState().viewport)
 
   useAutoAnalyze()
-  // First visit: Netbot offers the tour (remembered in this browser).
-  useEffect(() => {
-    useTourStore.getState().startIfFirstVisit()
-  }, [])
 
   // Dashboard metrics link to the panel that explains them.
   const [params] = useSearchParams()

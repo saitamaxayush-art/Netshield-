@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'
+import React from 'react'
 import { Link } from 'react-router-dom'
 import { Navbar } from '@/components/layout/Navbar'
 import { Footer } from '@/components/layout/Footer'
@@ -12,26 +12,35 @@ import { AnalysisAnnouncer } from '@/features/studio/AnalysisAnnouncer'
 import { GraphMiniMap } from '@/features/dashboard/GraphMiniMap'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
-import { Activity, ArrowRight, FolderOpen, HelpCircle, Network } from 'lucide-react'
-import { useTourStore } from '@/store/tourStore'
+import { Activity, ArrowRight, FolderOpen, Network } from 'lucide-react'
 import '@/store/bootstrap'
 
-const Metric: React.FC<{ label: string; value: React.ReactNode; detail?: string; to: string; testId: string }> = ({ label, value, detail, to, testId }) => (
+/** One cell of the metrics strip: no box of its own, the strip's dividers separate cells. */
+const Metric: React.FC<{ label: string; value: React.ReactNode; detail?: string; to: string; testId: string; size?: 'headline' | 'secondary' }> = ({
+  label,
+  value,
+  detail,
+  to,
+  testId,
+  size = 'headline',
+}) => (
   <Link
     to={to}
     data-testid={`metric-${testId}`}
-    className="block min-h-[124px] p-5 bg-bg-surface border border-border-subtle hover:border-border-strong rounded-[3px] space-y-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-teal"
+    className={`group block ${size === 'headline' ? 'min-h-[112px] py-5' : 'min-h-[76px] py-4'} pr-4 space-y-1.5 rounded-[2px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-teal`}
   >
-    <div className="flex items-center justify-between text-[11px] font-mono uppercase text-text-muted">
+    <div className="flex items-center gap-1.5 text-[11px] font-mono uppercase text-text-muted group-hover:text-text-secondary">
       <span>{label}</span>
-      <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
+      <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100" aria-hidden="true" />
     </div>
-    <div className="text-2xl font-mono font-semibold tabular-nums text-text-primary" data-testid={`metric-${testId}-value`}>
+    <div className={`${size === 'headline' ? 'text-2xl' : 'text-lg'} font-mono font-semibold tabular-nums text-text-primary group-hover:text-accent-teal`} data-testid={`metric-${testId}-value`}>
       {value}
     </div>
     {detail && <div className="text-[11px] font-mono text-text-muted">{detail}</div>}
   </Link>
 )
+
+const ROW = 'grid grid-cols-2 lg:grid-cols-4 gap-x-6'
 
 const panel = (section: string) => `/studio?panel=analysis&section=${section}`
 
@@ -48,10 +57,6 @@ export const DashboardPage: React.FC = () => {
   const simulate = useAnalysisStore((s) => s.simulate)
   const run = useAnalysisStore((s) => s.run)
   useAutoAnalyze()
-  // First visit: Netbot offers the tour (remembered in this browser).
-  useEffect(() => {
-    useTourStore.getState().startIfFirstVisit()
-  }, [])
 
   const result = analysis.result
   const current = result?.current ?? null
@@ -64,7 +69,7 @@ export const DashboardPage: React.FC = () => {
       <AnalysisAnnouncer />
       <main className="flex-1">
         <Container size="wide" className="pt-28 pb-16 space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-6 border-b border-border-subtle">
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-2">
             <div>
               <div className="flex flex-wrap items-center gap-2 mb-2">
                 {result && <SourceBadge isDemo={result.isDemo} testId="dashboard-source" backendLabel="FastAPI NetworkX" />}
@@ -77,23 +82,14 @@ export const DashboardPage: React.FC = () => {
               <h1 className="headline-sub text-text-primary">Network Reliability Dashboard</h1>
               <p className="text-xs sm:text-sm text-text-secondary mt-1">Results for your current workspace graph.</p>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <Button variant="ghost" size="md" leftIcon={<HelpCircle className="w-4 h-4" />} onClick={() => useTourStore.getState().start()}>
-                Guided tour
-              </Button>
-              {nodes.length > 0 && (
-                <Link to="/studio?panel=simulation" data-testid="dashboard-run-simulation">
-                  <Button variant="secondary" size="md" leftIcon={<Activity className="w-4 h-4" />}>
-                    Run simulation
-                  </Button>
-                </Link>
-              )}
-              <Link to="/studio">
-                <Button variant="primary" size="md" rightIcon={<ArrowRight className="w-4 h-4" />}>
-                  Open Studio
+            {/* One action: the studio itself is in the top navigation. */}
+            {nodes.length > 0 && (
+              <Link to="/studio?panel=simulation" data-testid="dashboard-run-simulation">
+                <Button variant="primary" size="md" leftIcon={<Activity className="w-4 h-4" />}>
+                  Run simulation
                 </Button>
               </Link>
-            </div>
+            )}
           </div>
 
           {nodes.length === 0 ? (
@@ -118,21 +114,25 @@ export const DashboardPage: React.FC = () => {
               {current && analysis.stale && <StaleNotice testId="dashboard-stale" onRefresh={() => void run('analyze')} isLoading={analysis.status === 'loading'} />}
               {!current && !analysis.error && (
                 // Same grid and card height as the results, so nothing moves when they arrive (BUG-017).
-                <div data-testid="dashboard-loading" aria-hidden="true" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-pulse motion-reduce:animate-none">
-                  {Array.from({ length: 8 }, (_, i) => (
-                    <div key={i} className="min-h-[124px] bg-bg-surface border border-border-subtle rounded-[3px]" />
+                <div data-testid="dashboard-loading" aria-hidden="true" className="divide-y divide-border-subtle border-y border-border-subtle animate-pulse motion-reduce:animate-none">
+                  {[112, 76].map((h) => (
+                    <div key={h} className={ROW}>
+                      {Array.from({ length: 4 }, (_, i) => (
+                        <div key={i} className="py-5 pr-4" style={{ minHeight: h }}>
+                          <div className="h-3 w-20 bg-bg-surface-elevated rounded-[2px]" />
+                          <div className="h-6 w-16 mt-2 bg-bg-surface-elevated rounded-[2px]" />
+                        </div>
+                      ))}
+                    </div>
                   ))}
                 </div>
               )}
               {current && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" data-tour="metrics">
+                <div className="divide-y divide-border-subtle border-y border-border-subtle" data-tour="metrics">
+                  <div className={ROW}>
+                  <Metric label="Connectivity" value={current.connectivity.connected ? 'Connected' : 'Not connected'} detail={current.connectivity.reason} to={panel('overview')} testId="connectivity" />
                   <Metric label="Nodes" value={current.summary.nodeCount} detail={`${current.summary.failedNodeCount} failed`} to={panel('overview')} testId="nodes" />
                   <Metric label="Links" value={current.summary.edgeCount} detail={`${current.summary.unavailableEdgeCount} unavailable`} to={panel('overview')} testId="edges" />
-                  <Metric label="Components" value={current.connectivity.componentCount} to={panel('components')} testId="components" />
-                  <Metric label="Connectivity" value={current.connectivity.connected ? 'Connected' : 'Not connected'} detail={current.connectivity.reason} to={panel('overview')} testId="connectivity" />
-                  <Metric label="Bridges" value={current.bridges.edgeIds.length} to={panel('critical')} testId="bridges" />
-                  <Metric label="Articulation points" value={current.articulationPoints.nodeIds.length} to={panel('critical')} testId="articulation" />
-                  <Metric label="Density" value={current.summary.density.toFixed(4)} to={panel('overview')} testId="density" />
                   {sim ? (
                     <Metric
                       label={`Latest simulation${sim.isDemo ? ' (Demo result)' : ''}`}
@@ -144,10 +144,17 @@ export const DashboardPage: React.FC = () => {
                   ) : (
                     <Metric label="Latest simulation" value="None yet" detail="Run one in the studio" to="/studio?panel=simulation" testId="simulation" />
                   )}
+                  </div>
+                  <div className={ROW}>
+                    <Metric size="secondary" label="Components" value={current.connectivity.componentCount} to={panel('components')} testId="components" />
+                    <Metric size="secondary" label="Bridges" value={current.bridges.edgeIds.length} to={panel('critical')} testId="bridges" />
+                    <Metric size="secondary" label="Articulation points" value={current.articulationPoints.nodeIds.length} to={panel('critical')} testId="articulation" />
+                    <Metric size="secondary" label="Density" value={current.summary.density.toFixed(4)} to={panel('overview')} testId="density" />
+                  </div>
                 </div>
               )}
-              <section className="p-5 bg-bg-surface border border-border-subtle rounded-[4px] space-y-3">
-                <h2 className="text-sm font-semibold uppercase tracking-wider text-text-primary">Graph map</h2>
+              <section className="pt-2 space-y-3">
+                <h2 className="text-[11px] font-mono uppercase tracking-wider text-text-muted">Graph map</h2>
                 <GraphMiniMap graph={{ nodes, edges }} componentOf={fresh?.components.componentOf ?? null} />
                 <p className="text-[11px] text-text-muted">Read only. Colours are the components from the latest analysis. Failed nodes and unavailable links are dashed.</p>
               </section>

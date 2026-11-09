@@ -4,10 +4,10 @@ import { useAnalysisStore } from '@/store/analysisStore'
 import { DEFAULT_SETTINGS, MAX_SEED, MAX_SWEEP_POINTS, useSettingsStore, type Settings } from '@/store/settingsStore'
 import { BATCH_TRIALS } from '@/store/simulationRuns'
 import { Button } from '@/components/ui/Button'
-import { Activity, Play, TrendingDown, Info, Square, Shuffle, RotateCcw, Download } from 'lucide-react'
+import { Activity, Play, TrendingDown, Square, Shuffle, RotateCcw, Download } from 'lucide-react'
 import { CompareChart, HistogramChart, SweepChart, TrialsChart } from '@/features/analytics/charts'
 import { ApiErrorBox, SourceBadge, StaleNotice } from './ResultStatus'
-import { Explain, KeyValues, VALUE } from './analysis/sections'
+import { Explain, KeyValues, Learn, VALUE } from './analysis/sections'
 import { download, toCsv, toJson } from './simulationExport'
 import { nodeNames } from './nodeNames'
 import { clampInput } from './clamp'
@@ -146,6 +146,11 @@ export const SimulationPanel: React.FC = () => {
   const analyze = useAnalysisStore((s) => s.analyze)
   const { run, cancel, clear } = useAnalysisStore.getState()
   const [settingError, setSettingError] = useState<string | null>(null)
+  // Options most runs leave alone. Open from the start when any of them is not at its default, so a
+  // setting that changes the result is never hidden.
+  const [moreOpen, setMoreOpen] = useState(
+    () => settings.seed !== null || settings.nodeFailureProbability !== DEFAULT_SETTINGS.nodeFailureProbability || settings.mode !== DEFAULT_SETTINGS.mode
+  )
 
   const result = simulate.result
   const c = result?.combined
@@ -195,7 +200,7 @@ export const SimulationPanel: React.FC = () => {
 
   return (
     <div className="p-5 space-y-5 text-xs text-text-primary">
-      <div className="flex items-center justify-between pb-3 border-b border-border-subtle">
+      <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Activity className="w-4 h-4 text-accent-cyan" />
           <span className="font-semibold uppercase tracking-wider text-[11px] font-mono">Failure Simulator</span>
@@ -203,32 +208,19 @@ export const SimulationPanel: React.FC = () => {
         {result && <SourceBadge isDemo={result.isDemo} testId="simulation-source" backendLabel="FastAPI Backend" />}
       </div>
 
-      <div className="space-y-4 bg-bg-primary p-4 rounded-[2px] border border-border-subtle" data-tour="simulation">
-        <div className={heading}>Monte Carlo configuration</div>
+      <div className="space-y-4" data-tour="simulation">
         <ProbabilityField id="edge-p" label="Link failure probability (p):" value={settings.edgeFailureProbability} patch={(v) => ({ edgeFailureProbability: v })} onError={setSettingError} />
-        <ProbabilityField id="node-p" label="Node failure probability:" value={settings.nodeFailureProbability} patch={(v) => ({ nodeFailureProbability: v })} onError={setSettingError} />
-
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label htmlFor="trials" className="block text-[11px] text-text-muted mb-1 font-mono">
-              Trials:
-            </label>
-            <select id="trials" value={settings.trials} onChange={(e) => settings.update({ trials: Number(e.target.value) })} className={`${field} cursor-pointer`}>
-              {trialOptions.map((t) => (
-                <option key={t} value={t}>
-                  {t.toLocaleString('en-US')}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <NumberField id="seed" label="Seed (optional):" value={settings.seed} step="1" placeholder="backend picks" range={{ min: 0, max: MAX_SEED, integer: true }} toPatch={(seed) => ({ seed })} onError={setSettingError} />
-          </div>
-        </div>
-        <div className="flex justify-end">
-          <Button variant="ghost" size="sm" leftIcon={<Shuffle className="w-3.5 h-3.5" />} onClick={randomise}>
-            Randomise seed
-          </Button>
+        <div>
+          <label htmlFor="trials" className="block text-[11px] text-text-muted mb-1 font-mono">
+            Trials:
+          </label>
+          <select id="trials" value={settings.trials} onChange={(e) => settings.update({ trials: Number(e.target.value) })} className={`${field} cursor-pointer`}>
+            {trialOptions.map((t) => (
+              <option key={t} value={t}>
+                {t.toLocaleString('en-US')}
+              </option>
+            ))}
+          </select>
         </div>
         {settings.trials > BATCH_TRIALS && (
           <p role="note" data-testid="trials-warning" className="text-[11px] text-state-warning">
@@ -236,34 +228,57 @@ export const SimulationPanel: React.FC = () => {
           </p>
         )}
 
-        <div>
-          <label htmlFor="mode" className="block text-[11px] text-text-muted mb-1 font-mono">
-            Success means:
-          </label>
-          <select id="mode" value={settings.mode} onChange={(e) => settings.update({ mode: e.target.value === 'two-terminal' ? 'two-terminal' : 'all-terminal' })} className={`${field} cursor-pointer`}>
-            <option value="all-terminal">All surviving nodes connected (all-terminal)</option>
-            <option value="two-terminal">Two chosen nodes connected (two-terminal)</option>
-          </select>
-          {twoTerminal && (
-            <div className="grid grid-cols-2 gap-2 mt-2" data-testid="simulation-terminals">
-              {(['terminalSource', 'terminalTarget'] as const).map((key) => (
-                <div key={key}>
-                  <label htmlFor={key} className="block text-[11px] text-text-muted mb-1 font-mono">
-                    {key === 'terminalSource' ? 'Source s:' : 'Target t:'}
-                  </label>
-                  <select id={key} value={settings[key] ?? ''} onChange={(e) => settings.update({ [key]: e.target.value || null })} className={`${field} cursor-pointer`}>
-                    <option value="">(Select node)</option>
-                    {nodes.map((n) => (
-                      <option key={n.id} value={n.id}>
-                        {labelOf(n.id)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ))}
+        <details open={moreOpen} onToggle={(e) => setMoreOpen(e.currentTarget.open)} data-testid="simulation-more">
+          <summary className="w-fit cursor-pointer text-[11px] font-mono text-text-secondary hover:text-text-primary rounded-[2px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-teal">
+            More options
+          </summary>
+          <div className="mt-3 space-y-4 pl-3 border-l border-border-subtle">
+            <ProbabilityField id="node-p" label="Node failure probability:" value={settings.nodeFailureProbability} patch={(v) => ({ nodeFailureProbability: v })} onError={setSettingError} />
+            <div className="flex items-end gap-2">
+              <div className="flex-1">
+                <NumberField id="seed" label="Seed (optional):" value={settings.seed} step="1" placeholder="backend picks" range={{ min: 0, max: MAX_SEED, integer: true }} toPatch={(seed) => ({ seed })} onError={setSettingError} />
+              </div>
+              <Button variant="ghost" size="sm" leftIcon={<Shuffle className="w-3.5 h-3.5" />} onClick={randomise}>
+                Randomise seed
+              </Button>
             </div>
-          )}
-        </div>
+            <div>
+              <label htmlFor="mode" className="block text-[11px] text-text-muted mb-1 font-mono">
+                Success means:
+              </label>
+              <select id="mode" value={settings.mode} onChange={(e) => settings.update({ mode: e.target.value === 'two-terminal' ? 'two-terminal' : 'all-terminal' })} className={`${field} cursor-pointer`}>
+                <option value="all-terminal">All surviving nodes connected (all-terminal)</option>
+                <option value="two-terminal">Two chosen nodes connected (two-terminal)</option>
+              </select>
+              {twoTerminal && (
+                <div className="grid grid-cols-2 gap-2 mt-2" data-testid="simulation-terminals">
+                  {(['terminalSource', 'terminalTarget'] as const).map((key) => (
+                    <div key={key}>
+                      <label htmlFor={key} className="block text-[11px] text-text-muted mb-1 font-mono">
+                        {key === 'terminalSource' ? 'Source s:' : 'Target t:'}
+                      </label>
+                      <select id={key} value={settings[key] ?? ''} onChange={(e) => settings.update({ [key]: e.target.value || null })} className={`${field} cursor-pointer`}>
+                        <option value="">(Select node)</option>
+                        {nodes.map((n) => (
+                          <option key={n.id} value={n.id}>
+                            {labelOf(n.id)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <p className="text-[11px] text-text-secondary leading-relaxed">
+              <span className="font-semibold text-text-primary">Failed elements stay failed:</span> nodes and links you marked failed are failed in every trial, and a link whose
+              endpoint fails is unavailable in that trial. A link with its own failure probability uses it instead of p.
+            </p>
+            <Button variant="ghost" size="sm" leftIcon={<RotateCcw className="w-3.5 h-3.5" />} disabled={isSimulating || isSweeping} onClick={reset}>
+              Reset simulation
+            </Button>
+          </div>
+        </details>
 
         {settingError && (
           <p role="alert" data-testid="setting-error" className="text-[11px] text-state-failure">
@@ -271,7 +286,7 @@ export const SimulationPanel: React.FC = () => {
           </p>
         )}
 
-        <div className="pt-1 space-y-2">
+        <div className="space-y-2">
           <div className="flex gap-2">
             <Button variant="primary" size="sm" className="flex-1" leftIcon={<Play className="w-3.5 h-3.5 fill-current" />} isLoading={isSimulating} disabled={nodes.length === 0} onClick={() => void run('simulate')}>
               Run Monte Carlo Simulation
@@ -283,17 +298,6 @@ export const SimulationPanel: React.FC = () => {
             )}
           </div>
           {isSimulating && <RunProgress startedAt={simulate.startedAt} progress={simulate.progress} />}
-          <Button variant="ghost" size="sm" className="w-full" leftIcon={<RotateCcw className="w-3.5 h-3.5" />} disabled={isSimulating || isSweeping} onClick={reset}>
-            Reset simulation
-          </Button>
-        </div>
-      </div>
-
-      <div className="p-3 bg-bg-surface-elevated rounded-[2px] border border-border-subtle flex items-start gap-2 text-[11px] text-text-secondary leading-relaxed">
-        <Info className="w-4 h-4 text-accent-cyan shrink-0 mt-0.5" />
-        <div>
-          <span className="font-semibold text-text-primary">Failed elements stay failed:</span> nodes and links you marked failed are failed in every trial, and a link whose
-          endpoint fails is unavailable in that trial. A link with its own failure probability uses it instead of p.
         </div>
       </div>
 
@@ -314,9 +318,9 @@ export const SimulationPanel: React.FC = () => {
       {result && simulate.stale && <StaleNotice testId="simulation-stale" onRefresh={() => void run('simulate')} isLoading={isSimulating} disabledReason={emptyReason} />}
 
       {result && c && first && (
-        <div className="p-4 bg-bg-surface-elevated rounded-[2px] border border-border-subtle space-y-3" data-testid="simulation-results">
+        <div className="pt-5 border-t border-border-subtle space-y-4" data-testid="simulation-results">
           {/* The estimate first and largest; related numbers grouped below it, values aligned right. */}
-          <div className="pb-3 border-b border-border-subtle">
+          <div>
             <div className="text-[11px] font-mono uppercase tracking-wider text-text-secondary">Estimate: reliability R&#770;</div>
             <div className={`text-3xl leading-tight mt-1 ${VALUE}`} data-testid="simulation-reliability">
               {pct(c.estimate)}
@@ -367,6 +371,9 @@ export const SimulationPanel: React.FC = () => {
               ]}
             />
           </div>
+          <TrialsChart run={result} />
+          <HistogramChart run={result} />
+          <Learn summary="How this was computed">
           <Explain k={first.explanationKey} />
           {first.criticalEdge && <Explain k={first.criticalEdge.explanationKey} />}
           <div>
@@ -383,12 +390,11 @@ export const SimulationPanel: React.FC = () => {
               <li>Computed in {result.batches.reduce((sum, b) => sum + b.elapsedMs, 0).toFixed(1)} ms of backend time.</li>
             </ul>
           </div>
-          <TrialsChart run={result} />
-          <HistogramChart run={result} />
+          </Learn>
         </div>
       )}
 
-      <div className="space-y-3 bg-bg-primary p-4 rounded-[2px] border border-border-subtle">
+      <div className="space-y-3 pt-5 border-t border-border-subtle">
         <div className={heading}>Reliability sweep</div>
         <div className="grid grid-cols-3 gap-2">
           <NumberField id="sweep-min" label="p from:" value={settings.sweepPMin} step="0.05" range={{ min: 0, max: 1 }} toPatch={(v) => ({ sweepPMin: v ?? Number.NaN })} onError={setSettingError} />
@@ -422,11 +428,11 @@ export const SimulationPanel: React.FC = () => {
       {freshAnalysis?.healthy && <CompareChart current={freshAnalysis.current} healthy={freshAnalysis.healthy} />}
 
       {(result || sweep.result) && (
-        <div className="grid grid-cols-2 gap-2" data-testid="simulation-export">
-          <Button variant="secondary" size="sm" leftIcon={<Download className="w-3.5 h-3.5" />} onClick={() => exportAs('csv')}>
+        <div className="flex flex-wrap gap-2 pt-4 border-t border-border-subtle" data-testid="simulation-export">
+          <Button variant="ghost" size="sm" leftIcon={<Download className="w-3.5 h-3.5" />} onClick={() => exportAs('csv')}>
             Download CSV
           </Button>
-          <Button variant="secondary" size="sm" leftIcon={<Download className="w-3.5 h-3.5" />} onClick={() => exportAs('json')}>
+          <Button variant="ghost" size="sm" leftIcon={<Download className="w-3.5 h-3.5" />} onClick={() => exportAs('json')}>
             Download JSON
           </Button>
         </div>

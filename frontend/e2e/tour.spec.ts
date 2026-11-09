@@ -1,13 +1,14 @@
-/** The guided tour with Netbot: first visit start, every step on the live UI, skip, replay, keyboard, reduced motion. */
+/**
+ * The guided tour with Netbot, driven only by the Tutorial switch in the top bar: off on every page
+ * load, on and off with one click or key press, every step on the live UI, keyboard, reduced motion.
+ */
 import AxeBuilder from '@axe-core/playwright'
 import type { Page } from '@playwright/test'
 import { expect, test } from './helpers'
 import { TOUR_STEPS } from '../src/features/tour/steps'
 
-// A first time visitor: nothing in storage, so the tour starts by itself.
-test.use({ storageState: { cookies: [], origins: [] } })
-
 const bubble = (page: Page) => page.getByTestId('tour-bubble')
+const tutorial = (page: Page) => page.getByRole('switch', { name: 'Tutorial' })
 const total = TOUR_STEPS.length
 
 /** The spotlight surrounds the step's own live element (the first visible candidate). */
@@ -56,37 +57,6 @@ async function expectMascotIntact(page: Page, step: string) {
     .toBe('ok')
 }
 
-for (const [mode, viewport] of [['desktop', { width: 1440, height: 900 }], ['phone', { width: 390, height: 844 }]] as const) {
-  test(`${mode}: the tour starts on a first visit and walks through every section on the live UI`, async ({ page, issues }) => {
-    await page.setViewportSize(viewport)
-    await page.goto('/studio')
-    await expect(bubble(page)).toBeVisible()
-    for (let i = 0; i < total; i++) {
-      const step = TOUR_STEPS[i]
-      await expect(page.getByTestId('tour')).toHaveAttribute('data-step', step.id)
-      await expect(page.getByTestId('tour-progress')).toHaveText(`Step ${i + 1} of ${total}`)
-      await expect(bubble(page)).toContainText(step.title)
-      await expect(bubble(page)).toContainText(step.text)
-      await expect(page.getByTestId('tour-announcer')).toContainText(step.text)
-      await expect(page.getByTestId('tour-mascot')).toHaveAttribute('data-pose', step.pose)
-      await expectMascotIntact(page, step.id)
-      await expect(page).toHaveURL(new RegExp(`${step.route}`))
-      if (step.targets.length > 0) await expectSpotlightOnTarget(page, step.targets)
-      else await expect(page.getByTestId('tour-spotlight')).toHaveCount(0)
-      // The bubble stays fully on screen.
-      const box = await bubble(page).boundingBox()
-      expect(box && box.x >= 0 && box.y >= 0 && box.x + box.width <= viewport.width && box.y + box.height <= viewport.height, `${step.id} bubble on screen`).toBe(true)
-      await page.getByRole('button', { name: i === total - 1 ? 'Finish' : 'Next' }).click()
-    }
-    await expect(page.getByTestId('tour')).toHaveCount(0)
-    // Seen: it does not start again.
-    await page.goto('/studio')
-    await page.waitForTimeout(1200)
-    await expect(page.getByTestId('tour')).toHaveCount(0)
-    expect(issues).toEqual([])
-  })
-}
-
 /** Netbot is on screen for real: rendered, opaque, inside the viewport, and nothing else on top of it. */
 async function expectMascotOnScreen(page: Page) {
   await expect(page.getByTestId('tour-mascot')).toBeVisible()
@@ -109,75 +79,113 @@ async function expectMascotOnScreen(page: Page) {
     .toBe('ok')
 }
 
-// Fresh storage, whichever app page the visitor opens first (the welcome step lives in the studio).
 for (const route of ['/studio', '/dashboard'] as const) {
-  test(`first visit with empty storage, straight to ${route}: Netbot appears without any click`, async ({ page, issues }, testInfo) => {
+  test(`${route}: the tutorial is off on load, and the switch turns Netbot and the overlay on and off`, async ({ page, issues }) => {
     await page.setViewportSize({ width: 1440, height: 900 })
     await page.goto(route)
-    expect(await page.evaluate(() => localStorage.getItem('netshield_tour_seen'))).toBeNull()
+    await expect(page.locator('h1, [data-testid="studio-toolbar"]').first()).toBeVisible()
+    await page.waitForTimeout(800)
+    // Default: off, nothing of the tour in the page.
+    await expect(tutorial(page)).toHaveAttribute('aria-checked', 'false')
+    await expect(page.getByTestId('tour')).toHaveCount(0)
+    await expect(page.getByTestId('tour-mascot')).toHaveCount(0)
+
+    // On: overlay, mascot and the first step appear at once.
+    await tutorial(page).click()
+    await expect(tutorial(page)).toHaveAttribute('aria-checked', 'true')
     await expect(page.getByTestId('tour')).toHaveAttribute('data-step', 'welcome')
-    await expect(page).toHaveURL(/\/studio/)
     await expectMascotOnScreen(page)
-    await expect(bubble(page)).toContainText(TOUR_STEPS[0].title)
-    await testInfo.attach(`first visit ${route}`, { body: await page.screenshot(), contentType: 'image/png' })
+    await expect(page.getByTestId('tour-progress')).toHaveText(`Step 1 of ${total}`)
+    await expect(page).toHaveURL(/\/studio/)
+
+    // Off: the switch stays clickable above the overlay, and everything is removed.
+    await tutorial(page).click()
+    await expect(tutorial(page)).toHaveAttribute('aria-checked', 'false')
+    await expect(page.getByTestId('tour')).toHaveCount(0)
+    await expect(page.getByTestId('tour-mascot')).toHaveCount(0)
     expect(issues).toEqual([])
   })
 }
 
-test.describe('returning visitor', () => {
-  // The tour was dismissed earlier in this browser: it must not start by itself, but stay one click away.
-  test.use({ storageState: { cookies: [], origins: [{ origin: 'http://localhost:4317', localStorage: [{ name: 'netshield_tour_seen', value: '1' }] }] } })
-
-  for (const [mode, viewport] of [['desktop', { width: 1440, height: 900 }], ['phone', { width: 390, height: 844 }]] as const) {
-    test(`${mode}: no automatic tour, and the studio's visible Guided tour button brings Netbot back`, async ({ page, issues }) => {
-      await page.setViewportSize(viewport)
-      await page.goto('/studio')
-      await page.waitForTimeout(1200)
-      await expect(page.getByTestId('tour')).toHaveCount(0)
-      if (mode === 'phone') {
-        await page.getByTestId('studio-toolbar').getByRole('button', { name: 'Tools' }).click()
-        await page.getByTestId('tools-sheet').getByRole('button', { name: 'Guided tour' }).click()
-      } else {
-        await page.getByTestId('studio-toolbar').getByRole('button', { name: 'Guided tour' }).click()
-      }
-      await expect(page.getByTestId('tour')).toHaveAttribute('data-step', 'welcome')
-      await expectMascotOnScreen(page)
-      expect(issues).toEqual([])
-    })
-  }
-})
-
-test('skip ends the tour for good; it can be replayed from the help dialog and the dashboard', async ({ page, issues }) => {
-  await page.setViewportSize({ width: 1440, height: 900 })
+test('phone: the switch is in the top bar and works both ways', async ({ page, issues }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/studio')
-  await expect(bubble(page)).toBeVisible()
-  await page.getByRole('button', { name: 'Next' }).click()
-  await page.getByRole('button', { name: 'Skip tutorial' }).click()
+  await expect(tutorial(page)).toBeVisible()
+  await tutorial(page).click()
+  await expectMascotOnScreen(page)
+  await tutorial(page).click()
   await expect(page.getByTestId('tour')).toHaveCount(0)
-  expect(await page.evaluate(() => localStorage.getItem('netshield_tour_seen'))).toBe('1')
-  await page.reload()
-  await page.waitForTimeout(1200)
-  await expect(page.getByTestId('tour')).toHaveCount(0)
-
-  // Replay: help dialog.
-  await page.getByTestId('studio-toolbar').getByRole('button', { name: 'Keyboard shortcuts' }).click()
-  await page.getByRole('button', { name: 'Start guided tour' }).click()
-  await expect(page.getByTestId('tour-progress')).toHaveText(`Step 1 of ${total}`)
-  await page.keyboard.press('Escape')
-  await expect(page.getByTestId('tour')).toHaveCount(0)
-
-  // Replay: dashboard.
-  await page.getByRole('link', { name: 'Dashboard' }).first().click()
-  await page.getByRole('button', { name: 'Guided tour' }).click()
-  await expect(page.getByTestId('tour')).toHaveAttribute('data-step', 'welcome')
-  await expect(page).toHaveURL(/\/studio/)
   expect(issues).toEqual([])
 })
+
+test('keyboard: the switch has a visible focus ring and Space or Enter toggles it; Escape in the tour turns it off', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto('/studio')
+  await tutorial(page).focus()
+  const outline = await tutorial(page).evaluate((el) => {
+    const cs = getComputedStyle(el)
+    return { style: cs.outlineStyle, width: Number.parseFloat(cs.outlineWidth) }
+  })
+  expect(outline.style).not.toBe('none')
+  expect(outline.width).toBeGreaterThanOrEqual(2)
+  await page.keyboard.press('Space')
+  await expect(tutorial(page)).toHaveAttribute('aria-checked', 'true')
+  await expect(page.getByRole('button', { name: 'Next' })).toBeFocused()
+  await page.keyboard.press('Escape')
+  await expect(page.getByTestId('tour')).toHaveCount(0)
+  await expect(tutorial(page)).toHaveAttribute('aria-checked', 'false')
+  await tutorial(page).focus()
+  await page.keyboard.press('Enter')
+  await expect(page.getByTestId('tour')).toHaveCount(1)
+})
+
+test('nothing is remembered: Skip turns it off, and after a reload it is still off until switched on', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto('/studio')
+  await tutorial(page).click()
+  await page.getByRole('button', { name: 'Next' }).click()
+  await page.getByRole('button', { name: 'Skip tutorial' }).click()
+  await expect(tutorial(page)).toHaveAttribute('aria-checked', 'false')
+  expect(await page.evaluate(() => Object.keys(localStorage).filter((k) => k.includes('tour')))).toEqual([])
+  await page.reload()
+  await page.waitForTimeout(800)
+  await expect(page.getByTestId('tour')).toHaveCount(0)
+  await tutorial(page).click()
+  await expect(page.getByTestId('tour-progress')).toHaveText(`Step 1 of ${total}`)
+})
+
+for (const [mode, viewport] of [['desktop', { width: 1440, height: 900 }], ['phone', { width: 390, height: 844 }]] as const) {
+  test(`${mode}: switched on, the tour walks through every section on the live UI`, async ({ page, issues }) => {
+    await page.setViewportSize(viewport)
+    await page.goto('/studio')
+    await tutorial(page).click()
+    await expect(bubble(page)).toBeVisible()
+    for (let i = 0; i < total; i++) {
+      const step = TOUR_STEPS[i]
+      await expect(page.getByTestId('tour')).toHaveAttribute('data-step', step.id)
+      await expect(page.getByTestId('tour-progress')).toHaveText(`Step ${i + 1} of ${total}`)
+      await expect(bubble(page)).toContainText(step.title)
+      await expect(bubble(page)).toContainText(step.text)
+      await expect(page.getByTestId('tour-announcer')).toContainText(step.text)
+      await expect(page.getByTestId('tour-mascot')).toHaveAttribute('data-pose', step.pose)
+      await expectMascotIntact(page, step.id)
+      await expect(page).toHaveURL(new RegExp(`${step.route}`))
+      if (step.targets.length > 0) await expectSpotlightOnTarget(page, step.targets)
+      else await expect(page.getByTestId('tour-spotlight')).toHaveCount(0)
+      const box = await bubble(page).boundingBox()
+      expect(box && box.x >= 0 && box.y >= 0 && box.x + box.width <= viewport.width && box.y + box.height <= viewport.height, `${step.id} bubble on screen`).toBe(true)
+      await page.getByRole('button', { name: i === total - 1 ? 'Finish' : 'Next' }).click()
+    }
+    await expect(page.getByTestId('tour')).toHaveCount(0)
+    await expect(tutorial(page)).toHaveAttribute('aria-checked', 'false')
+    expect(issues).toEqual([])
+  })
+}
 
 test('keyboard only: Enter moves on, focus stays in the tour, arrows step, Escape skips', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto('/studio')
-  await expect(bubble(page)).toBeVisible()
+  await tutorial(page).click()
   await expect(page.getByRole('button', { name: 'Next' })).toBeFocused()
   await page.keyboard.press('Enter')
   await expect(page.getByTestId('tour-progress')).toHaveText(`Step 2 of ${total}`)
@@ -199,23 +207,27 @@ test.describe('reduced motion', () => {
   test('no spotlight animation, a still mascot, and the text still appears', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 })
     await page.goto('/studio')
+    await tutorial(page).click()
     await expect(bubble(page)).toBeVisible()
     await expect(page.getByTestId('tour')).toHaveAttribute('data-reduced-motion', 'true')
     await expect(page.getByTestId('tour-mascot')).toHaveAttribute('data-animated', 'false')
     await page.getByRole('button', { name: 'Next' }).click()
-    // The spotlight jumps to the canvas at once.
     await page.waitForTimeout(50)
     await expectSpotlightOnTarget(page, TOUR_STEPS[1].targets)
     await expect(bubble(page)).toContainText(TOUR_STEPS[1].text)
   })
 })
 
-test('the open tour has no WCAG 2.1 AA violations', async ({ page }) => {
+test('the open tour and the switch have no WCAG 2.1 AA violations', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto('/studio')
+  const axe = () => new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze()
+  const off = await axe()
+  expect(off.violations.map((v) => v.id)).toEqual([])
+  await tutorial(page).click()
   await expect(bubble(page)).toBeVisible()
   await page.getByRole('button', { name: 'Next' }).click()
   await page.waitForTimeout(600)
-  const result = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze()
+  const result = await axe()
   expect(result.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(' | ')}`)).toEqual([])
 })

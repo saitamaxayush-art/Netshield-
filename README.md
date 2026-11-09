@@ -6,8 +6,8 @@ components, bridges, articulation points, traversals, shortest paths and Monte C
 NetworkX. The browser only displays those results.
 
 * `/` landing page with its own small demos
-* `/studio` network editor with analysis and simulation panels, and a guided tour (it starts on a first
-  visit; replay it from the Guided tour button in the studio toolbar or on the dashboard)
+* `/studio` network editor with analysis and simulation panels, and a guided tour that the Tutorial
+  switch in the top bar turns on and off (it is off on every page load)
 * `/dashboard` overview of the current graph
 
 **For a demonstration**, load the **Campus** example (studio toolbar, Example: Campus): 10 nodes, 12 weighted
@@ -153,8 +153,8 @@ backend/app
 * `persistence`: saves graph, view and settings to `localStorage` (`netshield_workspace`, versioned,
   validated, migrated); results are never saved.
 * `healthStore`, `studioViewStore`, `toastStore`: server status, what the studio shows, messages.
-* `tourStore`: the guided tour's current step; `netshield_tour_seen` in `localStorage` records that it was
-  finished or skipped.
+* `tourStore`: whether the guided tour is on and its current step, for this page session only (nothing
+  is stored, so it is off after every reload).
 
 **API client** (`services/api/client.ts`): timeouts, cancellation (a new request of the same kind
 supersedes the old one), retries only for the health check, Zod validation of every response, and one

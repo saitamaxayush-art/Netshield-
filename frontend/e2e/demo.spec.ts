@@ -5,7 +5,7 @@
  * articulation points are checked against e2e/reference.ts, an independent naive implementation.
  */
 import type { Response } from '@playwright/test'
-import { expect, test } from './helpers'
+import { expect, openSimulatorOptions, test } from './helpers'
 import { reference } from './reference'
 import { preset } from '../src/store/presets'
 
@@ -70,6 +70,7 @@ test('Campus: every panel gives a readable, non empty result on the demonstratio
   await Promise.all([page.waitForResponse(isAnalyze), page.getByRole('button', { name: 'Restore selected node' }).click()])
 
   await tab('Simulator')
+  await openSimulatorOptions(page)
   await page.locator('#seed').fill('2026')
   await page.locator('#seed').press('Enter')
   await page.getByRole('button', { name: 'Run Monte Carlo Simulation' }).click()

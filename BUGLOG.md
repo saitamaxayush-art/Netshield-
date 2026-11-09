@@ -433,3 +433,18 @@ captured at each step).
   done and re-enables the slider (it is disabled while a run is going, by design). A focus listener showed
   the slider disabled with "Running" still shown at the moment it lost focus, so every key press was lost.
 * Fix: the test waits for the slider to be enabled before pressing keys. 8 of 8 repeated runs pass.
+
+### BUG-030: replace the automatic tour with an explicit Tutorial switch (supersedes BUG-028's button)
+
+* Symptom: the first visit tour kept being reported as "not showing". BUG-028 traced it to the
+  `netshield_tour_seen` key in `localStorage`, an "already seen" state the visitor cannot see.
+* Fix: the automatic start and the storage are removed. A `role="switch"` control labelled Tutorial, in
+  the top bar of the studio and dashboard (phone too), turns Netbot and the walkthrough on and off. The
+  state lives only in the Zustand store, so every page load starts with it off. While the tour is on,
+  the top bar sits above the tour's overlay, so the switch can always turn it off. Skip, Escape and
+  Finish turn the switch off. The studio toolbar's Guided tour button, the dashboard's Guided tour
+  button and the shortcuts dialog's Start guided tour button are gone: there is one control.
+* Tests: `tour.spec.ts` (off on load; on puts the overlay and mascot in the page, off removes them, on
+  /studio, /dashboard and a phone; keyboard Space and Enter with a visible focus ring; nothing kept
+  after Skip and reload; the full walkthrough; axe). The first visit and returning visitor tests, and
+  the seeded `storageState` in `playwright.config.ts`, are deleted with the trigger they tested.

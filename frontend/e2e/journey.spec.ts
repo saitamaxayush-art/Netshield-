@@ -4,7 +4,7 @@
  */
 import { readFileSync } from 'node:fs'
 import type { Locator, Page, Response } from '@playwright/test'
-import { expect, test } from './helpers'
+import { expect, openSimulatorOptions, test } from './helpers'
 import { reference, type RefGraph } from './reference'
 
 const isAnalyze = (r: Response) => r.url().endsWith('/api/analyze') && r.request().method() === 'POST'
@@ -112,6 +112,7 @@ for (const mode of ['desktop', 'phone'] as const) {
 
       // Simulation and every chart, each with its data table.
       await panel(page, 'Simulator')
+      await openSimulatorOptions(page)
       await page.locator('#seed').fill('2026')
       await page.locator('#seed').press('Enter')
       await press(page.getByRole('button', { name: 'Run Monte Carlo Simulation' }))

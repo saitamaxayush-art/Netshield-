@@ -1,7 +1,7 @@
 /** Accessibility on /studio and /dashboard: axe (WCAG 2.1 AA), keyboard only use, reduced motion, touch targets. */
 import AxeBuilder from '@axe-core/playwright'
 import type { Page } from '@playwright/test'
-import { expect, test } from './helpers'
+import { expect, moreAction, test } from './helpers'
 
 const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']
 async function axe(page: Page, label: string) {
@@ -26,8 +26,10 @@ for (const [width, height] of [[1440, 900], [390, 844]] as const) {
     await expect(page.getByTestId('simulation-results')).toBeVisible()
     await axe(page, 'simulation result')
     await page.goto('/studio')
-    if (width < 1280) await page.getByRole('button', { name: 'Tools' }).click()
-    await page.getByRole('button', { name: 'Keyboard shortcuts' }).click()
+    if (width < 1280) {
+      await page.getByRole('button', { name: 'Tools' }).click()
+      await page.getByRole('button', { name: 'Keyboard shortcuts' }).click()
+    } else await moreAction(page, 'Keyboard shortcuts')
     await axe(page, 'help dialog')
     await page.keyboard.press('Escape')
     await page.goto('/dashboard')

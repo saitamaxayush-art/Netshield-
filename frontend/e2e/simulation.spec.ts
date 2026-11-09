@@ -4,7 +4,7 @@
  *   R(p) = (1 - p)^n + n p (1 - p)^(n - 1)
  */
 import type { Page, Response } from '@playwright/test'
-import { expect, test } from './helpers'
+import { expect, moreAction, openSimulatorOptions, test } from './helpers'
 
 const N = 6
 const P = 0.2
@@ -48,6 +48,7 @@ async function seedCycle(page: Page) {
 }
 
 async function setNumber(page: Page, selector: string, value: string) {
+  if (selector === '#seed') await openSimulatorOptions(page)
   await page.locator(selector).fill(value)
   await page.locator(selector).press('Enter')
 }
@@ -241,7 +242,7 @@ test('after Reset canvas, old results stay marked out of date and cannot be re-r
   await page.getByRole('button', { name: 'Simulator', exact: true }).click()
   await Promise.all([page.waitForResponse(isSimulate), page.getByRole('button', { name: 'Run Monte Carlo Simulation' }).click()])
   await expect(page.getByTestId('simulation-results')).toBeVisible()
-  await page.getByTestId('studio-toolbar').getByRole('button', { name: 'Reset canvas' }).click()
+  await moreAction(page, 'Reset canvas')
   await page.getByRole('dialog').last().getByRole('button', { name: 'Reset canvas' }).click()
   await expect(page.locator('.react-flow__node')).toHaveCount(0)
   const stale = page.getByTestId('simulation-stale')

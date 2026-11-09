@@ -4,6 +4,8 @@ import { Network, Menu, X, Terminal, Activity, BookOpen } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Container } from './Container'
 import { EditorialMenuOverlay } from '@/components/editorial/EditorialMenuOverlay'
+import { TutorialSwitch } from '@/features/tour/TutorialSwitch'
+import { useTourStore } from '@/store/tourStore'
 
 export const Navbar: React.FC = () => {
   const [scrolled, setScrolled] = useState(false)
@@ -15,6 +17,10 @@ export const Navbar: React.FC = () => {
   const lastScrollY = useRef(0)
 
   const isLandingPage = location.pathname === '/'
+  // The studio and dashboard carry the Tutorial switch: the header stays in view there, and sits above
+  // the tour's dimmed overlay while the tour is on, so the switch can always turn it off.
+  const hasTutorial = location.pathname === '/studio' || location.pathname === '/dashboard'
+  const tourOn = useTourStore((s) => s.active)
 
   // Track scroll state: hide on scroll down, show on scroll up with smooth transition
   useEffect(() => {
@@ -78,8 +84,8 @@ export const Navbar: React.FC = () => {
   return (
     <>
       <header
-        className={`fixed top-0 left-0 right-0 z-40 h-16 transition-all duration-300 ${
-          hidden ? '-translate-y-full' : 'translate-y-0'
+        className={`fixed top-0 left-0 right-0 ${hasTutorial && tourOn ? 'z-[90]' : 'z-40'} h-16 transition-all duration-300 ${
+          hidden && !hasTutorial ? '-translate-y-full' : 'translate-y-0'
         } ${
           isLandingPage
             ? scrolled
@@ -205,17 +211,23 @@ export const Navbar: React.FC = () => {
                 </a>
               </nav>
 
-              {/* Primary CTA */}
-              <div className="hidden md:flex items-center gap-3">
-                <Link to="/studio">
-                  <Button variant="primary" size="sm">
-                    Open Simulator
-                  </Button>
-                </Link>
-              </div>
+              {/* Right: the Tutorial switch on the studio and dashboard, otherwise the way into the studio. */}
+              {hasTutorial ? (
+                <div className="ml-auto md:ml-0 flex items-center">
+                  <TutorialSwitch />
+                </div>
+              ) : (
+                <div className="hidden md:flex items-center gap-3">
+                  <Link to="/studio">
+                    <Button variant="primary" size="sm">
+                      Open Simulator
+                    </Button>
+                  </Link>
+                </div>
+              )}
 
               {/* Mobile menu trigger */}
-              <div className="flex md:hidden items-center">
+              <div className="flex md:hidden items-center ml-2">
                 <button
                   onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                   className="w-10 h-10 flex items-center justify-center text-text-secondary hover:text-text-primary rounded-[3px] border border-border-subtle bg-bg-surface cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-teal"

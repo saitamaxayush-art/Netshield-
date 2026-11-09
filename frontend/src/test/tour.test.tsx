@@ -5,7 +5,8 @@ import { TOUR_STEPS } from '../features/tour/steps'
 import { findTarget, placeBubble } from '../features/tour/placement'
 import { Mascot } from '../features/tour/Mascot'
 import { TourHost } from '../features/tour/TourHost'
-import { markTourSeen, progressLabel, TOUR_SEEN_KEY, tourSeen, useTourStore } from '../store/tourStore'
+import { progressLabel, useTourStore } from '../store/tourStore'
+import { TutorialSwitch } from '../features/tour/TutorialSwitch'
 import { useStudioView } from '../store/studioViewStore'
 import { resetStores } from './fixtures'
 
@@ -51,61 +52,53 @@ describe('tour steps', () => {
 })
 
 describe('tour store', () => {
-  it('next and back stay in range; the last Next finishes and remembers it', () => {
-    tour().start()
+  it('starts off, and the toggle turns it on at step 1 and off again', () => {
+    expect([tour().active, tour().index]).toEqual([false, 0])
+    tour().toggle()
+    expect([tour().active, tour().index]).toEqual([true, 0])
+    tour().next()
+    tour().toggle()
+    expect([tour().active, tour().index]).toEqual([false, 0])
+  })
+
+  it('next and back stay in range; the last Next turns it off', () => {
+    tour().setActive(true)
     tour().back()
     expect(tour().index).toBe(0)
     for (let i = 1; i < TOUR_STEPS.length; i++) {
       tour().next()
       expect(tour().index).toBe(i)
     }
-    expect(tourSeen()).toBe(false)
     tour().next()
-    expect([tour().active, tourSeen()]).toEqual([false, true])
+    expect([tour().active, tour().index]).toEqual([false, 0])
   })
 
-  it('skip ends the tour and remembers it', () => {
-    tour().start()
+  it('skip turns it off, and nothing about the tour is written to storage', () => {
+    tour().setActive(true)
     tour().next()
     tour().skip()
-    expect([tour().active, tour().index, localStorage.getItem(TOUR_SEEN_KEY)]).toEqual([false, 0, '1'])
-  })
-
-  it('starts by itself only on a first visit, and can always be replayed', () => {
-    tour().startIfFirstVisit()
-    expect(tour().active).toBe(true)
-    tour().skip()
-    tour().startIfFirstVisit()
-    expect(tour().active).toBe(false)
-    tour().start()
-    expect([tour().active, tour().index]).toEqual([true, 0])
-  })
-
-  it('storage errors are caught: unreadable means not seen, unwritable is ignored', () => {
-    const broken = () => {
-      throw new DOMException('blocked', 'SecurityError')
-    }
-    expect(tourSeen(broken)).toBe(false)
-    expect(() => markTourSeen(broken)).not.toThrow()
-    class FullStorage implements Storage {
-      length = 0
-      clear() {}
-      getItem() {
-        return null
-      }
-      key() {
-        return null
-      }
-      removeItem() {}
-      setItem(): void {
-        throw new DOMException('full', 'QuotaExceededError')
-      }
-    }
-    expect(() => markTourSeen(() => new FullStorage())).not.toThrow()
+    expect([tour().active, tour().index]).toEqual([false, 0])
+    expect(localStorage.length).toBe(0)
   })
 
   it('progress label', () => {
     expect(progressLabel(2)).toBe(`Step 3 of ${TOUR_STEPS.length}`)
+  })
+})
+
+describe('tutorial switch', () => {
+  it('is a labelled switch whose checked state follows the tour, both ways', () => {
+    render(<TutorialSwitch />)
+    const sw = screen.getByRole('switch', { name: 'Tutorial' })
+    expect(sw).toHaveAttribute('aria-checked', 'false')
+    fireEvent.click(sw)
+    expect([sw.getAttribute('aria-checked'), tour().active]).toEqual(['true', true])
+    fireEvent.click(sw)
+    expect([sw.getAttribute('aria-checked'), tour().active]).toEqual(['false', false])
+    act(() => tour().setActive(true))
+    expect(sw).toHaveAttribute('aria-checked', 'true')
+    act(() => tour().skip())
+    expect(sw).toHaveAttribute('aria-checked', 'false')
   })
 })
 
@@ -164,7 +157,7 @@ describe('tour host', () => {
 
   it('renders the step as a labelled dialog with progress, announces it, and focuses Next', () => {
     mockReducedMotion(false)
-    act(() => tour().start())
+    act(() => tour().setActive(true))
     host()
     expect(screen.getByRole('dialog', { name: 'Hi, I am Netbot' })).toBeInTheDocument()
     expect(screen.getByTestId('tour-progress')).toHaveTextContent(`Step 1 of ${TOUR_STEPS.length}`)
@@ -175,7 +168,7 @@ describe('tour host', () => {
 
   it('Next applies the step preparation; arrow keys step; Escape skips', () => {
     mockReducedMotion(false)
-    act(() => tour().start())
+    act(() => tour().setActive(true))
     host()
     for (let i = 0; i < 4; i++) fireEvent.click(screen.getByRole('button', { name: 'Next' }))
     expect(screen.getByTestId('tour')).toHaveAttribute('data-step', 'failures')
@@ -186,12 +179,12 @@ describe('tour host', () => {
     expect(screen.getByTestId('tour')).toHaveAttribute('data-step', 'failures')
     fireEvent.keyDown(screen.getByTestId('tour'), { key: 'Escape' })
     expect(screen.queryByTestId('tour')).toBeNull()
-    expect(tourSeen()).toBe(true)
+    expect(tour().active).toBe(false)
   })
 
   it('reduced motion: the text still appears and the mascot is still', () => {
     mockReducedMotion(true)
-    act(() => tour().start())
+    act(() => tour().setActive(true))
     host()
     expect(screen.getByTestId('tour')).toHaveAttribute('data-reduced-motion', 'true')
     expect(screen.getByTestId('tour-bubble')).toHaveTextContent('I will show you around NetShield')

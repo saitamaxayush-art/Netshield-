@@ -14,13 +14,22 @@ import { EXPLANATIONS, type ExplanationKey } from '../explanations'
 import { nodeNames } from '../nodeNames'
 
 type LabelOf = (id: string) => string
-const card = 'p-3 bg-bg-surface-elevated rounded-[2px] border border-border-subtle space-y-2'
+// Groups are separated by space and a heading, not by boxes.
+const card = 'space-y-2'
 const heading = 'text-[11px] font-mono font-semibold uppercase tracking-wider text-text-primary'
 const select = 'w-full px-2 py-1 bg-bg-surface border border-border-strong rounded-[2px] text-text-primary text-xs focus:border-accent-teal focus:outline-none'
 const listButton = (active: boolean) =>
   `w-full text-left px-2 py-1.5 border rounded-[2px] font-mono text-[11px] cursor-pointer ${
-    active ? 'border-state-warning text-state-warning bg-state-warning-dim' : 'border-border-subtle text-accent-teal bg-bg-primary hover:border-border-strong'
+    active ? 'border-state-warning text-state-warning bg-state-warning-dim' : 'border-transparent text-accent-teal hover:bg-bg-surface-active'
   }`
+
+/** Background reading, folded away so the numbers come first. Still in the page for search and tests. */
+export const Learn: React.FC<{ children: React.ReactNode; summary?: string }> = ({ children, summary = 'What this means' }) => (
+  <details className="group text-xs">
+    <summary className="w-fit cursor-pointer text-[11px] text-text-muted hover:text-text-primary rounded-[2px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-teal">{summary}</summary>
+    <div className="mt-2 space-y-2">{children}</div>
+  </details>
+)
 
 export const Explain: React.FC<{ k: ExplanationKey }> = ({ k }) => (
   <p data-testid={`explain-${k}`} className="text-xs text-text-secondary leading-relaxed">
@@ -32,7 +41,7 @@ export const Explain: React.FC<{ k: ExplanationKey }> = ({ k }) => (
 export const VALUE = 'font-mono font-semibold tabular-nums text-text-primary'
 
 const Stat: React.FC<{ label: string; value: React.ReactNode; testId?: string }> = ({ label, value, testId }) => (
-  <div className="p-3 bg-bg-primary rounded-[2px] border border-border-subtle">
+  <div>
     <div className="text-[11px] font-mono uppercase tracking-wider text-text-secondary">{label}</div>
     <div className={`text-lg leading-tight mt-1 ${VALUE}`} data-testid={testId}>
       {value}
@@ -53,20 +62,16 @@ export const KeyValues: React.FC<{ rows: Array<[string, React.ReactNode]>; testI
 )
 
 export const OverviewSection: React.FC<{ current: Analysis }> = ({ current }) => (
-  <div className="space-y-3" data-testid="section-overview">
-    <div className={card}>
-      <div className="flex items-center justify-between">
-        <span className={heading}>Connectivity</span>
-        <Badge variant={current.connectivity.connected ? 'success' : 'failure'} size="sm" data-testid="analysis-connected">
-          {current.connectivity.connected ? 'Connected' : 'Not connected'}
-        </Badge>
-      </div>
+  <div className="space-y-4" data-testid="section-overview">
+    <div className="flex items-center gap-2">
+      <Badge variant={current.connectivity.connected ? 'success' : 'failure'} size="sm" data-testid="analysis-connected">
+        {current.connectivity.connected ? 'Connected' : 'Not connected'}
+      </Badge>
       <p className="text-[11px] text-text-secondary" data-testid="analysis-reason">
         {current.connectivity.reason}
       </p>
-      <Explain k={current.connectivity.explanationKey} />
     </div>
-    <div className="grid grid-cols-2 gap-2">
+    <div className="grid grid-cols-2 gap-x-4 gap-y-3">
       <Stat label="Nodes" value={current.summary.nodeCount} testId="analysis-node-count" />
       <Stat label="Links" value={current.summary.edgeCount} testId="analysis-edge-count" />
       <Stat label="Components" value={current.connectivity.componentCount} testId="analysis-component-count" />
@@ -90,8 +95,11 @@ export const OverviewSection: React.FC<{ current: Analysis }> = ({ current }) =>
         ]}
       />
     </div>
-    <Explain k={current.summary.explanationKey} />
-    <Explain k={current.components.explanationKey} />
+    <Learn summary="What these numbers mean">
+      <Explain k={current.connectivity.explanationKey} />
+      <Explain k={current.summary.explanationKey} />
+      <Explain k={current.components.explanationKey} />
+    </Learn>
   </div>
 )
 
@@ -101,8 +109,9 @@ export const ComponentsSection: React.FC<{ current: Analysis; labelOf: LabelOf }
   const { items } = current.components
   return (
     <div className="space-y-3" data-testid="section-components">
-      <div className={heading}>Components ({items.length})</div>
-      <Explain k={current.components.explanationKey} />
+      <Learn>
+        <Explain k={current.components.explanationKey} />
+      </Learn>
       {items.length === 0 ? (
         <p className="text-[11px] text-text-muted italic" data-testid="components-none">
           No operational nodes, so there are no components.
@@ -132,10 +141,9 @@ export const CriticalSection: React.FC<{ current: Analysis; labelOf: LabelOf; li
   const selectNode = useGraphStore((s) => s.selectNode)
   const selectEdge = useGraphStore((s) => s.selectEdge)
   return (
-    <div className="space-y-3" data-testid="section-critical">
+    <div className="space-y-4" data-testid="section-critical">
       <div className={card}>
         <div className={heading}>Bridges ({current.bridges.edgeIds.length})</div>
-        <Explain k={current.bridges.explanationKey} />
         {current.bridges.edgeIds.length > 0 ? (
           <ul className="space-y-1" data-testid="analysis-bridges">
             {current.bridges.edgeIds.map((id) => {
@@ -165,7 +173,6 @@ export const CriticalSection: React.FC<{ current: Analysis; labelOf: LabelOf; li
       </div>
       <div className={card}>
         <div className={heading}>Articulation points ({current.articulationPoints.nodeIds.length})</div>
-        <Explain k={current.articulationPoints.explanationKey} />
         {current.articulationPoints.nodeIds.length > 0 ? (
           <ul className="space-y-1" data-testid="analysis-articulation">
             {current.articulationPoints.nodeIds.map((id) => {
@@ -193,6 +200,10 @@ export const CriticalSection: React.FC<{ current: Analysis; labelOf: LabelOf; li
           </p>
         )}
       </div>
+      <Learn>
+        <Explain k={current.bridges.explanationKey} />
+        <Explain k={current.articulationPoints.explanationKey} />
+      </Learn>
     </div>
   )
 }
@@ -221,13 +232,12 @@ export const DegreesSection: React.FC<{ current: Analysis; labelOf: LabelOf }> =
   )
   return (
     <div className="space-y-3" data-testid="section-degrees">
-      <Explain k={current.degrees.explanationKey} />
       {rows.length === 0 ? (
         <p className="text-[11px] text-text-muted italic">No nodes.</p>
       ) : (
-        <div className="overflow-x-auto border border-border-subtle rounded-[2px]">
+        <div className="overflow-x-auto">
           <table className="w-full font-mono text-[11px]" data-testid="analysis-degrees">
-            <thead className="bg-bg-primary text-text-muted border-b border-border-subtle">
+            <thead className="text-text-muted border-b border-border-subtle">
               <tr>
                 {header('node', 'Node')}
                 {header('operational', 'Operational')}
@@ -246,6 +256,9 @@ export const DegreesSection: React.FC<{ current: Analysis; labelOf: LabelOf }> =
           </table>
         </div>
       )}
+      <Learn>
+        <Explain k={current.degrees.explanationKey} />
+      </Learn>
     </div>
   )
 }
@@ -288,7 +301,7 @@ export const TraversalSection: React.FC<{ current: Analysis; labelOf: LabelOf }>
   const ready = traversal !== null && traversal.error === null
   const length = ready ? (v.traversalOrder === 'bfs' ? traversal.bfs.length : traversal.dfs.length) : 0
   return (
-    <div className="space-y-3" data-testid="section-traversal">
+    <div className="space-y-4" data-testid="section-traversal">
       <NodeSelect id="traversal-start" label="Start node:" placeholder="(Select start)" value={start} nodes={options} onChange={(id) => update({ traversalStart: id || null })} />
       {!traversal && <p className="text-[11px] text-text-muted italic">Choose a start node to see the BFS and DFS orders.</p>}
       {traversal?.error && (
@@ -303,14 +316,12 @@ export const TraversalSection: React.FC<{ current: Analysis; labelOf: LabelOf }>
             <p className="font-mono text-[11px] text-text-primary break-words" data-testid="analysis-bfs">
               {traversal.bfs.map((s) => `${labelOf(s.nodeId)} (${s.layer})`).join(' → ')}
             </p>
-            <Explain k={traversal.bfsExplanationKey} />
           </div>
           <div className={card}>
             <div className={heading}>DFS</div>
             <p className="font-mono text-[11px] text-text-primary break-words" data-testid="analysis-dfs">
               {traversal.dfs.map(labelOf).join(' → ')}
             </p>
-            <Explain k={traversal.dfsExplanationKey} />
           </div>
           <div className={card}>
             <div className={heading}>Show on the canvas</div>
@@ -341,6 +352,10 @@ export const TraversalSection: React.FC<{ current: Analysis; labelOf: LabelOf }>
               {v.traversalStep === null ? `Showing all ${length} visited nodes` : `Step ${v.traversalStep + 1} of ${length}`}
             </p>
           </div>
+          <Learn>
+            <Explain k={traversal.bfsExplanationKey} />
+            <Explain k={traversal.dfsExplanationKey} />
+          </Learn>
         </>
       )}
     </div>
@@ -416,9 +431,9 @@ export const CompareSection: React.FC<{ result: AnalyzeResponseBody }> = ({ resu
   return (
     <div className="space-y-3" data-testid="section-compare">
       <p className="text-[11px] text-text-secondary">The same network with every failure cleared, next to its current state.</p>
-      <div className="overflow-x-auto border border-border-subtle rounded-[2px]">
+      <div className="overflow-x-auto">
         <table className="w-full font-mono text-[11px]" data-testid="analysis-compare">
-          <thead className="bg-bg-primary text-text-muted border-b border-border-subtle">
+          <thead className="text-text-muted border-b border-border-subtle">
             <tr>
               <th scope="col" className="p-2 text-left">
                 Measure

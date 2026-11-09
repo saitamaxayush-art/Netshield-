@@ -3,7 +3,7 @@
  * The `issues` fixture fails on any console error.
  */
 import { devices, type Locator, type Page } from '@playwright/test'
-import { expect, test } from './helpers'
+import { expect, moreAction, test } from './helpers'
 
 
 const nodes = (page: Page) => page.locator('.react-flow__node')
@@ -35,6 +35,7 @@ for (const mode of ['desktop', 'phone'] as const) {
 
     /** Run a tool that lives in the toolbar on desktop and in the Tools sheet on a phone. */
     async function tool(page: Page, name: string) {
+      if (!phone && ['Zoom in', 'Zoom out', 'Restore all failed', 'Reset canvas', 'Keyboard shortcuts'].includes(name)) return moreAction(page, name)
       if (phone) await toolbar(page).getByRole('button', { name: 'Tools' }).tap()
       const scope = phone ? page.getByTestId('tools-sheet') : toolbar(page)
       const button = scope.getByRole('button', { name, exact: true })
