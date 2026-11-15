@@ -11,13 +11,20 @@ import type { MascotPose } from './steps'
 
 const C = TOKENS.colors
 
-export const Mascot: React.FC<{ pose: MascotPose; facing: 'left' | 'right'; talking: boolean; size?: number }> = ({ pose, facing, talking, size = 88 }) => {
+/** Where the antenna tip sits, as a fraction of the drawing (viewBox 100 x 110, tip at 50, 7). */
+const ANTENNA_TIP = { x: 0.5, y: 7 / 110 }
+
+export const Mascot: React.FC<{ pose: MascotPose; facing: 'left' | 'right'; talking: boolean; size?: number; head?: React.ReactNode }> = ({ pose, facing, talking, size = 120, head }) => {
   // Follows the system setting live (Motion's own hook reads it once).
   const reduced = useMediaQuery('(prefers-reduced-motion: reduce)')
   const still = reduced
   // Arm angles (degrees, around the shoulder). Motion uses transform-box fill-box on SVG, so origins are fractions of each shape's own box. The free arm points toward the highlighted element.
   const pointArm = facing === 'right' ? -70 : 70
+  const height = size * 1.1
   return (
+    // The head slot (the mute badge) moves with Netbot between steps but not with the idle bob, so it is
+    // a steady target to press; it covers the antenna tip, which bobs a few pixels beneath it.
+    <div className="relative" style={{ width: size, height }}>
     <motion.svg
       data-testid="tour-mascot"
       data-pose={pose}
@@ -25,11 +32,11 @@ export const Mascot: React.FC<{ pose: MascotPose; facing: 'left' | 'right'; talk
       data-animated={!still}
       viewBox="0 0 100 110"
       width={size}
-      height={size * 1.1}
+      height={height}
       aria-hidden="true"
       animate={still ? undefined : { y: [0, -4, 0] }}
       transition={still ? undefined : { duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
-      style={{ overflow: 'visible' }}
+      style={{ overflow: 'visible', display: 'block' }}
     >
       {/* Antenna */}
       <line x1="50" y1="22" x2="50" y2="8" stroke={C.border.strong} strokeWidth="3" strokeLinecap="round" />
@@ -85,5 +92,12 @@ export const Mascot: React.FC<{ pose: MascotPose; facing: 'left' | 'right'; talk
       {/* Chest light */}
       <circle cx="50" cy="80" r="4" fill={C.state.success} />
     </motion.svg>
+    {head && (
+      // Centred on the antenna tip: above the face plate, so it never covers the eye or mouth.
+      <div className="absolute" style={{ left: size * ANTENNA_TIP.x, top: height * ANTENNA_TIP.y, transform: 'translate(-50%, -50%)' }}>
+        {head}
+      </div>
+    )}
+    </div>
   )
 }

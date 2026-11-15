@@ -4,7 +4,7 @@
  */
 import { readFileSync } from 'node:fs'
 import type { Locator, Page, Response } from '@playwright/test'
-import { expect, openSimulatorOptions, test } from './helpers'
+import { expect, openSimulatorOptions, test, openSection } from './helpers'
 import { reference, type RefGraph } from './reference'
 
 const isAnalyze = (r: Response) => r.url().endsWith('/api/analyze') && r.request().method() === 'POST'
@@ -54,12 +54,12 @@ for (const mode of ['desktop', 'phone'] as const) {
     async function expectAnalysisMatches(page: Page, graph: RefGraph) {
       const expected = reference(graph)
       await panel(page, 'Analysis')
-      await press(page.getByRole('button', { name: 'Overview', exact: true }))
+      await openSection(page, 'Overview', phone)
       await expect(page.getByTestId('analysis-stale')).toHaveCount(0)
       await expect(page.getByTestId('analysis-component-count')).toHaveText(String(expected.components))
       await expect(page.getByTestId('analysis-connected')).toHaveText(expected.connected ? 'Connected' : 'Not connected')
       await expect(page.getByTestId('analysis-density')).toHaveText(expected.density.toFixed(4))
-      await press(page.getByRole('button', { name: 'Critical', exact: true }))
+      await openSection(page, 'Critical', phone)
       const bridges = await page.locator('[data-testid="analysis-bridges"] li').evaluateAll((els) => els.map((e) => e.getAttribute('data-edge-id') ?? ''))
       const cut = await page.locator('[data-testid="analysis-articulation"] li').evaluateAll((els) => els.map((e) => e.getAttribute('data-node-id') ?? ''))
       expect([...bridges].sort()).toEqual(expected.bridges)

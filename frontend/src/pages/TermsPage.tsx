@@ -92,7 +92,7 @@ export const TermsPage: React.FC = () => {
               for any direct, indirect, incidental, or consequential loss arising from the use or inability to use
               this experimental educational tool.
             </p>
-            <div className="inline-block px-2.5 py-1 bg-state-warning-dim border border-state-warning/30 rounded-[2px] text-state-warning text-[10px] font-mono">
+            <div className="inline-block px-2.5 py-1 bg-state-warning-dim border border-state-warning/30 rounded-[2px] text-state-warning text-2xs font-mono">
               Developer review required: Verify course-specific legal disclaimers and submission deadlines.
             </div>
           </section>

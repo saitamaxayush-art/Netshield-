@@ -5,14 +5,14 @@
  */
 import { readFileSync } from 'node:fs'
 import type { Page, Response, Route } from '@playwright/test'
-import { expect, test } from './helpers'
+import { expect, test, openSection } from './helpers'
 import { E2E_API_PORT } from '../playwright.config'
 
 test.use({ viewport: { width: 1440, height: 900 } })
 
 const isAnalyze = (r: Response) => r.url().endsWith('/api/analyze') && r.request().method() === 'POST'
 const node = (page: Page, id: string) => page.locator(`.react-flow__node[data-id="${id}"]`)
-const tab = (page: Page, name: string) => page.getByRole('button', { name, exact: true }).click()
+const tab = (page: Page, name: string) => openSection(page, name)
 
 type SeedNode = { id: string; label?: string; failed?: boolean; x?: number; y?: number }
 type SeedEdge = { id: string; source: string; target: string; failed?: boolean }

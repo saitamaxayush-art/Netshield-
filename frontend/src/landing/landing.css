@@ -1078,7 +1078,8 @@ html[data-route='landing'] body {
   width: 100%;
   height: 100%;
   overflow: visible;
-  touch-action: none;
+  /* Vertical swipes on the empty canvas scroll the page; nodes set touch-action: none to be dragged. */
+  touch-action: pan-y;
   user-select: none;
   -webkit-user-select: none;
 }

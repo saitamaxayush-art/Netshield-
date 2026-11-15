@@ -3,7 +3,7 @@
  * mocked here: every asserted number is also read from the response the backend actually sent.
  */
 import type { Page, Response } from '@playwright/test'
-import { expect, test } from './helpers'
+import { expect, test, openSection } from './helpers'
 
 test.use({ viewport: { width: 1440, height: 900 } })
 
@@ -12,7 +12,7 @@ interface Body {
   meta: { engine: string }
 }
 const isAnalyze = (r: Response) => r.url().endsWith('/api/analyze') && r.request().method() === 'POST'
-const tab = (page: Page, name: string) => page.getByRole('button', { name, exact: true }).click()
+const tab = (page: Page, name: string) => openSection(page, name)
 
 async function loadPreset(page: Page, name: 'Star' | 'Ring' | 'Mesh') {
   await page.getByTestId('studio-toolbar').getByRole('button', { name, exact: true }).click()

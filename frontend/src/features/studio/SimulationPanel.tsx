@@ -7,15 +7,15 @@ import { Button } from '@/components/ui/Button'
 import { Activity, Play, TrendingDown, Square, Shuffle, RotateCcw, Download } from 'lucide-react'
 import { CompareChart, HistogramChart, SweepChart, TrialsChart } from '@/features/analytics/charts'
 import { ApiErrorBox, SourceBadge, StaleNotice } from './ResultStatus'
-import { Explain, KeyValues, Learn, VALUE } from './analysis/sections'
+import { Disclosure, Explain, KeyValues, Learn, VALUE } from './analysis/sections'
 import { download, toCsv, toJson } from './simulationExport'
 import { nodeNames } from './nodeNames'
 import { clampInput } from './clamp'
 
 const TRIAL_OPTIONS = [100, 500, 1000, 5000, 20000] as const
 const pct = (v: number, digits = 1) => `${(v * 100).toFixed(digits)}%`
-const field = 'w-full px-2 py-1.5 bg-bg-surface border border-border-strong rounded-[2px] text-text-primary text-xs focus:border-accent-teal focus:outline-none'
-const heading = 'text-[11px] font-mono text-text-secondary uppercase tracking-wider'
+const field = 'w-full min-h-11 px-3 py-2 bg-bg-surface border border-border-strong rounded-[2px] text-text-primary text-xs focus:border-accent-teal focus:outline-none'
+const heading = 'text-2xs font-mono text-text-secondary uppercase tracking-wider'
 
 /** Text input for a number; commits on blur or Enter, shows the store's reason when refused. Keyed by value so it follows the store. */
 const NumberField: React.FC<{
@@ -41,7 +41,7 @@ const NumberField: React.FC<{
   }
   return (
     <div>
-      <label htmlFor={id} className={ariaLabel ? 'sr-only' : 'block text-[11px] text-text-muted mb-1 font-mono'}>
+      <label htmlFor={id} className={ariaLabel ? 'sr-only' : 'block text-2xs text-text-muted mb-1 font-mono'}>
         {ariaLabel ?? label}
       </label>
       <input
@@ -76,7 +76,7 @@ const ProbabilityField: React.FC<{ id: string; label: string; value: number; pat
   const update = useSettingsStore((s) => s.update)
   return (
     <div>
-      <div className="flex justify-between items-end gap-3 text-[11px] font-mono mb-1">
+      <div className="flex justify-between items-end gap-3 text-2xs font-mono mb-1">
         <label htmlFor={id} className="text-text-muted">
           {label}
         </label>
@@ -130,7 +130,7 @@ const RunProgress: React.FC<{ startedAt: number | null; progress: { done: number
           <div className="h-full w-1/3 bg-accent-teal ns-indeterminate" />
         )}
       </div>
-      <p className="text-[11px] font-mono text-text-muted" data-testid="simulation-progress-text">
+      <p className="text-2xs font-mono text-text-muted" data-testid="simulation-progress-text">
         {batched ? `${progress.done} of ${progress.total} trials` : 'Running on the backend'}, {(elapsed / 1000).toFixed(1)} s
       </p>
     </div>
@@ -203,7 +203,7 @@ export const SimulationPanel: React.FC = () => {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Activity className="w-4 h-4 text-accent-cyan" />
-          <span className="font-semibold uppercase tracking-wider text-[11px] font-mono">Failure Simulator</span>
+          <span className="font-semibold uppercase tracking-wider text-2xs font-mono">Failure Simulator</span>
         </div>
         {result && <SourceBadge isDemo={result.isDemo} testId="simulation-source" backendLabel="FastAPI Backend" />}
       </div>
@@ -211,7 +211,7 @@ export const SimulationPanel: React.FC = () => {
       <div className="space-y-4" data-tour="simulation">
         <ProbabilityField id="edge-p" label="Link failure probability (p):" value={settings.edgeFailureProbability} patch={(v) => ({ edgeFailureProbability: v })} onError={setSettingError} />
         <div>
-          <label htmlFor="trials" className="block text-[11px] text-text-muted mb-1 font-mono">
+          <label htmlFor="trials" className="block text-2xs text-text-muted mb-1 font-mono">
             Trials:
           </label>
           <select id="trials" value={settings.trials} onChange={(e) => settings.update({ trials: Number(e.target.value) })} className={`${field} cursor-pointer`}>
@@ -223,16 +223,13 @@ export const SimulationPanel: React.FC = () => {
           </select>
         </div>
         {settings.trials > BATCH_TRIALS && (
-          <p role="note" data-testid="trials-warning" className="text-[11px] text-state-warning">
+          <p role="note" data-testid="trials-warning" className="text-2xs text-state-warning">
             {settings.trials.toLocaleString('en-US')} trials take longer. They are sent as {Math.ceil(settings.trials / BATCH_TRIALS)} batches of up to {BATCH_TRIALS}, with seeds derived from the run seed.
           </p>
         )}
 
-        <details open={moreOpen} onToggle={(e) => setMoreOpen(e.currentTarget.open)} data-testid="simulation-more">
-          <summary className="w-fit cursor-pointer text-[11px] font-mono text-text-secondary hover:text-text-primary rounded-[2px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-teal">
-            More options
-          </summary>
-          <div className="mt-3 space-y-4 pl-3 border-l border-border-subtle">
+        <Disclosure summary="More options" open={moreOpen} onToggle={setMoreOpen} testId="simulation-more">
+          <div className="space-y-4 pl-3 border-l border-border-subtle">
             <ProbabilityField id="node-p" label="Node failure probability:" value={settings.nodeFailureProbability} patch={(v) => ({ nodeFailureProbability: v })} onError={setSettingError} />
             <div className="flex items-end gap-2">
               <div className="flex-1">
@@ -243,7 +240,7 @@ export const SimulationPanel: React.FC = () => {
               </Button>
             </div>
             <div>
-              <label htmlFor="mode" className="block text-[11px] text-text-muted mb-1 font-mono">
+              <label htmlFor="mode" className="block text-2xs text-text-muted mb-1 font-mono">
                 Success means:
               </label>
               <select id="mode" value={settings.mode} onChange={(e) => settings.update({ mode: e.target.value === 'two-terminal' ? 'two-terminal' : 'all-terminal' })} className={`${field} cursor-pointer`}>
@@ -254,7 +251,7 @@ export const SimulationPanel: React.FC = () => {
                 <div className="grid grid-cols-2 gap-2 mt-2" data-testid="simulation-terminals">
                   {(['terminalSource', 'terminalTarget'] as const).map((key) => (
                     <div key={key}>
-                      <label htmlFor={key} className="block text-[11px] text-text-muted mb-1 font-mono">
+                      <label htmlFor={key} className="block text-2xs text-text-muted mb-1 font-mono">
                         {key === 'terminalSource' ? 'Source s:' : 'Target t:'}
                       </label>
                       <select id={key} value={settings[key] ?? ''} onChange={(e) => settings.update({ [key]: e.target.value || null })} className={`${field} cursor-pointer`}>
@@ -270,7 +267,7 @@ export const SimulationPanel: React.FC = () => {
                 </div>
               )}
             </div>
-            <p className="text-[11px] text-text-secondary leading-relaxed">
+            <p className="text-2xs text-text-secondary leading-relaxed">
               <span className="font-semibold text-text-primary">Failed elements stay failed:</span> nodes and links you marked failed are failed in every trial, and a link whose
               endpoint fails is unavailable in that trial. A link with its own failure probability uses it instead of p.
             </p>
@@ -278,10 +275,10 @@ export const SimulationPanel: React.FC = () => {
               Reset simulation
             </Button>
           </div>
-        </details>
+        </Disclosure>
 
         {settingError && (
-          <p role="alert" data-testid="setting-error" className="text-[11px] text-state-failure">
+          <p role="alert" data-testid="setting-error" className="text-2xs text-state-failure">
             {settingError}
           </p>
         )}
@@ -311,7 +308,7 @@ export const SimulationPanel: React.FC = () => {
         />
       )}
       {simulate.cancelled && !isSimulating && (
-        <p role="status" data-testid="simulation-cancelled" className="text-[11px] font-mono text-text-secondary">
+        <p role="status" data-testid="simulation-cancelled" className="text-2xs font-mono text-text-secondary">
           Run cancelled. {result ? 'The previous result is still shown.' : 'No result.'}
         </p>
       )}
@@ -321,7 +318,7 @@ export const SimulationPanel: React.FC = () => {
         <div className="pt-5 border-t border-border-subtle space-y-4" data-testid="simulation-results">
           {/* The estimate first and largest; related numbers grouped below it, values aligned right. */}
           <div>
-            <div className="text-[11px] font-mono uppercase tracking-wider text-text-secondary">Estimate: reliability R&#770;</div>
+            <div className="text-2xs font-mono uppercase tracking-wider text-text-secondary">Estimate: reliability R&#770;</div>
             <div className={`text-3xl leading-tight mt-1 ${VALUE}`} data-testid="simulation-reliability">
               {pct(c.estimate)}
             </div>

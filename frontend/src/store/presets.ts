@@ -13,10 +13,12 @@ export const PRESET_TITLES: Record<PresetName, string> = {
   campus: 'Example: campus network',
 }
 
+/** The layouts below were drawn for 84px tall cards; cards are taller with the larger type, so spread them. */
+const SPREAD = 1.3
 const node = (id: string, label: string, nodeType: NodeType, x: number, y: number): EditorNode => ({
   id,
   type: 'netshieldNode',
-  position: { x, y },
+  position: { x: Math.round(x * SPREAD), y: Math.round(y * SPREAD) },
   data: { label, nodeType, failed: false },
 })
 const edge = (id: string, source: string, target: string, weight?: number): EditorEdge => ({

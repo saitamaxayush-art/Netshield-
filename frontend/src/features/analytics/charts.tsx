@@ -8,6 +8,7 @@ import { Eye, Table } from 'lucide-react'
 import type { Analysis, SweepResponseBody } from '@/services/api/schemas'
 import type { SimulationRun } from '@/store/simulationRuns'
 import { Button } from '@/components/ui/Button'
+import { TYPE } from '@/lib/tokens'
 
 const C = {
   grid: '#222638',
@@ -22,15 +23,15 @@ const C = {
   tooltipBg: '#181B28',
   tooltipBorder: '#2F364E',
 }
-const axis = { stroke: C.axis, fontSize: 10, tickLine: false } as const
+const axis = { stroke: C.axis, fontSize: TYPE.small, tickLine: false } as const
 const tooltip = {
-  contentStyle: { backgroundColor: C.tooltipBg, borderColor: C.tooltipBorder, borderRadius: 2, fontSize: 11, fontFamily: 'JetBrains Mono, monospace', color: '#E9ECEE' },
+  contentStyle: { backgroundColor: C.tooltipBg, borderColor: C.tooltipBorder, borderRadius: 2, fontSize: TYPE.label, fontFamily: 'JetBrains Mono, monospace', color: '#E9ECEE' },
   labelStyle: { color: '#E9ECEE' },
   itemSorter: (item: { name?: unknown }) => SERIES_ORDER.indexOf(String(item.name)),
 } as const
 // Keep series in drawing order (Recharts sorts legend and tooltip entries alphabetically by default).
 const SERIES_ORDER = ['95% Wilson interval', 'Estimate', 'Successful', 'Failed', 'Healthy', 'Current', 'Trials']
-const legend = { wrapperStyle: { fontSize: 10, fontFamily: 'JetBrains Mono, monospace', color: C.axis }, itemSorter: null } as const
+const legend = { wrapperStyle: { fontSize: TYPE.small, fontFamily: 'JetBrains Mono, monospace', color: C.axis }, itemSorter: null } as const
 const pct = (v: number, digits = 1) => `${(v * 100).toFixed(digits)}%`
 
 interface ChartCardProps {
@@ -48,11 +49,11 @@ export const ChartCard: React.FC<ChartCardProps> = ({ title, description, testId
   return (
     <figure className="p-3 bg-bg-primary border border-border-subtle rounded-[2px] space-y-2" data-testid={testId} aria-describedby={descriptionId}>
       <div className="flex items-center justify-between gap-2">
-        <figcaption className="text-[11px] font-mono uppercase tracking-wider text-text-primary">{title}</figcaption>
+        <figcaption className="text-2xs font-mono uppercase tracking-wider text-text-primary">{title}</figcaption>
         <Button
           variant="ghost"
           size="sm"
-          className="h-8 px-2 text-[11px] shrink-0"
+          className="h-11 px-3 text-2xs shrink-0"
           aria-pressed={showTable}
           leftIcon={showTable ? <Eye className="w-3 h-3" /> : <Table className="w-3 h-3" />}
           onClick={() => setShowTable(!showTable)}
@@ -60,12 +61,12 @@ export const ChartCard: React.FC<ChartCardProps> = ({ title, description, testId
           {showTable ? 'View chart' : 'View data table'}
         </Button>
       </div>
-      <p id={descriptionId} className="text-[11px] text-text-muted leading-snug" data-testid={`${testId}-description`}>
+      <p id={descriptionId} className="text-2xs text-text-muted leading-snug" data-testid={`${testId}-description`}>
         {description}
       </p>
       {showTable ? (
         <div className="h-56 overflow-auto border border-border-subtle rounded-[2px]">
-          <table className="w-full text-left font-mono text-[11px]" data-testid={`${testId}-table`}>
+          <table className="w-full text-left font-mono text-2xs" data-testid={`${testId}-table`}>
             <thead className="bg-bg-surface text-text-muted border-b border-border-subtle sticky top-0">
               <tr>
                 {table.columns.map((c) => (
@@ -108,7 +109,7 @@ export const SweepChart: React.FC<{ result: SweepResponseBody & { isDemo: boolea
   const last = result.points[result.points.length - 1]
   return (
     <div className="space-y-2">
-      <p className="text-[11px] font-mono text-text-muted" data-testid="sweep-summary" data-source={result.isDemo ? 'demo' : 'backend'}>
+      <p className="text-2xs font-mono text-text-muted" data-testid="sweep-summary" data-source={result.isDemo ? 'demo' : 'backend'}>
         {result.points.length} points from {result.isDemo ? 'the demo adapter' : 'the FastAPI backend'}: R = {pct(first.estimate)} at p = {pct(first.p)} to R ={' '}
         {pct(last.estimate)} at p = {pct(last.p)}
       </p>
@@ -209,7 +210,7 @@ export const CompareChart: React.FC<{ current: Analysis; healthy: Analysis }> = 
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={rows.map(([name, h, c]) => ({ name, healthy: h, current: c }))} margin={{ top: 8, right: 8, left: -12, bottom: 4 }}>
           <CartesianGrid stroke={C.grid} strokeDasharray="3 3" vertical={false} />
-          <XAxis dataKey="name" {...axis} interval={0} tick={{ fontSize: 9, fill: C.axis }} />
+          <XAxis dataKey="name" {...axis} interval={0} tick={{ fontSize: TYPE.small, fill: C.axis }} />
           <YAxis {...axis} allowDecimals={false} />
           <Tooltip {...tooltip} cursor={{ fill: 'rgba(148,163,184,0.08)' }} />
           <Legend {...legend} />

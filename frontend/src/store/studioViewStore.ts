@@ -17,7 +17,8 @@ export const TRAVERSAL_STEP_MS = 700
 
 export interface View {
   panelTab: PanelTab
-  section: AnalysisSection
+  /** The open analysis section, or null when every section is closed. */
+  section: AnalysisSection | null
   focusComponent: number | null
   focusCritical: CriticalFocus | null
   traversalOrder: TraversalOrder
@@ -93,7 +94,7 @@ const stopTimer = () => {
 export interface StudioViewState extends View {
   setPanelTab: (tab: PanelTab) => void
   setDetailsOpen: (open: boolean) => void
-  setSection: (section: AnalysisSection) => void
+  setSection: (section: AnalysisSection | null) => void
   focusOnComponent: (index: number | null) => void
   focusOnCritical: (focus: CriticalFocus | null) => void
   setTraversalOrder: (order: TraversalOrder) => void

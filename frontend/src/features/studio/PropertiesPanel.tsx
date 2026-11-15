@@ -26,7 +26,7 @@ function useEditError(): [string | null, (result: EditResult) => void] {
 
 const EditError: React.FC<{ error: string | null }> = ({ error }) =>
   error ? (
-    <p role="alert" data-testid="edit-error" className="text-[11px] text-state-failure">
+    <p role="alert" data-testid="edit-error" className="text-2xs text-state-failure">
       {error}
     </p>
   ) : null
@@ -39,7 +39,7 @@ const ConnectTo: React.FC<{ nodeId: string; onResult: (result: EditResult) => vo
   const [target, setTarget] = useState('')
   return (
     <div className="space-y-1.5">
-      <label htmlFor="connect-to" className="block text-[11px] font-mono text-text-muted uppercase">
+      <label htmlFor="connect-to" className="block text-2xs font-mono text-text-muted uppercase">
         Link to another node
       </label>
       <div className="flex gap-2">
@@ -47,7 +47,7 @@ const ConnectTo: React.FC<{ nodeId: string; onResult: (result: EditResult) => vo
           id="connect-to"
           value={target}
           onChange={(e) => setTarget(e.target.value)}
-          className="flex-1 min-w-0 px-2 py-1.5 bg-bg-primary border border-border-strong rounded-[2px] text-text-primary text-xs focus:border-accent-teal focus:outline-none"
+          className="flex-1 min-w-0 min-h-11 px-3 py-2 bg-bg-primary border border-border-strong rounded-[2px] text-text-primary text-xs focus:border-accent-teal focus:outline-none"
         >
           <option value="">(Select node)</option>
           {nodes
@@ -90,15 +90,15 @@ const NodeProperties: React.FC<{ node: EditorNode }> = ({ node }) => {
       <div className="flex items-center justify-between pb-3 border-b border-border-subtle">
         <div className="flex items-center gap-2">
           <Layers className="w-4 h-4 text-accent-teal" />
-          <span className="font-semibold uppercase tracking-wider text-[11px] font-mono">Vertex Properties</span>
+          <span className="font-semibold uppercase tracking-wider text-2xs font-mono">Vertex Properties</span>
         </div>
         <Badge variant={isFailed ? 'failure' : 'success'}>{isFailed ? 'FAILED' : 'ACTIVE'}</Badge>
       </div>
 
-      <div className="font-mono text-[11px] text-text-muted">id: {node.id}</div>
+      <div className="font-mono text-2xs text-text-muted">id: {node.id}</div>
 
       <div>
-        <label htmlFor="node-label" className="block text-[11px] font-mono text-text-muted uppercase mb-1.5">
+        <label htmlFor="node-label" className="block text-2xs font-mono text-text-muted uppercase mb-1.5">
           Label
         </label>
         {/* Commits on blur or Enter, so one rename is one undo step. Keyed by value to follow undo. */}
@@ -115,12 +115,12 @@ const NodeProperties: React.FC<{ node: EditorNode }> = ({ node }) => {
           onBlur={(e) => {
             if (e.target.value !== node.data.label) report(updateNode(node.id, { label: e.target.value }))
           }}
-          className="w-full px-3 py-1.5 bg-bg-primary border border-border-strong rounded-[2px] text-text-primary focus:border-accent-teal focus:outline-none font-sans text-xs"
+          className="w-full min-h-11 px-3 py-2 bg-bg-primary border border-border-strong rounded-[2px] text-text-primary focus:border-accent-teal focus:outline-none font-sans text-xs"
         />
       </div>
 
       <div>
-        <label htmlFor="node-type" className="block text-[11px] font-mono text-text-muted uppercase mb-1.5">
+        <label htmlFor="node-type" className="block text-2xs font-mono text-text-muted uppercase mb-1.5">
           Node Archetype
         </label>
         <select
@@ -129,7 +129,7 @@ const NodeProperties: React.FC<{ node: EditorNode }> = ({ node }) => {
           onChange={(e) => {
             if (isNodeType(e.target.value)) report(updateNode(node.id, { nodeType: e.target.value }))
           }}
-          className="w-full px-3 py-1.5 bg-bg-primary border border-border-strong rounded-[2px] text-text-primary focus:border-accent-teal focus:outline-none font-sans text-xs cursor-pointer"
+          className="w-full min-h-11 px-3 py-2 bg-bg-primary border border-border-strong rounded-[2px] text-text-primary focus:border-accent-teal focus:outline-none font-sans text-xs cursor-pointer"
         >
           {NODE_TYPES.map((t) => (
             <option key={t} value={t}>
@@ -205,7 +205,7 @@ const OptionalNumber: React.FC<{
   const [text, setText] = useState(value === undefined ? '' : String(value))
   return (
     <div>
-      <label htmlFor={id} className="block text-[11px] font-mono text-text-muted uppercase mb-1.5">
+      <label htmlFor={id} className="block text-2xs font-mono text-text-muted uppercase mb-1.5">
         {label}
       </label>
       <input
@@ -222,7 +222,7 @@ const OptionalNumber: React.FC<{
           if (e.key === 'Enter') e.currentTarget.blur()
         }}
         onBlur={() => onCommit(text.trim() === '' ? null : Number(text))}
-        className="w-full px-3 py-1.5 bg-bg-primary border border-border-strong rounded-[2px] text-text-primary focus:border-accent-teal focus:outline-none font-mono text-xs"
+        className="w-full min-h-11 px-3 py-2 bg-bg-primary border border-border-strong rounded-[2px] text-text-primary focus:border-accent-teal focus:outline-none font-mono text-xs"
       />
     </div>
   )
@@ -241,7 +241,7 @@ const EdgeProperties: React.FC<{ edge: EditorEdge }> = ({ edge }) => {
       <div className="flex items-center justify-between pb-3 border-b border-border-subtle">
         <div className="flex items-center gap-2">
           <Activity className="w-4 h-4 text-accent-cyan" />
-          <span className="font-semibold uppercase tracking-wider text-[11px] font-mono">Edge Properties</span>
+          <span className="font-semibold uppercase tracking-wider text-2xs font-mono">Edge Properties</span>
         </div>
         <Badge variant={isFailed ? 'failure' : 'success'}>{isFailed ? 'SEVERED' : 'ACTIVE'}</Badge>
       </div>
@@ -326,7 +326,7 @@ export const PropertiesPanel: React.FC = () => {
     <div className="p-6 text-center text-text-muted flex flex-col items-center justify-center h-full min-h-[220px]">
       <Sliders className="w-8 h-8 stroke-1 text-border-strong mb-3" />
       <div className="text-xs font-semibold text-text-secondary mb-1">No Selection</div>
-      <p className="text-[11px] text-text-muted max-w-[200px] leading-relaxed">
+      <p className="text-2xs text-text-muted max-w-[200px] leading-relaxed">
         Select any node or connection on the canvas to edit it and see its analysis.
       </p>
     </div>

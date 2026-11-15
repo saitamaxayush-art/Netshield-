@@ -8,6 +8,7 @@
  */
 import { expect, test, type Page, type Request, type Response } from '@playwright/test'
 import { E2E_API_PORT } from '../playwright.config'
+import { openSection } from './helpers'
 
 test.use({ viewport: { width: 1440, height: 900 } })
 
@@ -90,7 +91,7 @@ async function runAnalysis(page: Page) {
 /** Every displayed analysis value equals the backend's response body. */
 async function expectPanelShows(page: Page, body: AnalyzeBody) {
   const c = body.current
-  await page.getByRole('button', { name: 'Overview', exact: true }).click()
+  await openSection(page, 'Overview')
   await expect(page.getByTestId('analysis-source')).toHaveText('FastAPI NetworkX')
   await expect(page.getByTestId('analysis-source')).toHaveAttribute('data-source', 'backend')
   await expect(page.getByTestId('analysis-engine')).toHaveText(`NetworkX ${body.meta.engineVersion}, API ${body.meta.apiVersion}`)
@@ -98,7 +99,7 @@ async function expectPanelShows(page: Page, body: AnalyzeBody) {
   await expect(page.getByTestId('analysis-reason')).toHaveText(c.connectivity.reason)
   await expect(page.getByTestId('analysis-component-count')).toHaveText(String(c.connectivity.componentCount))
   await expect(page.getByTestId('analysis-density')).toHaveText(c.summary.density.toFixed(4))
-  await page.getByRole('button', { name: 'Critical', exact: true }).click()
+  await openSection(page, 'Critical')
   await expect(page.getByTestId('section-critical')).toBeVisible()
   const shownBridges = await page.locator('[data-testid="analysis-bridges"] li').evaluateAll((els) => els.map((e) => e.getAttribute('data-edge-id')))
   expect(shownBridges).toEqual(c.bridges.edgeIds)
@@ -171,16 +172,16 @@ test('traversal and shortest path shown are the backend values', async ({ page }
   const star = sixLeafStar()
   await seedGraph(page, star.nodes, star.edges)
   await openTab(page, 'Analysis')
-  await page.getByRole('button', { name: 'Traversal', exact: true }).click()
+  await openSection(page, 'Traversal')
   await page.locator('#traversal-start').selectOption('L1')
-  await page.getByRole('button', { name: 'Paths', exact: true }).click()
+  await openSection(page, 'Paths')
   await page.locator('#path-source').selectOption('L1')
   await page.locator('#path-target').selectOption('L4')
   const body = (await (await runAnalysis(page)).json()) as AnalyzeBody
   const label = (id: string) => (id === 'hub' ? 'Hub' : `Leaf ${id.slice(1)}`)
   expect(body.current.path?.nodeIds).toEqual(['L1', 'hub', 'L4'])
   await expect(page.getByTestId('analysis-path')).toContainText(`${['L1', 'hub', 'L4'].map(label).join(' → ')} (2 hops)`)
-  await page.getByRole('button', { name: 'Traversal', exact: true }).click()
+  await openSection(page, 'Traversal')
   await expect(page.getByTestId('analysis-bfs')).toHaveText(
     body.current.traversal!.bfs.map((s) => `${label(s.nodeId)} (${s.layer})`).join(' → ')
   )

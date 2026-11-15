@@ -53,12 +53,13 @@ export const NodeBody = memo(({ label, nodeType, failed, selected, componentInde
         <path d="M0 0L100 40M0 40L100 0" stroke="#F43F5E" strokeWidth="1" vectorEffect="non-scaling-stroke" />
       </svg>
       {highlighted && badge && (
-        <div data-testid="node-badge" className="absolute -bottom-2.5 left-2 z-10 px-1.5 bg-state-warning text-bg-primary text-[9px] font-mono font-bold rounded-[1px]">
+        <div data-testid="node-badge" className="absolute -bottom-2.5 left-2 z-10 px-1.5 bg-state-warning text-bg-primary text-2xs font-mono font-bold rounded-[1px]">
           {badge}
         </div>
       )}
+      {/* The cut vertex badge hangs over the top right corner, clear of the top connection handle in the middle. */}
       {isArticulationPoint && !failed && (
-        <div className="absolute -top-2.5 right-2 px-1.5 bg-accent-teal text-bg-primary text-[9px] font-mono font-bold uppercase rounded-[1px] tracking-tight">
+        <div className="absolute -top-2.5 -right-2 z-10 px-1.5 bg-accent-teal text-bg-primary text-3xs font-mono font-bold uppercase rounded-[1px] tracking-tight">
           Cut Vertex
         </div>
       )}
@@ -72,11 +73,11 @@ export const NodeBody = memo(({ label, nodeType, failed, selected, componentInde
           <Icon className="w-3.5 h-3.5" aria-hidden="true" />
         </div>
         <div className="flex flex-col min-w-0">
-          <span className={`text-xs font-semibold truncate ${failed ? 'line-through text-state-failure' : 'text-text-primary'}`}>{label}</span>
-          <span className="text-[10px] uppercase font-mono text-text-muted tracking-tight">{nodeType}</span>
+          <span className={`text-xs font-semibold leading-snug break-words line-clamp-2 ${failed ? 'line-through text-state-failure' : 'text-text-primary'}`}>{label}</span>
+          <span className="text-2xs uppercase font-mono text-text-muted tracking-tight">{nodeType}</span>
         </div>
       </div>
-      <div className="mt-2 pt-1.5 border-t border-border-subtle flex items-center justify-between text-[10px] font-mono">
+      <div className="mt-2 pt-1.5 border-t border-border-subtle flex items-center justify-between text-2xs font-mono">
         <span className="text-text-muted">{color ? `C${componentIndex}` : ''}</span>
         <span className={`font-medium ${failed ? 'text-state-failure' : 'text-state-success'}`}>{failed ? 'FAILED' : 'ACTIVE'}</span>
       </div>

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { TOUR_STEPS } from '../features/tour/steps'
-import { findTarget, placeBubble } from '../features/tour/placement'
+import { findTarget, overlapArea, placeBubble } from '../features/tour/placement'
 import { Mascot } from '../features/tour/Mascot'
 import { TourHost } from '../features/tour/TourHost'
 import { progressLabel, useTourStore } from '../store/tourStore'
@@ -106,18 +106,40 @@ describe('placement', () => {
   const viewport = { width: 1440, height: 900 }
   const bubble = { width: 320, height: 200 }
 
-  it('beside the element when there is room, facing it', () => {
-    expect(placeBubble({ x: 1100, y: 300, width: 300, height: 100 }, bubble, viewport)).toEqual({ left: 764, top: 250, facing: 'right' })
-    expect(placeBubble({ x: 20, y: 300, width: 300, height: 100 }, bubble, viewport)).toEqual({ left: 336, top: 250, facing: 'left' })
+  const inside = (p: { left: number; top: number }, box: { width: number; height: number }, vp: { width: number; height: number; topInset?: number }) =>
+    p.left >= 12 && p.top >= (vp.topInset ?? 0) + 12 && p.left + box.width <= vp.width - 12 && p.top + box.height <= vp.height - 12
+
+  it('beside the element when there is room (clear of the spotlight padding), facing it', () => {
+    expect(placeBubble({ x: 1100, y: 300, width: 300, height: 100 }, bubble, viewport)).toEqual({ left: 756, top: 250, facing: 'right' })
+    expect(placeBubble({ x: 20, y: 300, width: 300, height: 100 }, bubble, viewport)).toEqual({ left: 344, top: 250, facing: 'left' })
   })
 
-  it('below or above a wide element, and centred without one; always on screen', () => {
+  it('below or above a wide element, centred without one, and always on screen', () => {
     const wide = placeBubble({ x: 0, y: 100, width: 1440, height: 200 }, bubble, viewport)
-    expect(wide.top).toBe(316)
-    const phone = placeBubble({ x: 0, y: 112, width: 390, height: 700 }, bubble, { width: 390, height: 844 })
-    expect(phone.left).toBeGreaterThanOrEqual(12)
-    expect(phone.top + bubble.height).toBeLessThanOrEqual(844 - 12)
+    expect(wide.top).toBe(324)
     expect(placeBubble(null, bubble, viewport)).toEqual({ left: 560, top: 350, facing: 'right' })
+  })
+
+  it('keeps below a bar at the top (the app header stays above the tour)', () => {
+    const vp = { ...viewport, topInset: 64 }
+    const p = placeBubble({ x: 600, y: 70, width: 200, height: 40 }, bubble, vp)
+    expect(inside(p, bubble, vp)).toBe(true)
+    expect(overlapArea({ x: p.left, y: p.top, ...bubble }, { x: 592, y: 62, width: 216, height: 56 })).toBe(0)
+  })
+
+  it('on a phone it is a full width sheet, docked away from the element', () => {
+    const phone = { width: 375, height: 812, topInset: 64 }
+    const sheet = { width: 351, height: 330 }
+    const high = placeBubble({ x: 12, y: 80, width: 120, height: 40 }, sheet, phone)
+    expect([high.left, high.top]).toEqual([12, 812 - 330 - 12])
+    const low = placeBubble({ x: 12, y: 700, width: 120, height: 40 }, sheet, phone)
+    expect([low.left, low.top]).toEqual([12, 64 + 12])
+  })
+
+  it('covers as little as possible of an element too big to avoid, and stays on screen', () => {
+    const vp = { width: 390, height: 844 }
+    const p = placeBubble({ x: 0, y: 112, width: 390, height: 700 }, bubble, vp)
+    expect(inside(p, bubble, vp)).toBe(true)
   })
 
   it('findTarget takes the first visible candidate', () => {

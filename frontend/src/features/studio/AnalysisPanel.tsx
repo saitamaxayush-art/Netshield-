@@ -6,7 +6,7 @@ import { ANALYSIS_SECTIONS, useStudioView, type AnalysisSection } from '@/store/
 import { Button } from '@/components/ui/Button'
 import { ApiErrorBox, SourceBadge, StaleNotice } from './ResultStatus'
 import { AnalysisSkeleton, ComponentsSection, CompareSection, CriticalSection, DegreesSection, OverviewSection, PathsSection, TraversalSection } from './analysis/sections'
-import { ChevronRight, Network, HelpCircle, RefreshCw } from 'lucide-react'
+import { ChevronDown, Network, HelpCircle, RefreshCw } from 'lucide-react'
 import { nodeNames } from './nodeNames'
 
 const SECTION_NAMES: Record<AnalysisSection, string> = {
@@ -80,7 +80,7 @@ export const AnalysisPanel: React.FC = () => {
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Network className="w-4 h-4 text-accent-teal" />
-            <span className="font-semibold uppercase tracking-wider text-[11px] font-mono">Graph Analysis</span>
+            <span className="font-semibold uppercase tracking-wider text-2xs font-mono">Graph Analysis</span>
           </div>
           {/* Analysis runs by itself after every change; this re-runs it on request, so it is not the main action. */}
           <Button variant="ghost" size="sm" leftIcon={<RefreshCw className="w-3.5 h-3.5" />} isLoading={isLoading} disabled={nodes.length === 0} onClick={retry}>
@@ -88,7 +88,7 @@ export const AnalysisPanel: React.FC = () => {
           </Button>
         </div>
         {current && result && (
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-mono text-text-secondary">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-2xs font-mono text-text-secondary">
             <SourceBadge isDemo={result.isDemo} testId="analysis-source" backendLabel="FastAPI NetworkX" />
             {slot.finishedAt !== null && slot.startedAt !== null && (
               <span data-testid="analysis-computed-at" data-finished-at={slot.finishedAt}>
@@ -111,23 +111,27 @@ export const AnalysisPanel: React.FC = () => {
           {ANALYSIS_SECTIONS.map((s) => {
             const open = section === s
             return (
-              <div key={s} className="border-t border-border-subtle">
+              <div key={s} className="border-t border-border-subtle py-1">
                 <h3>
+                  {/* The whole row is the button: click anywhere on it, or Enter or Space, to open or close. */}
                   <button
                     type="button"
                     id={`section-button-${s}`}
                     aria-expanded={open}
                     aria-controls={`section-panel-${s}`}
                     aria-describedby={`section-summary-${s}`}
-                    onClick={() => setSection(s)}
-                    className={`w-full min-h-10 flex items-center gap-2 text-left cursor-pointer rounded-[2px] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent-teal ${
+                    onClick={() => setSection(open ? null : s)}
+                    className={`group w-full min-h-[52px] flex items-center gap-3 pl-3 pr-0 text-left cursor-pointer rounded-[3px] hover:bg-bg-surface-hover focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent-teal ${
                       open ? 'text-text-primary' : 'text-text-secondary hover:text-text-primary'
                     }`}
                   >
-                    <ChevronRight className={`w-3.5 h-3.5 shrink-0 transition-transform motion-reduce:transition-none ${open ? 'rotate-90 text-accent-teal' : ''}`} aria-hidden="true" />
-                    <span className={`text-xs ${open ? 'font-semibold' : ''}`}>{SECTION_NAMES[s]}</span>
-                    <span id={`section-summary-${s}`} aria-hidden="true" className="ml-auto text-[11px] font-mono text-text-muted truncate">
+                    <span className={`text-sm ${open ? 'font-semibold' : ''}`}>{SECTION_NAMES[s]}</span>
+                    <span id={`section-summary-${s}`} aria-hidden="true" className="ml-auto text-2xs font-mono text-text-muted text-right leading-tight">
                       {summary(s)}
+                    </span>
+                    {/* 44px box with a 24px arrow: down when closed, up when open. */}
+                    <span aria-hidden="true" className="w-11 h-11 shrink-0 flex items-center justify-center" data-testid={`section-arrow-${s}`}>
+                      <ChevronDown className={`w-6 h-6 transition-transform duration-200 motion-reduce:transition-none ${open ? 'rotate-180 text-accent-teal' : 'group-hover:text-text-primary'}`} />
                     </span>
                   </button>
                 </h3>
@@ -153,7 +157,7 @@ export const AnalysisPanel: React.FC = () => {
         ) : (
           <div className="text-center py-8 text-text-muted space-y-2" data-testid="analysis-empty">
             <HelpCircle className="w-6 h-6 mx-auto stroke-1" />
-            <p className="text-[11px]">{nodes.length === 0 ? 'Add nodes to the canvas to analyze the network.' : 'Analysis runs automatically after each change.'}</p>
+            <p className="text-2xs">{nodes.length === 0 ? 'Add nodes to the canvas to analyze the network.' : 'Analysis runs automatically after each change.'}</p>
           </div>
         ))
       )}

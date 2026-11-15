@@ -119,7 +119,7 @@ export const EditorialMenuOverlay: React.FC<EditorialMenuOverlayProps> = ({
               className="menu-item-inner flex items-baseline justify-between group text-left cursor-pointer transition-transform duration-300 hover:translate-x-3"
             >
               <div className="space-y-1">
-                <span className="text-[11px] font-mono text-[#8E97A2] mr-4">
+                <span className="text-2xs font-mono text-[#8E97A2] mr-4">
                   0{idx + 1}
                 </span>
                 <span className="headline-chapter text-[#E4E8EC] group-hover:text-[#E5484D] transition-colors">

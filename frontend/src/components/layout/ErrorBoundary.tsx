@@ -38,12 +38,12 @@ export const AppErrorFallback: React.FC<{ error: Error }> = ({ error }) => (
     <div className="max-w-md w-full p-6 bg-bg-surface border border-state-failure/40 rounded-[4px] space-y-4">
       <h1 className="text-base font-semibold">Something went wrong</h1>
       <p className="text-xs text-text-secondary">NetShield hit an unexpected error and stopped this page. Your saved graph is not affected.</p>
-      <p className="text-[11px] font-mono text-state-failure break-words">{error.message}</p>
+      <p className="text-2xs font-mono text-state-failure break-words">{error.message}</p>
       <div className="flex flex-wrap gap-2">
-        <button type="button" onClick={() => window.location.reload()} className="min-h-10 px-4 bg-accent-teal text-bg-primary font-semibold rounded-[3px] text-xs cursor-pointer">
+        <button type="button" onClick={() => window.location.reload()} className="min-h-11 px-4 bg-accent-teal text-bg-primary font-semibold rounded-[3px] text-xs cursor-pointer">
           Reload page
         </button>
-        <a href="/" className="min-h-10 px-4 inline-flex items-center border border-border-strong rounded-[3px] text-xs">
+        <a href="/" className="min-h-11 px-4 inline-flex items-center border border-border-strong rounded-[3px] text-xs">
           Go to home page
         </a>
       </div>
@@ -54,9 +54,9 @@ export const AppErrorFallback: React.FC<{ error: Error }> = ({ error }) => (
 export const PanelErrorFallback: React.FC<{ error: Error; reset: () => void; name: string }> = ({ error, reset, name }) => (
   <div role="alert" data-testid="panel-error" className="m-5 p-3 bg-state-failure-dim border border-state-failure/40 rounded-[2px] text-state-failure space-y-2 text-xs">
     <div className="font-semibold">The {name} panel failed to display.</div>
-    <p className="text-[11px] font-mono break-words">{error.message}</p>
-    <p className="text-[11px]">The rest of the page still works. No result is shown from this panel.</p>
-    <button type="button" onClick={reset} className="min-h-10 px-3 border border-state-failure/60 rounded-[2px] cursor-pointer">
+    <p className="text-2xs font-mono break-words">{error.message}</p>
+    <p className="text-2xs">The rest of the page still works. No result is shown from this panel.</p>
+    <button type="button" onClick={reset} className="min-h-11 px-3 border border-state-failure/60 rounded-[2px] cursor-pointer">
       Try again
     </button>
   </div>

@@ -3,7 +3,7 @@
  * a labelled demo result), with the mathematical explanation for its explanation key.
  */
 import React, { useState } from 'react'
-import { ChevronLeft, ChevronRight, Play, Square } from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronRight, Play, Square } from 'lucide-react'
 import type { Analysis, AnalyzeResponseBody } from '@/services/api/schemas'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
@@ -16,20 +16,37 @@ import { nodeNames } from '../nodeNames'
 type LabelOf = (id: string) => string
 // Groups are separated by space and a heading, not by boxes.
 const card = 'space-y-2'
-const heading = 'text-[11px] font-mono font-semibold uppercase tracking-wider text-text-primary'
-const select = 'w-full px-2 py-1 bg-bg-surface border border-border-strong rounded-[2px] text-text-primary text-xs focus:border-accent-teal focus:outline-none'
+const heading = 'text-2xs font-mono font-semibold uppercase tracking-wider text-text-primary'
+const select = 'w-full min-h-11 px-3 py-2 bg-bg-surface border border-border-strong rounded-[2px] text-text-primary text-xs focus:border-accent-teal focus:outline-none'
 const listButton = (active: boolean) =>
-  `w-full text-left px-2 py-1.5 border rounded-[2px] font-mono text-[11px] cursor-pointer ${
+  `w-full min-h-11 text-left px-3 py-2 border rounded-[2px] font-mono text-2xs cursor-pointer ${
     active ? 'border-state-warning text-state-warning bg-state-warning-dim' : 'border-transparent text-accent-teal hover:bg-bg-surface-active'
   }`
 
-/** Background reading, folded away so the numbers come first. Still in the page for search and tests. */
-export const Learn: React.FC<{ children: React.ReactNode; summary?: string }> = ({ children, summary = 'What this means' }) => (
-  <details className="group text-xs">
-    <summary className="w-fit cursor-pointer text-[11px] text-text-muted hover:text-text-primary rounded-[2px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-teal">{summary}</summary>
-    <div className="mt-2 space-y-2">{children}</div>
+/**
+ * A folding row (native details/summary, so the open state is announced by the browser). The whole 52px
+ * row toggles it; the 24px arrow in its 44px box points down when closed and up when open.
+ */
+export const Disclosure: React.FC<{
+  summary: string
+  children: React.ReactNode
+  open?: boolean
+  onToggle?: (open: boolean) => void
+  testId?: string
+}> = ({ summary, children, open, onToggle, testId }) => (
+  <details className="group/disclosure text-xs" open={open} onToggle={(e) => onToggle?.(e.currentTarget.open)} data-testid={testId}>
+    <summary className="list-none [&::-webkit-details-marker]:hidden w-full min-h-[52px] flex items-center gap-3 pl-3 pr-0 cursor-pointer rounded-[3px] text-xs text-text-secondary hover:text-text-primary hover:bg-bg-surface-hover focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent-teal">
+      <span>{summary}</span>
+      <span aria-hidden="true" className="ml-auto w-11 h-11 shrink-0 flex items-center justify-center">
+        <ChevronDown className="w-6 h-6 transition-transform duration-200 motion-reduce:transition-none group-open/disclosure:rotate-180" />
+      </span>
+    </summary>
+    <div className="mt-2 px-3 pb-2 space-y-3">{children}</div>
   </details>
 )
+
+/** Background reading, folded away so the numbers come first. Still in the page for search and tests. */
+export const Learn: React.FC<{ children: React.ReactNode; summary?: string }> = ({ children, summary = 'What this means' }) => <Disclosure summary={summary}>{children}</Disclosure>
 
 export const Explain: React.FC<{ k: ExplanationKey }> = ({ k }) => (
   <p data-testid={`explain-${k}`} className="text-xs text-text-secondary leading-relaxed">
@@ -42,7 +59,7 @@ export const VALUE = 'font-mono font-semibold tabular-nums text-text-primary'
 
 const Stat: React.FC<{ label: string; value: React.ReactNode; testId?: string }> = ({ label, value, testId }) => (
   <div>
-    <div className="text-[11px] font-mono uppercase tracking-wider text-text-secondary">{label}</div>
+    <div className="text-2xs font-mono uppercase tracking-wider text-text-secondary">{label}</div>
     <div className={`text-lg leading-tight mt-1 ${VALUE}`} data-testid={testId}>
       {value}
     </div>
@@ -67,7 +84,7 @@ export const OverviewSection: React.FC<{ current: Analysis }> = ({ current }) =>
       <Badge variant={current.connectivity.connected ? 'success' : 'failure'} size="sm" data-testid="analysis-connected">
         {current.connectivity.connected ? 'Connected' : 'Not connected'}
       </Badge>
-      <p className="text-[11px] text-text-secondary" data-testid="analysis-reason">
+      <p className="text-2xs text-text-secondary" data-testid="analysis-reason">
         {current.connectivity.reason}
       </p>
     </div>
@@ -78,7 +95,7 @@ export const OverviewSection: React.FC<{ current: Analysis }> = ({ current }) =>
       <Stat label="Density" value={current.summary.density.toFixed(4)} testId="analysis-density" />
     </div>
     {current.summary.nodeCount > 0 && current.summary.operationalNodeCount === 0 && (
-      <p role="note" data-testid="all-failed-note" className="text-[11px] text-state-warning">
+      <p role="note" data-testid="all-failed-note" className="text-2xs text-state-warning">
         Every node is marked failed, so no node is operational and there is nothing to connect.
       </p>
     )}
@@ -113,7 +130,7 @@ export const ComponentsSection: React.FC<{ current: Analysis; labelOf: LabelOf }
         <Explain k={current.components.explanationKey} />
       </Learn>
       {items.length === 0 ? (
-        <p className="text-[11px] text-text-muted italic" data-testid="components-none">
+        <p className="text-2xs text-text-muted italic" data-testid="components-none">
           No operational nodes, so there are no components.
         </p>
       ) : (
@@ -130,7 +147,7 @@ export const ComponentsSection: React.FC<{ current: Analysis; labelOf: LabelOf }
           ))}
         </ul>
       )}
-      {items.length > 0 && <p className="text-[11px] text-text-muted">Select a component to highlight it on the canvas.</p>}
+      {items.length > 0 && <p className="text-2xs text-text-muted">Select a component to highlight it on the canvas.</p>}
     </div>
   )
 }
@@ -166,7 +183,7 @@ export const CriticalSection: React.FC<{ current: Analysis; labelOf: LabelOf; li
             })}
           </ul>
         ) : (
-          <p className="text-[11px] text-text-muted italic" data-testid="analysis-bridges-none">
+          <p className="text-2xs text-text-muted italic" data-testid="analysis-bridges-none">
             No bridges: no single link failure splits a component.
           </p>
         )}
@@ -195,7 +212,7 @@ export const CriticalSection: React.FC<{ current: Analysis; labelOf: LabelOf; li
             })}
           </ul>
         ) : (
-          <p className="text-[11px] text-text-muted italic" data-testid="analysis-articulation-none">
+          <p className="text-2xs text-text-muted italic" data-testid="analysis-articulation-none">
             No articulation points: no single node failure splits a component.
           </p>
         )}
@@ -233,10 +250,10 @@ export const DegreesSection: React.FC<{ current: Analysis; labelOf: LabelOf }> =
   return (
     <div className="space-y-3" data-testid="section-degrees">
       {rows.length === 0 ? (
-        <p className="text-[11px] text-text-muted italic">No nodes.</p>
+        <p className="text-2xs text-text-muted italic">No nodes.</p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full font-mono text-[11px]" data-testid="analysis-degrees">
+          <table className="w-full font-mono text-2xs" data-testid="analysis-degrees">
             <thead className="text-text-muted border-b border-border-subtle">
               <tr>
                 {header('node', 'Node')}
@@ -272,7 +289,7 @@ const NodeSelect: React.FC<{ id: string; label: string; placeholder: string; val
   onChange,
 }) => (
   <div>
-    <label htmlFor={id} className="block text-[11px] text-text-muted mb-1 font-mono">
+    <label htmlFor={id} className="block text-2xs text-text-muted mb-1 font-mono">
       {label}
     </label>
     <select id={id} value={value} onChange={(e) => onChange(e.target.value)} className={select}>
@@ -303,9 +320,9 @@ export const TraversalSection: React.FC<{ current: Analysis; labelOf: LabelOf }>
   return (
     <div className="space-y-4" data-testid="section-traversal">
       <NodeSelect id="traversal-start" label="Start node:" placeholder="(Select start)" value={start} nodes={options} onChange={(id) => update({ traversalStart: id || null })} />
-      {!traversal && <p className="text-[11px] text-text-muted italic">Choose a start node to see the BFS and DFS orders.</p>}
+      {!traversal && <p className="text-2xs text-text-muted italic">Choose a start node to see the BFS and DFS orders.</p>}
       {traversal?.error && (
-        <p className="text-[11px] text-state-failure" data-testid="traversal-error">
+        <p className="text-2xs text-state-failure" data-testid="traversal-error">
           {traversal.error.message}
         </p>
       )}
@@ -313,13 +330,13 @@ export const TraversalSection: React.FC<{ current: Analysis; labelOf: LabelOf }>
         <>
           <div className={card}>
             <div className={heading}>BFS, with layer numbers</div>
-            <p className="font-mono text-[11px] text-text-primary break-words" data-testid="analysis-bfs">
+            <p className="font-mono text-2xs text-text-primary break-words" data-testid="analysis-bfs">
               {traversal.bfs.map((s) => `${labelOf(s.nodeId)} (${s.layer})`).join(' → ')}
             </p>
           </div>
           <div className={card}>
             <div className={heading}>DFS</div>
-            <p className="font-mono text-[11px] text-text-primary break-words" data-testid="analysis-dfs">
+            <p className="font-mono text-2xs text-text-primary break-words" data-testid="analysis-dfs">
               {traversal.dfs.map(labelOf).join(' → ')}
             </p>
           </div>
@@ -348,7 +365,7 @@ export const TraversalSection: React.FC<{ current: Analysis; labelOf: LabelOf }>
                 Show all
               </Button>
             </div>
-            <p className="text-[11px] font-mono text-text-secondary" data-testid="traversal-step">
+            <p className="text-2xs font-mono text-text-secondary" data-testid="traversal-step">
               {v.traversalStep === null ? `Showing all ${length} visited nodes` : `Step ${v.traversalStep + 1} of ${length}`}
             </p>
           </div>
@@ -383,12 +400,12 @@ export const PathsSection: React.FC<{ current: Analysis; labelOf: LabelOf }> = (
         <NodeSelect id="path-target" label="Target:" placeholder="(Select target)" value={target} nodes={options} onChange={(id) => update({ pathTarget: id || null })} />
       </div>
       {allWeighted && (
-        <label className="flex items-center gap-2 text-[11px] text-text-secondary cursor-pointer">
+        <label className="flex items-center gap-2 text-2xs text-text-secondary cursor-pointer">
           <input type="checkbox" data-testid="path-use-weights" checked={useWeights} onChange={(e) => update({ useWeights: e.target.checked })} />
           Use link weights (every link has one)
         </label>
       )}
-      {!path && <p className="text-[11px] text-text-muted italic">Choose a source and a target to see the shortest path.</p>}
+      {!path && <p className="text-2xs text-text-muted italic">Choose a source and a target to see the shortest path.</p>}
       {path && (
         <div className={card} data-testid="analysis-path">
           <div className={heading}>Shortest path</div>
@@ -407,7 +424,7 @@ export const PathsSection: React.FC<{ current: Analysis; labelOf: LabelOf }> = (
               />
             </>
           ) : (
-            <p className="font-mono text-[11px] text-state-failure">{PATH_REASON[path.reason ?? 'DISCONNECTED']}</p>
+            <p className="font-mono text-2xs text-state-failure">{PATH_REASON[path.reason ?? 'DISCONNECTED']}</p>
           )}
           <Explain k={path.explanationKey} />
         </div>
@@ -418,7 +435,7 @@ export const PathsSection: React.FC<{ current: Analysis; labelOf: LabelOf }> = (
 
 export const CompareSection: React.FC<{ result: AnalyzeResponseBody }> = ({ result }) => {
   const { current, healthy } = result
-  if (!healthy) return <p className="text-[11px] text-text-muted italic">No healthy comparison in this result.</p>
+  if (!healthy) return <p className="text-2xs text-text-muted italic">No healthy comparison in this result.</p>
   const rows: Array<[string, string, string]> = [
     ['Connected', healthy.connectivity.connected ? 'Yes' : 'No', current.connectivity.connected ? 'Yes' : 'No'],
     ['Components', String(healthy.connectivity.componentCount), String(current.connectivity.componentCount)],
@@ -430,9 +447,9 @@ export const CompareSection: React.FC<{ result: AnalyzeResponseBody }> = ({ resu
   ]
   return (
     <div className="space-y-3" data-testid="section-compare">
-      <p className="text-[11px] text-text-secondary">The same network with every failure cleared, next to its current state.</p>
+      <p className="text-2xs text-text-secondary">The same network with every failure cleared, next to its current state.</p>
       <div className="overflow-x-auto">
-        <table className="w-full font-mono text-[11px]" data-testid="analysis-compare">
+        <table className="w-full font-mono text-2xs" data-testid="analysis-compare">
           <thead className="text-text-muted border-b border-border-subtle">
             <tr>
               <th scope="col" className="p-2 text-left">

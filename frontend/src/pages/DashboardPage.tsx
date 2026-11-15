@@ -15,32 +15,55 @@ import { Badge } from '@/components/ui/Badge'
 import { Activity, ArrowRight, FolderOpen, Network } from 'lucide-react'
 import '@/store/bootstrap'
 
+type MetricProps = { label: string; value: React.ReactNode; detail?: string; to: string; testId: string; size?: 'headline' | 'secondary' }
+const cellClass = (size: MetricProps['size']) => `group block ${size === 'headline' ? 'min-h-[112px] py-5' : 'min-h-[76px] py-4'} pr-4 space-y-1.5 rounded-[2px]`
+
+/** The inside of a metric cell. Shared with the loading placeholder, so both are exactly the same height. */
+const MetricBody: React.FC<Omit<MetricProps, 'to'> & { placeholder?: boolean }> = ({ label, value, detail, testId, size = 'headline', placeholder }) => {
+  const ghost = placeholder ? ' text-transparent bg-bg-surface-elevated rounded-[2px]' : ''
+  return (
+    <>
+      <div className="flex items-center gap-1.5 text-2xs font-mono uppercase text-text-muted group-hover:text-text-secondary">
+        <span className={ghost}>{label}</span>
+        {/* Always shown, so touch screens also see that the cell is a link. */}
+        <ArrowRight className={`w-3 h-3 shrink-0 text-text-muted group-hover:text-accent-teal${placeholder ? ' invisible' : ''}`} aria-hidden="true" />
+      </div>
+      <div className={`${size === 'headline' ? 'text-2xl' : 'text-lg'} font-mono font-semibold tabular-nums text-text-primary group-hover:text-accent-teal`} data-testid={placeholder ? undefined : `metric-${testId}-value`}>
+        <span className={ghost}>{value}</span>
+      </div>
+      {detail && (
+        <div className="text-2xs font-mono text-text-muted">
+          <span className={ghost}>{detail}</span>
+        </div>
+      )}
+    </>
+  )
+}
+
 /** One cell of the metrics strip: no box of its own, the strip's dividers separate cells. */
-const Metric: React.FC<{ label: string; value: React.ReactNode; detail?: string; to: string; testId: string; size?: 'headline' | 'secondary' }> = ({
-  label,
-  value,
-  detail,
-  to,
-  testId,
-  size = 'headline',
-}) => (
-  <Link
-    to={to}
-    data-testid={`metric-${testId}`}
-    className={`group block ${size === 'headline' ? 'min-h-[112px] py-5' : 'min-h-[76px] py-4'} pr-4 space-y-1.5 rounded-[2px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-teal`}
-  >
-    <div className="flex items-center gap-1.5 text-[11px] font-mono uppercase text-text-muted group-hover:text-text-secondary">
-      <span>{label}</span>
-      <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100" aria-hidden="true" />
-    </div>
-    <div className={`${size === 'headline' ? 'text-2xl' : 'text-lg'} font-mono font-semibold tabular-nums text-text-primary group-hover:text-accent-teal`} data-testid={`metric-${testId}-value`}>
-      {value}
-    </div>
-    {detail && <div className="text-[11px] font-mono text-text-muted">{detail}</div>}
+const Metric: React.FC<MetricProps> = (props) => (
+  <Link to={props.to} data-testid={`metric-${props.testId}`} className={`${cellClass(props.size)} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-teal`}>
+    <MetricBody {...props} />
   </Link>
 )
 
-const ROW = 'grid grid-cols-2 lg:grid-cols-4 gap-x-6'
+/** Same cells and texts as the first results (no simulation yet), drawn as blocks: nothing moves when results arrive. */
+const PLACEHOLDER_ROWS: ReadonlyArray<ReadonlyArray<Omit<MetricProps, 'to'>>> = [
+  [
+    { label: 'Connectivity', value: 'Connected', detail: 'Single component', testId: 'p1' },
+    { label: 'Nodes', value: '00', detail: '0 failed', testId: 'p2' },
+    { label: 'Links', value: '00', detail: '0 unavailable', testId: 'p3' },
+    { label: 'Latest simulation', value: 'None yet', detail: 'Run one in the studio', testId: 'p4' },
+  ],
+  [
+    { label: 'Components', value: '0', testId: 'p5', size: 'secondary' },
+    { label: 'Bridges', value: '0', testId: 'p6', size: 'secondary' },
+    { label: 'Articulation points', value: '0', testId: 'p7', size: 'secondary' },
+    { label: 'Density', value: '0.0000', testId: 'p8', size: 'secondary' },
+  ],
+]
+
+const ROW = 'grid grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-2 py-1'
 
 const panel = (section: string) => `/studio?panel=analysis&section=${section}`
 
@@ -71,7 +94,8 @@ export const DashboardPage: React.FC = () => {
         <Container size="wide" className="pt-28 pb-16 space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-2">
             <div>
-              <div className="flex flex-wrap items-center gap-2 mb-2">
+              {/* Height reserved: the source badge arrives with the first result and must not push the page down. */}
+              <div className="flex flex-wrap items-center gap-2 mb-2 min-h-[22px]">
                 {result && <SourceBadge isDemo={result.isDemo} testId="dashboard-source" backendLabel="FastAPI NetworkX" />}
                 {example && nodes.length > 0 && (
                   <Badge variant="warning" size="sm" data-testid="dashboard-example">
@@ -115,12 +139,11 @@ export const DashboardPage: React.FC = () => {
               {!current && !analysis.error && (
                 // Same grid and card height as the results, so nothing moves when they arrive (BUG-017).
                 <div data-testid="dashboard-loading" aria-hidden="true" className="divide-y divide-border-subtle border-y border-border-subtle animate-pulse motion-reduce:animate-none">
-                  {[112, 76].map((h) => (
-                    <div key={h} className={ROW}>
-                      {Array.from({ length: 4 }, (_, i) => (
-                        <div key={i} className="py-5 pr-4" style={{ minHeight: h }}>
-                          <div className="h-3 w-20 bg-bg-surface-elevated rounded-[2px]" />
-                          <div className="h-6 w-16 mt-2 bg-bg-surface-elevated rounded-[2px]" />
+                  {PLACEHOLDER_ROWS.map((row, r) => (
+                    <div key={r} className={ROW}>
+                      {row.map((cell) => (
+                        <div key={cell.testId} className={cellClass(cell.size)}>
+                          <MetricBody {...cell} placeholder />
                         </div>
                       ))}
                     </div>
@@ -154,9 +177,9 @@ export const DashboardPage: React.FC = () => {
                 </div>
               )}
               <section className="pt-2 space-y-3">
-                <h2 className="text-[11px] font-mono uppercase tracking-wider text-text-muted">Graph map</h2>
+                <h2 className="text-2xs font-mono uppercase tracking-wider text-text-muted">Graph map</h2>
                 <GraphMiniMap graph={{ nodes, edges }} componentOf={fresh?.components.componentOf ?? null} />
-                <p className="text-[11px] text-text-muted">Read only. Colours are the components from the latest analysis. Failed nodes and unavailable links are dashed.</p>
+                <p className="text-2xs text-text-muted">Read only. Colours are the components from the latest analysis. Failed nodes and unavailable links are dashed.</p>
               </section>
             </>
           )}

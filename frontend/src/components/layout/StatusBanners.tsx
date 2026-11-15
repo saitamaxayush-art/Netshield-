@@ -10,7 +10,7 @@ import { useHealthStore, FOCUS_CHECK_INTERVAL_MS } from '@/store/healthStore'
 import { useSettingsStore } from '@/store/settingsStore'
 import { useAnalysisStore } from '@/store/analysisStore'
 
-const button = 'min-h-10 px-3 border rounded-[2px] cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2'
+const button = 'min-h-11 px-3 border rounded-[2px] cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2'
 
 export const StatusBanners: React.FC = () => {
   const adapterMode = useSettingsStore((s) => s.adapterMode)
@@ -69,7 +69,7 @@ export const StatusBanners: React.FC = () => {
         <div
           role="alert"
           data-testid="offline-banner"
-          className="px-4 py-2 border-t border-state-failure/50 bg-[#2A1520] text-state-failure text-[11px] font-mono flex flex-wrap items-center justify-between gap-2"
+          className="px-4 py-2 border-t border-state-failure/50 bg-[#2A1520] text-state-failure text-2xs font-mono flex flex-wrap items-center justify-between gap-2"
         >
           <span>
             <strong className="font-semibold">Cannot reach the analysis server.</strong> {error?.message ?? ''} No results are shown until it is back, unless you choose demo mode.
@@ -93,7 +93,7 @@ export const StatusBanners: React.FC = () => {
             type="button"
             data-testid="offline-chip"
             onClick={reopen}
-            className={`${button} bg-[#2A1520] border-state-failure/60 text-state-failure text-[11px] font-mono`}
+            className={`${button} bg-[#2A1520] border-state-failure/60 text-state-failure text-2xs font-mono`}
             aria-label="Analysis server offline. Show details"
           >
             Server offline
@@ -104,7 +104,7 @@ export const StatusBanners: React.FC = () => {
         <div
           role="status"
           data-testid="demo-mode-banner"
-          className="px-4 py-2 border-t border-state-warning/40 bg-[#2A2210] text-state-warning text-[11px] font-mono flex flex-wrap items-center justify-between gap-2"
+          className="px-4 py-2 border-t border-state-warning/40 bg-[#2A2210] text-state-warning text-2xs font-mono flex flex-wrap items-center justify-between gap-2"
         >
           <span>
             Demo mode is on: results are computed in your browser by the demo adapter, not by the NetShield backend, and every one is labelled Demo result.

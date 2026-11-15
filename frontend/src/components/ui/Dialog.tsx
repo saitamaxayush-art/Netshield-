@@ -73,7 +73,7 @@ export const Dialog: React.FC<DialogProps> = ({
           </h2>
           <button
             onClick={onClose}
-            className="text-text-muted hover:text-text-primary w-10 h-10 flex items-center justify-center rounded-[2px] transition-colors cursor-pointer"
+            className="text-text-muted hover:text-text-primary w-11 h-11 flex items-center justify-center rounded-[2px] transition-colors cursor-pointer"
             aria-label="Close dialog"
           >
             <X className="w-4 h-4" />

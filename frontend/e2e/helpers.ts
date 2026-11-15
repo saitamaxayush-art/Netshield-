@@ -262,3 +262,13 @@ export async function moreAction(page: Page, name: string) {
   await page.getByTestId('studio-toolbar').getByRole('button', { name: 'More', exact: true }).click()
   await page.getByRole('group', { name: 'More canvas actions' }).getByRole('button', { name, exact: true }).click()
 }
+
+/**
+ * Open an analysis section (or press a tab button). Section headers toggle, so an already open section is
+ * left alone instead of being closed.
+ */
+export async function openSection(page: Page, name: string, tap = false) {
+  const button = page.getByRole('button', { name, exact: true })
+  if ((await button.getAttribute('aria-expanded')) === 'true') return
+  await (tap ? button.tap() : button.click())
+}

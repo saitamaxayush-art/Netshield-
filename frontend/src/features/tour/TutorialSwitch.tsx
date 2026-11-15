@@ -16,7 +16,7 @@ export const TutorialSwitch: React.FC = () => {
       onClick={toggle}
       data-testid="tutorial-switch"
       data-tour="tutorial-switch"
-      className="group inline-flex min-h-10 items-center gap-2.5 px-2 rounded-[3px] text-xs font-mono text-text-secondary hover:text-text-primary cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-teal"
+      className="group inline-flex min-h-11 items-center gap-2 px-1.5 sm:px-2 rounded-[3px] text-xs font-mono text-text-secondary hover:text-text-primary cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-teal"
     >
       <span>Tutorial</span>
       {/* Square-cornered track and thumb (the app has no pill shapes); the state is also written out. */}

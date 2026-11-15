@@ -1,7 +1,7 @@
 /** Accessibility on /studio and /dashboard: axe (WCAG 2.1 AA), keyboard only use, reduced motion, touch targets. */
 import AxeBuilder from '@axe-core/playwright'
 import type { Page } from '@playwright/test'
-import { expect, moreAction, test } from './helpers'
+import { expect, moreAction, test, openSection } from './helpers'
 
 const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']
 async function axe(page: Page, label: string) {
@@ -18,7 +18,7 @@ for (const [width, height] of [[1440, 900], [390, 844]] as const) {
     await expect(page.getByTestId('analysis-results')).toBeVisible()
     await axe(page, 'studio analysis')
     for (const section of ['Components', 'Critical', 'Degrees', 'Traversal', 'Paths', 'Compare']) {
-      await page.getByRole('button', { name: section, exact: true }).click()
+      await openSection(page, section)
       await axe(page, `section ${section}`)
     }
     await page.goto('/studio?panel=simulation')
@@ -210,12 +210,12 @@ test.describe('readability', () => {
     await page.goto('/studio?panel=analysis')
     await expect(page.getByTestId('analysis-results')).toBeVisible()
     for (const section of ['Overview', 'Components', 'Critical', 'Degrees', 'Traversal', 'Paths', 'Compare']) {
-      await page.getByRole('button', { name: section, exact: true }).click()
+      await openSection(page, section)
       expect(await smallText(page, '[data-testid="side-panel"]'), section).toEqual([])
     }
-    await page.getByRole('button', { name: 'Overview', exact: true }).click()
+    await openSection(page, 'Overview')
     await expectValueStyle(page, 'analysis-node-count', 12)
-    await page.getByRole('button', { name: 'Paths', exact: true }).click()
+    await openSection(page, 'Paths')
     await page.locator('#path-source').selectOption('c1')
     await page.locator('#path-target').selectOption('c3')
     await expect(page.getByTestId('path-values')).toContainText('Hops')

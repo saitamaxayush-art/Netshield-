@@ -10,7 +10,7 @@ import { exportGraphFile, MAX_IMPORT_BYTES, parseGraphFile } from './graphFile'
 import { graphSvg, svgToPng } from './canvasImage'
 import { download, downloadBlob } from './simulationExport'
 
-const heading = 'text-[11px] font-mono text-text-muted uppercase tracking-wider'
+const heading = 'text-2xs font-mono text-text-muted uppercase tracking-wider'
 const stamp = () => new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')
 
 export const GraphDataDialog: React.FC<{ isOpen: boolean; onClose: () => void; onImported: () => void; onClearSaved: () => void }> = ({ isOpen, onClose, onImported, onClearSaved }) => {
@@ -65,13 +65,13 @@ export const GraphDataDialog: React.FC<{ isOpen: boolean; onClose: () => void; o
       <div className="space-y-5" data-testid="graph-data-dialog">
         <section className="space-y-2">
           <h3 className={heading}>Import a graph</h3>
-          <label className="flex items-center gap-2 min-h-10 px-3 border border-border-strong rounded-[3px] text-xs cursor-pointer focus-within:ring-2 focus-within:ring-accent-teal hover:border-accent-teal/50">
+          <label className="flex items-center gap-2 min-h-11 px-3 border border-border-strong rounded-[3px] text-xs cursor-pointer focus-within:ring-2 focus-within:ring-accent-teal hover:border-accent-teal/50">
             <Upload className="w-3.5 h-3.5" aria-hidden="true" />
             <span>Choose a NetShield graph file (.json, up to {MAX_IMPORT_BYTES / 1024} KB)</span>
             <input type="file" accept=".json,application/json" className="sr-only" data-testid="import-file" onChange={(e) => onFile(e.target.files?.[0])} />
           </label>
           {errors && (
-            <div role="alert" data-testid="import-errors" className="p-2 bg-state-failure-dim border border-state-failure/40 rounded-[2px] text-state-failure text-[11px] space-y-1">
+            <div role="alert" data-testid="import-errors" className="p-2 bg-state-failure-dim border border-state-failure/40 rounded-[2px] text-state-failure text-2xs space-y-1">
               <div className="font-semibold">The file was not imported:</div>
               <ul className="list-disc pl-4 font-mono break-words">
                 {errors.map((e) => (
@@ -81,7 +81,7 @@ export const GraphDataDialog: React.FC<{ isOpen: boolean; onClose: () => void; o
             </div>
           )}
           {preview && (
-            <div data-testid="import-preview" className="p-2 bg-bg-primary border border-border-subtle rounded-[2px] text-[11px] space-y-2">
+            <div data-testid="import-preview" className="p-2 bg-bg-primary border border-border-subtle rounded-[2px] text-2xs space-y-2">
               <div>
                 <span className="font-semibold">{preview.name}</span>: {preview.graph.nodes.length} nodes and {preview.graph.edges.length} links.
               </div>
@@ -122,11 +122,11 @@ export const GraphDataDialog: React.FC<{ isOpen: boolean; onClose: () => void; o
             </Button>
           </div>
           {imageError && (
-            <p role="alert" className="text-[11px] text-state-failure">
+            <p role="alert" className="text-2xs text-state-failure">
               {imageError}
             </p>
           )}
-          <p className="text-[11px] text-text-muted">JSON can be imported again. SVG and PNG are pictures of the canvas with component colours from the latest analysis.</p>
+          <p className="text-2xs text-text-muted">JSON can be imported again. SVG and PNG are pictures of the canvas with component colours from the latest analysis.</p>
         </section>
         <section className="space-y-2">
           <h3 className={heading}>Saved data</h3>

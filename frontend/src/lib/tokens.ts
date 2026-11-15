@@ -5,6 +5,9 @@
  * WCAG AA contrast against near-black navy #13151F.
  */
 
+/** Type sizes for text drawn in JavaScript (charts, SVG labels), matching the CSS scale in index.css. */
+export const TYPE = { label: 14, small: 13 } as const
+
 export const TOKENS = {
   colors: {
     bg: {

@@ -37,6 +37,7 @@ import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { NODE_TYPES, type EditorEdge, type EditorNode, type NodeType, type Position } from '@/types/graph'
 import { Sliders, Network, Activity, Plus } from 'lucide-react'
 import '@/store/bootstrap'
+import { useTourStore } from '@/store/tourStore'
 
 const NODE_COMPONENTS = { netshieldNode: NetShieldCustomNode }
 const EDGE_COMPONENTS = { netshieldEdge: NetShieldCustomEdge }
@@ -126,7 +127,7 @@ const EmptyCanvas: React.FC = () => {
             </Button>
           ))}
         </div>
-        <p className="text-[11px] text-text-muted">These load labelled examples.</p>
+        <p className="text-2xs text-text-muted">These load labelled examples.</p>
       </div>
     </div>
   )
@@ -144,19 +145,19 @@ const Panels: React.FC = () => {
   const analysisFailed = useAnalysisStore((s) => s.analyze.error !== null)
   return (
     <div className="flex flex-col h-full min-h-0">
-      <div className="flex items-center border-b border-border-subtle bg-bg-surface shrink-0 text-xs font-mono h-12" data-testid="panel-tabs">
+      <div className="flex items-center gap-2 px-2 pt-2 border-b border-border-subtle bg-bg-surface shrink-0 text-2xs font-mono h-[60px]" data-testid="panel-tabs">
         {TABS.map(([tab, name, Icon]) => (
           <button
             key={tab}
             type="button"
             onClick={() => setActiveTab(tab)}
             aria-pressed={activeTab === tab}
-            className={`flex-1 h-full px-3 flex items-center justify-center gap-1.5 border-b-2 transition-colors cursor-pointer ${
+            className={`flex-auto min-w-0 h-full px-2 flex items-center justify-center gap-1.5 border-b-2 transition-colors cursor-pointer ${
               activeTab === tab ? 'border-accent-teal text-accent-teal font-semibold bg-bg-primary/40' : 'border-transparent text-text-muted hover:text-text-primary'
             }`}
           >
-            <Icon className="w-3.5 h-3.5" />
-            <span>{name}</span>
+            <Icon className="w-4 h-4 shrink-0" />
+            <span className="truncate">{name}</span>
             {tab === 'analysis' && analysisFailed && <span aria-hidden="true" data-testid="analysis-tab-error" className="w-1.5 h-1.5 bg-state-failure" />}
           </button>
         ))}
@@ -193,6 +194,7 @@ const Studio: React.FC = () => {
   const [helpOpen, setHelpOpen] = useState(false)
   // A dashboard link opens the details sheet straight away on small screens.
   const detailsOpen = useStudioView((s) => s.detailsOpen)
+  const tourOn = useTourStore((s) => s.active)
   const setDetailsOpen = useStudioView((s) => s.setDetailsOpen)
   useEffect(() => {
     if (new URLSearchParams(window.location.search).has('panel') && !isDesktopNow()) useStudioView.getState().setDetailsOpen(true)
@@ -382,29 +384,32 @@ const Studio: React.FC = () => {
               {example && !isEmpty && (
                 <span
                   data-testid="example-label"
-                  className="absolute top-3 left-3 z-10 text-[11px] font-mono text-state-warning bg-bg-surface border border-state-warning/40 px-1.5 py-0.5 rounded-[2px]"
+                  className="absolute top-3 left-3 z-10 text-2xs font-mono text-state-warning bg-bg-surface border border-state-warning/40 px-1.5 py-0.5 rounded-[2px]"
                 >
                   {PRESET_TITLES[example]}
                 </span>
               )}
               <StudioToast />
               {anyNodeFailed && (
-                <p data-testid="failure-rule-note" className="absolute bottom-3 left-3 z-10 max-w-[min(26rem,calc(100%-1.5rem))] px-2 py-1 bg-bg-surface border border-border-subtle rounded-[2px] text-[11px] text-text-secondary">
+                <p data-testid="failure-rule-note" className="absolute bottom-3 left-3 z-10 max-w-[min(26rem,calc(100%-1.5rem))] px-2 py-1 bg-bg-surface border border-border-subtle rounded-[2px] text-2xs text-text-secondary">
                   {FAILURE_RULE}
                 </p>
               )}
             </div>
           </div>
+          {/* nokey: React Flow treats Space as its pan key on the whole document; panel controls keep their keys. */}
           {isDesktop && (
-            <aside aria-label="Details and analysis" data-testid="side-panel" className="w-[380px] shrink-0 bg-bg-surface border-l border-border-subtle">
+            <aside aria-label="Details and analysis" data-testid="side-panel" className="nokey w-[380px] shrink-0 bg-bg-surface border-l border-border-subtle">
               <Panels />
             </aside>
           )}
         </div>
       </main>
+      {/* While the tour explains a panel, the sheet opens to just below the top bar, so the explained
+          controls and the tour box both fit on a phone screen. */}
       {!isDesktop && (
-        <Sheet isOpen={detailsOpen} onClose={() => setDetailsOpen(false)} title="Details and analysis" testId="details-sheet">
-          <div className="h-[70dvh]">
+        <Sheet isOpen={detailsOpen} onClose={() => setDetailsOpen(false)} title="Details and analysis" testId="details-sheet" tall={tourOn}>
+          <div className={`nokey ${tourOn ? 'h-[calc(100dvh-64px-49px)]' : 'h-[70dvh]'}`}>
             <Panels />
           </div>
         </Sheet>

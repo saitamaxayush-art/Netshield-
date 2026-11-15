@@ -30,7 +30,7 @@ export const FailureControls: React.FC = () => {
 
   return (
     <div className="p-5 space-y-3 text-xs border-b border-border-subtle" data-testid="failure-controls">
-      <div className="font-semibold uppercase tracking-wider text-[11px] font-mono text-text-primary">Failures</div>
+      <div className="font-semibold uppercase tracking-wider text-2xs font-mono text-text-primary">Failures</div>
       <div className="grid grid-cols-1 gap-2">
         <Button variant="danger" size="sm" disabled={kind === null || failed} leftIcon={<AlertTriangle className="w-3.5 h-3.5" />} onClick={fail}>
           {`Fail selected ${name}`.trim()}
@@ -53,7 +53,7 @@ export const FailureControls: React.FC = () => {
           Fail random
         </Button>
         <div className="w-20">
-          <label htmlFor="random-seed" className="block text-[11px] text-text-muted mb-1 font-mono">
+          <label htmlFor="random-seed" className="block text-2xs text-text-muted mb-1 font-mono">
             Seed
           </label>
           <input
@@ -63,24 +63,24 @@ export const FailureControls: React.FC = () => {
             step={1}
             value={seed}
             onChange={(e) => setSeed(e.target.value)}
-            className="w-full h-9 px-2 bg-bg-primary border border-border-strong rounded-[2px] text-text-primary font-mono text-xs focus:border-accent-teal focus:outline-none"
+            className="w-full h-11 px-3 bg-bg-primary border border-border-strong rounded-[2px] text-text-primary font-mono text-xs focus:border-accent-teal focus:outline-none"
           />
         </div>
       </div>
       {last && (
-        <p className="text-[11px] font-mono text-text-secondary" data-testid="random-result" data-kind={last.kind} data-id={last.id}>
+        <p className="text-2xs font-mono text-text-secondary" data-testid="random-result" data-kind={last.kind} data-id={last.id}>
           Fail random picked {last.kind === 'node' ? 'node' : 'link'} {last.id} (seed {last.seed}, draw {last.draw}).
         </p>
       )}
       {error && (
-        <p role="alert" className="text-[11px] text-state-failure" data-testid="random-error">
+        <p role="alert" className="text-2xs text-state-failure" data-testid="random-error">
           {error}
         </p>
       )}
       <Button variant="ghost" size="sm" className="w-full" disabled={!anyFailed} leftIcon={<RefreshCw className="w-3.5 h-3.5" />} onClick={clearFailures}>
         Clear all failures
       </Button>
-      <p className="text-[11px] text-text-muted leading-snug">{FAILURE_RULE}</p>
+      <p className="text-2xs text-text-muted leading-snug">{FAILURE_RULE}</p>
     </div>
   )
 }

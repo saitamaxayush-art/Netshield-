@@ -2,8 +2,9 @@
 import React, { useEffect, useRef } from 'react'
 import { X } from 'lucide-react'
 
-export const Sheet: React.FC<{ isOpen: boolean; onClose: () => void; title: string; testId?: string; children: React.ReactNode }> = ({
+export const Sheet: React.FC<{ isOpen: boolean; onClose: () => void; title: string; testId?: string; children: React.ReactNode; tall?: boolean }> = ({
   isOpen,
+  tall = false,
   onClose,
   title,
   testId,
@@ -36,11 +37,11 @@ export const Sheet: React.FC<{ isOpen: boolean; onClose: () => void; title: stri
         aria-label={title}
         tabIndex={-1}
         data-testid={testId}
-        className="relative max-h-[80dvh] flex flex-col bg-bg-surface border-t border-border-strong rounded-t-[4px] outline-none"
+        className={`relative ${tall ? 'max-h-[calc(100dvh-64px)]' : 'max-h-[80dvh]'} flex flex-col bg-bg-surface border-t border-border-strong rounded-t-[4px] outline-none`}
       >
         <div className="h-12 shrink-0 flex items-center justify-between pl-4 pr-1 border-b border-border-subtle">
           <h2 className="text-xs font-mono font-semibold uppercase tracking-wider text-text-primary">{title}</h2>
-          <button type="button" onClick={onClose} aria-label={`Close ${title}`} className="w-10 h-10 flex items-center justify-center text-text-muted hover:text-text-primary cursor-pointer">
+          <button type="button" onClick={onClose} aria-label={`Close ${title}`} className="w-11 h-11 flex items-center justify-center text-text-muted hover:text-text-primary cursor-pointer">
             <X className="w-4 h-4" />
           </button>
         </div>

@@ -36,7 +36,7 @@ export const StaleNotice: React.FC<{ testId: string; onRefresh: () => void; isLo
   <div
     role="status"
     data-testid={testId}
-    className="p-2.5 bg-state-warning-dim border border-state-warning/40 rounded-[2px] text-state-warning flex items-center justify-between gap-2 text-[11px]"
+    className="p-2.5 bg-state-warning-dim border border-state-warning/40 rounded-[2px] text-state-warning flex items-center justify-between gap-2 text-2xs"
   >
     <span className="flex items-center gap-1.5">
       <Clock className="w-3.5 h-3.5" />
@@ -66,13 +66,13 @@ export const ApiErrorBox: React.FC<{ title: string; error: ApiError; testId: str
           {title}: {CODE_LABEL[error.code] ?? KIND_LABEL[error.kind]}
         </span>
       </div>
-      <p className="text-[11px]">{error.message}</p>
+      <p className="text-2xs">{error.message}</p>
       {hint && (
-        <p className="text-[11px]" data-testid={`${testId}-hint`}>
+        <p className="text-2xs" data-testid={`${testId}-hint`}>
           {hint}
         </p>
       )}
-      <p className="text-[11px]">No result is shown. Nothing was computed in the browser.</p>
+      <p className="text-2xs">No result is shown. Nothing was computed in the browser.</p>
       <div className="flex flex-wrap gap-2">
         <Button variant="outline" size="sm" leftIcon={<RotateCcw className="w-3 h-3" />} onClick={onRetry}>
           Retry

@@ -5,7 +5,7 @@
  * articulation points are checked against e2e/reference.ts, an independent naive implementation.
  */
 import type { Response } from '@playwright/test'
-import { expect, openSimulatorOptions, test } from './helpers'
+import { expect, openSimulatorOptions, test, openSection } from './helpers'
 import { reference } from './reference'
 import { preset } from '../src/store/presets'
 
@@ -22,7 +22,7 @@ test('Campus: every panel gives a readable, non empty result on the demonstratio
   expect([expected.bridges.length, expected.articulation.length]).toEqual([5, 5])
 
   await Promise.all([page.waitForResponse(isAnalyze), page.goto('/studio')])
-  const tab = (name: string) => page.getByRole('button', { name, exact: true }).click()
+  const tab = (name: string) => openSection(page, name)
   await page.getByTestId('studio-toolbar').getByRole('button', { name: 'Campus', exact: true }).click()
   await Promise.all([page.waitForResponse(isAnalyze), page.getByRole('dialog').last().getByRole('button', { name: 'Load Campus example' }).click()])
   await expect(page.getByTestId('example-label')).toHaveText('Example: campus network')

@@ -448,3 +448,107 @@ captured at each step).
   /studio, /dashboard and a phone; keyboard Space and Enter with a visible focus ring; nothing kept
   after Skip and reload; the full walkthrough; axe). The first visit and returning visitor tests, and
   the seeded `storageState` in `playwright.config.ts`, are deleted with the trigger they tested.
+
+## Landing scroll, UI sweep, tour voice and size
+
+### BUG-031: landing section 02 (Sandbox) "gets stuck" while scrolling
+
+* Reproduced (Playwright, real wheel events, Lenis on): over the Sandbox graph every wheel step moved the
+  page exactly 100px with no smoothing (native scroll), and at the edge of the graph a step was lost
+  (1447 -> 1440, 7px instead of about 100). Trackpad style input (40 x 12px) scrolling up over the graph
+  covered 317 of 480px (66%), against 96% over empty space.
+* Ruled out with evidence: `.ns-graph { touch-action: none }` was overridden by the inline `pan-y` on the
+  SVG (computed value pan-y), and vertical swipes on the empty canvas scrolled on Pixel 7 and iPhone 14
+  (Chromium emulation); the touchmove blocker only acts while a node is really dragged and is cleared on
+  pointerup and pointercancel; arrow keys are only taken while a graph item has focus (PageDown scrolls);
+  no ScrollTrigger position changes on a forced refresh after load (27 triggers), the How it works pin
+  spacing matches its section; the menu overlay releases its lock on every close path.
+* Root cause: the graph box carried `data-lenis-prevent`. Lenis then ignored wheel events over the graph,
+  so the browser scrolled natively while Lenis kept easing towards its own target and wrote that back,
+  undoing the native step. The Hero's WebGL layer carried the same attribute.
+* Fix: `data-lenis-prevent` removed from the graph box and the Hero layer (neither uses the wheel); the
+  stylesheet's `touch-action` for `.ns-graph` set to `pan-y` to match. Node dragging (touch and mouse)
+  and keyboard movement are unchanged.
+* Tests: `e2e/sandbox-scroll.spec.ts`. Against the old code: "wheel events over the graph handled by
+  Lenis, expected 4, received 0" and "trackpad up moved 318, expected > 408". Both pass after the fix.
+
+### BUG-032: the dashboard moved while its first results arrived
+
+* Found by the sweep: layout shift on load at every width (CLS 0.022 to 0.039; graph map moved 23px at
+  375px). The loading placeholder was not the same height as the metric cells, and the source badge row
+  grew when the first result arrived. Introduced by the dashboard simplification (BUG-030 round).
+* Fix: the placeholder renders the real cell markup with transparent text (same heights at every width,
+  including the arrow icon that makes a label wrap at 375px), and the badge row reserves its height.
+  CLS now 0 to 0.003.
+* Tests: `e2e/ui-sweep.spec.ts` (CLS below 0.01 at 375, 768, 1280, 1920; old code 0.044 to 0.080).
+
+### BUG-033: dashboard metric links only looked like links on hover
+
+* Found by the sweep: after the simplification the cells had no border and their arrow appeared only on
+  hover or focus, so on a touch screen nothing showed they open the studio.
+* Fix: the arrow is always shown (muted), brighter on hover.
+* Test: `e2e/ui-sweep.spec.ts` (arrow visible at full opacity on a touch viewport; old code opacity 0).
+
+### BUG-034: on a phone the tour box covered half of the simulator it was explaining
+
+* Found by the new every step geometry test: at 375px the simulation step's box covered 39 to 49% of the
+  highlighted controls, which sit mid screen in the details sheet, so neither the top nor the bottom sheet
+  position could clear them.
+* Fix: while the tour is on, the details sheet opens to just below the top bar, and when an element sits
+  where neither sheet position clears it, the tour scrolls it to the top of its panel once.
+* Test: `tour.spec.ts` "on every step the tour box stays on screen and clear of the highlighted element"
+  (375 and 1280px, Chrome and WebKit).
+
+## Voice, accordions, readability
+
+### BUG-035: Netbot's first line used the wrong voice; after mute and unmute it was right
+
+* Reproduced in Google Chrome (fresh browser, Tutorial clicked as soon as it showed):
+  `399ms speak("I will show you around..."): getVoices().length=0, utterance.voice=null (browser default)`
+  then after mute and unmute `2299ms speak(...): getVoices().length=180, utterance.voice=Samantha`.
+* Root cause: Chrome loads voices lazily. The voice was picked when the voice object was created, at the
+  first click, while getVoices() was still empty, so the first utterance carried no voice and Chrome used
+  its default. The voiceschanged listener fixed the choice only for later lines.
+* Ruled out: the voice was set before speak() on every path (start, Next, Back, unmute); Chrome dropping
+  an utterance spoken right after cancel(): every such utterance fired start in the log, so no next tick
+  delay was added.
+* Fix: the voice is resolved once: at once if the list is loaded, else on voiceschanged, else after 1.5s
+  (browser default), and cached for the session. A line asked for while the list loads is held (the
+  bubble text shows at once) and spoken with the resolved voice, unless Next, Back, mute, Skip or the
+  switch came first. One utterance at a time as before.
+* Tests: `voice.test.ts` (late list, never loading list, held line dropped by a newer one) and
+  `tour-voice.spec.ts` "voices that load late" (first speak uses Samantha, the same as after unmute; a list
+  that never loads still speaks after the wait with the default). The old code spoke at once with no voice.
+
+### BUG-036: section arrows in the Analysis panel did not behave like toggles
+
+* Diagnosed in Chromium for all seven sections and the folding rows: clicking an open section's arrow,
+  text or row, or Enter or Space on it, never closed it (`true -> true`); the arrow rotated right to down
+  correctly and no element covered it; no double toggle (one click event per action). The folding rows
+  ("What this means", "More options") were 15 to 20px tall text links only as wide as their text, and
+  Space did nothing on them: React Flow treats Space as its pan key on the whole document and cancels it
+  outside text fields, which stops a summary from toggling.
+* Fix: the open section closes when its row is pressed again; every header and folding row is one full
+  width button at least 52px tall with a 24px arrow in a 44px box, hover and focus styles, pointing down
+  when closed and up when open (rotation follows aria-expanded or open, instant with reduced motion). The
+  side panel and the phone sheet carry React Flow's `nokey` class so panel controls keep their keys.
+* Test: `accordion.spec.ts` (arrow opens, row closes, Enter and Space, and aria-expanded, content and arrow
+  agree, for every section and folding row). Against the old code: "Overview start closed: expected false,
+  received true" and "row height: expected >= 52, received 20".
+
+### BUG-037: the larger type scale pushed controls off screen and under the side panel
+
+* Found by the sweep after raising the type scale: at 375px the top bar's menu button ended at 383px; at
+  1280 and 1920px the Simulator panel tab ran past the panel; at 1280px the toolbar (1071px wide in a
+  900px column) ran under the side panel. A phone rule from an earlier round capped studio controls at
+  40px (`min-height: 40px` below 1280px), overriding the 44px sizes.
+* Also found: canvas cards grew from 84 to about 102px tall, so on the Ring example cards met and the
+  Router A to Server 1 link was 3px long under them (the Ring e2e test could not click it); names such as
+  "Internet Gateway" were cut off; the 14px "CUT VERTEX" badge reached the card's top connection handle.
+* Fix: toolbar labels use the 14px label size and the "Example:" heading shows from 1536px, so the
+  desktop toolbar fits one 60px row from 1280px, level with the panel tabs; panel tabs use the 14px label
+  size; on phones the brand shows only its mark below 420px; the phone rule is 44px; 8px between
+  neighbouring targets on phones; example layouts are spread 1.3 times; names on cards wrap to two lines
+  instead of being cut (cards keep their 176px width, so saved layouts do not start to overlap); the cut vertex badge uses a 13px step (the smallest in the scale).
+* Test: `ui-sweep.spec.ts` sizes (text at least 13px, panel text at least 14px, controls at least 44px,
+  8px between targets on a phone) plus the existing overflow tests at 375, 768, 1280 and 1920px.

@@ -176,7 +176,7 @@ export function Hero() {
           <HeroSvg model={model} hovered={hovered} onLayout={onSvgLayout} />
         </div>
         {renderer === 'webgl' && glWanted && (
-          <div style={{ position: 'absolute', inset: 0, opacity: glReady ? 1 : 0, transition: 'opacity 900ms ease' }} data-lenis-prevent="">
+          <div style={{ position: 'absolute', inset: 0, opacity: glReady ? 1 : 0, transition: 'opacity 900ms ease' }}>
             <Suspense fallback={null}>
               <HeroScene
                 model={model}

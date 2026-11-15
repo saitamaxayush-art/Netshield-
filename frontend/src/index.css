@@ -2,6 +2,28 @@
 @import "@xyflow/react/dist/style.css";
 
 @theme {
+  /* App type scale (studio, dashboard, tour, shared app pages; the landing page has its own CSS scale).
+     About a fifth larger than Tailwind's defaults, with body text at 16px and nothing below 14px.
+     Every size in the app uses these steps, so they scale together. */
+  --text-3xs: 0.8125rem;         /* 13px: the smallest step, compact badges on canvas cards only */
+  --text-3xs--line-height: 1.4;
+  --text-2xs: 0.875rem;          /* 14px: labels, captions, table text, helper text */
+  --text-2xs--line-height: 1.45;
+  --text-xs: 1rem;               /* 16px: panel body text, buttons */
+  --text-xs--line-height: 1.5;
+  --text-sm: 1.0625rem;          /* 17px */
+  --text-sm--line-height: 1.5;
+  --text-base: 1.125rem;         /* 18px */
+  --text-base--line-height: 1.55;
+  --text-lg: 1.3125rem;          /* 21px: panel and section titles */
+  --text-lg--line-height: 1.4;
+  --text-xl: 1.5rem;             /* 24px */
+  --text-xl--line-height: 1.35;
+  --text-2xl: 1.875rem;          /* 30px: metric numbers */
+  --text-2xl--line-height: 1.25;
+  --text-3xl: 2.25rem;           /* 36px: the headline estimate */
+  --text-3xl--line-height: 1.2;
+
   --color-bg-primary: #13151F;
   --color-bg-surface: #181B28;
   --color-bg-surface-hover: #1E2235;
@@ -297,13 +319,13 @@ html, body {
   }
 }
 
-/* Below the desktop layout every studio control is at least 40px. */
+/* Below the desktop layout every studio control is at least 44px (touch target size). */
 @media (max-width: 1279.98px) {
   .studio-root button,
   .studio-root select,
   .studio-root input:not([type='range']) {
-    min-height: 40px;
-    min-width: 40px;
+    min-height: 44px;
+    min-width: 44px;
   }
   .studio-root input[type='range'] {
     height: 40px;

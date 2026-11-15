@@ -47,7 +47,7 @@ const IconButton: React.FC<{ label: string; icon: React.ReactNode; onClick: () =
   variant = 'ghost',
   tour,
 }) => (
-  <Button variant={variant} size="sm" className="w-9 !px-0" aria-label={label} title={label} disabled={disabled} leftIcon={icon} onClick={onClick} data-tour={tour} />
+  <Button variant={variant} size="sm" className="w-11 !px-0" aria-label={label} title={label} disabled={disabled} leftIcon={icon} onClick={onClick} data-tour={tour} />
 )
 
 /** Guided tour anchors for the toolbar actions. */
@@ -111,7 +111,7 @@ const MoreMenu: React.FC<{ actions: ReadonlyArray<[string, React.ReactNode, () =
                 setOpen(false)
                 run()
               }}
-              className="w-full min-h-9 px-3 flex items-center gap-2.5 text-left text-xs text-text-secondary hover:text-text-primary hover:bg-bg-surface-active cursor-pointer focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent-teal"
+              className="w-full min-h-11 px-3 flex items-center gap-2.5 text-left text-xs text-text-secondary hover:text-text-primary hover:bg-bg-surface-active cursor-pointer focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent-teal"
             >
               {icon}
               {label}
@@ -160,6 +160,8 @@ export const StudioToolbar: React.FC<{
       key={t}
       variant={isDesktop ? 'ghost' : 'secondary'}
       size="sm"
+      // Toolbar labels use the 14px label size so the desktop toolbar fits one row from 1280px.
+      className={isDesktop ? '!text-2xs !px-2' : ''}
       leftIcon={PALETTE[t].icon}
       draggable
       title={`Click to add a ${PALETTE[t].name.toLowerCase()} at the centre, or drag it onto the canvas`}
@@ -176,7 +178,7 @@ export const StudioToolbar: React.FC<{
     </Button>
   ))
   const presets = PRESET_NAMES.map((name) => (
-    <Button key={name} variant="ghost" size="sm" title={`Load ${PRESET_TITLES[name]}`} onClick={() => requestPreset(name)}>
+    <Button key={name} variant="ghost" size="sm" className={isDesktop ? '!text-2xs !px-2' : ''} title={`Load ${PRESET_TITLES[name]}`} onClick={() => requestPreset(name)}>
       {PRESET_LABEL[name]}
     </Button>
   ))
@@ -201,18 +203,18 @@ export const StudioToolbar: React.FC<{
     ['Keyboard shortcuts', <HelpCircle className="w-4 h-4" />, () => onHelpChange(true)],
   ]
   const secondaryActions = [...moreActions.slice(0, 4), importExport, moreActions[4]]
-  const heading = 'text-[11px] font-mono text-text-muted uppercase tracking-wider'
+  const heading = 'text-2xs font-mono text-text-muted uppercase tracking-wider'
 
   return (
     <>
-      <div role="toolbar" aria-label="Network editing tools" data-testid="studio-toolbar" className="h-12 shrink-0 bg-bg-surface border-b border-border-subtle px-3 flex items-center justify-between gap-1 text-xs">
+      <div role="toolbar" aria-label="Network editing tools" data-testid="studio-toolbar" className="h-[60px] shrink-0 bg-bg-surface border-b border-border-subtle px-3 flex items-center justify-between gap-2 text-xs">
         {isDesktop ? (
           <>
             <div className="flex items-center gap-1" data-tour="add-nodes">
               {palette}
             </div>
             <div className="flex items-center gap-0.5" data-tour="presets">
-              <span className={`${heading} ml-1`}>Example:</span>
+              <span className={`${heading} ml-1 hidden 2xl:inline`}>Example:</span>
               {presets}
             </div>
             <div className="flex items-center">
@@ -227,7 +229,8 @@ export const StudioToolbar: React.FC<{
             <Button variant="secondary" size="sm" data-tour="tools" leftIcon={<Wrench className="w-3.5 h-3.5" />} onClick={() => setToolsOpen(true)}>
               Tools
             </Button>
-            <div className="flex items-center">
+            {/* Touch layout: 8px between neighbouring targets. */}
+            <div className="flex items-center gap-2">
               {history}
               {fitButton}
               <IconButton label="Details and analysis" icon={<PanelRight className="w-4 h-4" />} onClick={onOpenDetails} />

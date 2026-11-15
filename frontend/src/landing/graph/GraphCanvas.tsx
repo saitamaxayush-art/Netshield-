@@ -193,7 +193,8 @@ export function GraphCanvas({
   useEffect(() => {
     const el = svg.current
     if (!el) return
-    // Prevent the page (and Lenis) from scrolling while a node is dragged on touch.
+    // Only while a node is really being dragged (moved past 5px): the page keeps its touch scroll otherwise.
+    // drag.current is cleared on pointerup and pointercancel, so this never outlives a drag.
     const block = (e: TouchEvent) => drag.current?.moved && e.preventDefault()
     el.addEventListener('touchmove', block, { passive: false })
     return () => el.removeEventListener('touchmove', block)
@@ -210,8 +211,10 @@ export function GraphCanvas({
     <div
       ref={box}
       className={`ns-graph-box ${className}`}
+      // No data-lenis-prevent here: the graph never uses the wheel, and excluding it from Lenis made
+      // wheel and trackpad scrolling over the graph native while Lenis kept animating, so the two
+      // fought and steps were lost at the edge (the Sandbox "gets stuck" bug).
       style={{ position: 'relative', width: '100%', aspectRatio: aspect, ...(toneVars as React.CSSProperties) }}
-      data-lenis-prevent={onNodeMove ? '' : undefined}
     >
       {size && (
         <svg

@@ -3,6 +3,7 @@ import { BaseEdge, useInternalNode, type EdgeProps } from '@xyflow/react'
 import type { EditorEdge, EditorNode } from '@/types/graph'
 import { useEdgeHighlighted, useIsBridge } from '@/store/selectors'
 import { floatingEnds } from './floatingEdge'
+import { TYPE } from '@/lib/tokens'
 
 export interface EdgeViewProps {
   id: string
@@ -45,8 +46,8 @@ export const EdgeView = memo(({ id, path, midX, midY, failed, selected, bridge, 
       )}
       {isBridge && (
         <g transform={`translate(${midX} ${midY})`} data-testid={`edge-bridge-${id}`} aria-hidden="true">
-          <rect x="-20" y="-8" width="40" height="16" rx="2" fill="#181B28" stroke="#2DD4BF" strokeOpacity="0.5" />
-          <text textAnchor="middle" dominantBaseline="central" fontSize="9" fontFamily="JetBrains Mono, monospace" fill="#2DD4BF">
+          <rect x="-32" y="-11" width="64" height="22" rx="2" fill="#181B28" stroke="#2DD4BF" strokeOpacity="0.5" />
+          <text textAnchor="middle" dominantBaseline="central" fontSize={TYPE.small} fontFamily="JetBrains Mono, monospace" fill="#2DD4BF">
             BRIDGE
           </text>
         </g>

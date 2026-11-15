@@ -166,7 +166,8 @@ for (const [mode, viewport] of [['desktop', { width: 1440, height: 900 }], ['pho
       await expect(page.getByTestId('tour-progress')).toHaveText(`Step ${i + 1} of ${total}`)
       await expect(bubble(page)).toContainText(step.title)
       await expect(bubble(page)).toContainText(step.text)
-      await expect(page.getByTestId('tour-announcer')).toContainText(step.text)
+      // The voice reads the text, so the live region says the step and title (no double reading).
+      await expect(page.getByTestId('tour-announcer')).toContainText(step.title)
       await expect(page.getByTestId('tour-mascot')).toHaveAttribute('data-pose', step.pose)
       await expectMascotIntact(page, step.id)
       await expect(page).toHaveURL(new RegExp(`${step.route}`))
@@ -191,7 +192,7 @@ test('keyboard only: Enter moves on, focus stays in the tour, arrows step, Escap
   await expect(page.getByTestId('tour-progress')).toHaveText(`Step 2 of ${total}`)
   for (let i = 0; i < 6; i++) {
     await page.keyboard.press('Tab')
-    expect(await page.evaluate(() => !!document.activeElement?.closest('[data-testid="tour-bubble"]')), `tab ${i}`).toBe(true)
+    expect(await page.evaluate(() => !!document.activeElement?.closest('[data-testid="tour"]')), `tab ${i}`).toBe(true)
   }
   await page.keyboard.press('ArrowRight')
   await expect(page.getByTestId('tour-progress')).toHaveText(`Step 3 of ${total}`)
@@ -217,6 +218,50 @@ test.describe('reduced motion', () => {
     await expect(bubble(page)).toContainText(TOUR_STEPS[1].text)
   })
 })
+
+/** Every step: the tour box (bubble, Netbot and its head badge) inside the viewport and below the top bar,
+ * the badge visible and pressable, and the box clear of the spotlighted element whenever it can be. */
+for (const [mode, viewport] of [['phone', { width: 375, height: 812 }], ['desktop', { width: 1280, height: 800 }]] as const) {
+  test(`${mode} ${viewport.width}px: on every step the tour box stays on screen and clear of the highlighted element`, async ({ page, issues }) => {
+    await page.setViewportSize(viewport)
+    await page.goto('/studio')
+    await tutorial(page).click()
+    for (let i = 0; i < total; i++) {
+      const step = TOUR_STEPS[i]
+      await expect(page.getByTestId('tour')).toHaveAttribute('data-step', step.id)
+      await page.waitForTimeout(450)
+      const g = await page.evaluate((targets) => {
+        const r = (sel: string) => document.querySelector(sel)?.getBoundingClientRect() ?? null
+        const box = r('[data-testid="tour-box"]')!
+        const bubble = r('[data-testid="tour-bubble"]')!
+        const badge = r('[data-testid="tour-mute-badge"]')
+        const mute = r('[data-testid="tour-mute"]')
+        const bar = document.querySelector('header')?.getBoundingClientRect().bottom ?? 0
+        let target: DOMRect | null = null
+        for (const s of targets) for (const e of document.querySelectorAll(s)) { const b = e.getBoundingClientRect(); if (!target && b.width > 0 && b.height > 0) target = b }
+        const spot = target && { x: target.x - 8, y: target.y - 8, w: target.width + 16, h: target.height + 16 }
+        const ov = (a: DOMRect) => (spot ? Math.max(0, Math.min(a.right, spot.x + spot.w) - Math.max(a.left, spot.x)) * Math.max(0, Math.min(a.bottom, spot.y + spot.h) - Math.max(a.top, spot.y)) : 0)
+        const inView = (a: DOMRect) => a.left >= 0 && a.top >= bar && a.right <= innerWidth && a.bottom <= innerHeight
+        const hit = mute && document.elementFromPoint(mute.x + mute.width / 2, mute.y + mute.height / 2)
+        return {
+          boxInView: inView(box),
+          bubbleInView: inView(bubble),
+          badgeInView: badge ? inView(badge) : false,
+          badgePressable: !!hit?.closest('[data-testid="tour-mute"]'),
+          coverOfTarget: spot ? ov(box) / (spot.w * spot.h) : 0,
+          // Room for the box beside or around the element: a full screen element leaves none.
+          targetShare: spot ? (spot.w * spot.h) / (innerWidth * (innerHeight - bar)) : 0,
+        }
+      }, step.targets)
+      expect(g, `${step.id}`).toMatchObject({ boxInView: true, bubbleInView: true, badgeInView: true, badgePressable: true })
+      if (g.targetShare < 0.4) expect(g.coverOfTarget, `${step.id} covers its element`).toBe(0)
+      const over = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
+      expect(over, `${step.id} horizontal overflow`).toBeLessThanOrEqual(0)
+      await page.getByRole('button', { name: i === total - 1 ? 'Finish' : 'Next' }).click()
+    }
+    expect(issues).toEqual([])
+  })
+}
 
 test('the open tour and the switch have no WCAG 2.1 AA violations', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 })

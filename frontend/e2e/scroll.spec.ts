@@ -9,12 +9,20 @@ async function hiddenText(page: import('@playwright/test').Page) {
     document.querySelectorAll<HTMLElement>('.ns-landing h1, .ns-landing h2, .ns-landing h3, .ns-landing p, .ns-line').forEach((el) => {
       const r = el.getBoundingClientRect()
       if (r.bottom < 0 || r.top > innerHeight || !el.textContent?.trim() || el.closest('[aria-hidden="true"], .ns-skip, [hidden]')) return
+      // How it works is a carousel scrubbed by scroll: between two steps both slides are partly faded by
+      // design (opacity 1 - 0.85 x distance). Checked separately below: the most visible slide is readable.
+      if (el.closest('#how [style*="flex: 0 0 100%"]')) return
       let o = 1
       for (let p: HTMLElement | null = el; p; p = p.parentElement) o *= Number(getComputedStyle(p).opacity)
       const t = getComputedStyle(el).transform
       const ty = t && t !== 'none' ? new DOMMatrix(t).m42 : 0
       if (o < 0.99 || Math.abs(ty) > r.height * 0.5) out.push(`${el.tagName} "${el.textContent.trim().slice(0, 30)}" opacity ${o.toFixed(2)} ty ${ty.toFixed(1)}`)
     })
+    const how = document.getElementById('how')?.getBoundingClientRect()
+    if (how && how.top < innerHeight && how.bottom > 0) {
+      const slides = [...document.querySelectorAll<HTMLElement>('#how [style*="flex: 0 0 100%"]')].map((s) => Number(getComputedStyle(s).opacity))
+      if (slides.length && Math.max(...slides) < 0.55) out.push(`How it works: no readable slide (max opacity ${Math.max(...slides).toFixed(2)})`)
+    }
     return out
   })
 }

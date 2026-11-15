@@ -9,7 +9,7 @@ import { Trash2, CheckCircle2 } from 'lucide-react'
 import '@/store/bootstrap'
 
 const h2 = 'text-sm font-semibold uppercase tracking-wider text-text-primary font-mono'
-const review = 'inline-block px-2.5 py-1 bg-state-warning-dim border border-state-warning/30 rounded-[2px] text-state-warning text-[10px] font-mono'
+const review = 'inline-block px-2.5 py-1 bg-state-warning-dim border border-state-warning/30 rounded-[2px] text-state-warning text-2xs font-mono'
 
 export const PrivacyPage: React.FC = () => {
   const { saveError, loadProblem } = usePersistenceStatus()

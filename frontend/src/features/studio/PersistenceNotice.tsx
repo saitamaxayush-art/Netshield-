@@ -9,7 +9,7 @@ export const PersistenceNotice: React.FC = () => {
     <div
       role="status"
       data-testid="persistence-notice"
-      className="shrink-0 px-4 py-2 border-b border-state-warning/40 bg-state-warning-dim text-state-warning text-[11px] font-mono flex items-center justify-between gap-3"
+      className="shrink-0 px-4 py-2 border-b border-state-warning/40 bg-state-warning-dim text-state-warning text-2xs font-mono flex items-center justify-between gap-3"
     >
       <span>{saveError ?? `Saved data was not loaded, so the example network is shown. ${loadProblem}`}</span>
       {!saveError && (
